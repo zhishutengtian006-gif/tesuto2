@@ -346,6 +346,8 @@ tr.rC td.stripe{border-left-color:var(--rank-c)}
   .mobnav{display:flex;position:sticky;top:0;z-index:30;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto;gap:2px;padding:6px}
   .mobnav a{padding:7px 12px;border-radius:var(--r);color:var(--muted);text-decoration:none;cursor:pointer;font-size:13px;font-weight:500;white-space:nowrap}
   .mobnav a.on{background:var(--accent-soft);color:var(--accent)}
+  .mobnav a.acct{position:sticky;left:0;z-index:1;display:flex;align-items:center;gap:6px;
+    background:var(--surface);color:var(--text);border-right:1px solid var(--border);border-radius:0;padding-right:14px}
   .content{padding:14px} .topbar{padding:11px 14px} .scopebar{padding:8px 14px}
   .grid2,.grid3{grid-template-columns:1fr} .span2{grid-column:auto}
   .cell{min-height:76px} .kv{grid-template-columns:92px 1fr}
@@ -1094,6 +1096,8 @@ function navHTML(kind){
   h += (kind==="nav"?'<div class="sep">アーカイブ</div>':'') + ARCHIVE_NAV.map(item).join("");
   h += (kind==="nav"?'<div class="sep">設定</div>':'') +
     '<a data-nav="admin" class="'+(view==="admin"?"on":"")+'">'+(kind==="nav"?I.gear:"")+'<span>パスワード・名簿</span></a>';
+  /* 横幅の狭い端末では左の列が隠れるため、アカウント（ログアウト）を先頭に固定して出す */
+  if(kind==="mob") h = '<a class="acct" data-acct="1">'+I.gear+'<span>'+esc(me.name||"アカウント")+'</span></a>' + h;
   return h;
 }
 function shellHTML(){
@@ -1120,6 +1124,7 @@ function bindShell(){
 }
 function bindNav(){
   document.querySelectorAll("[data-nav]").forEach(a=>a.addEventListener("click",()=>{ view=a.dataset.nav; renderAll(); }));
+  document.querySelectorAll("[data-acct]").forEach(a=>a.addEventListener("click", openAccount));
 }
 /* ---------- 会社スコープタブ ---------- */
 function renderScopeBar(){
