@@ -1,0 +1,2619 @@
+<title>住宅営業カルテ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#EEF1F3; --surface:#FFFFFF; --surface2:#F5F7F8; --surface3:#E7ECEF;
+  --border:#D6DEE3; --border-strong:#B9C5CD;
+  --text:#141C23; --muted:#5C6E7A; --faint:#8697A2;
+  --accent:#1D4E6B; --accent-hover:#16607f; --accent-soft:#DCE9F0; --on-accent:#FFFFFF;
+  --rank-a:#A63A2B; --rank-a-bg:#F6E3DF;
+  --rank-b:#8A6208; --rank-b-bg:#F6EDD8;
+  --rank-c:#55676F; --rank-c-bg:#E6ECEF;
+  --ok:#2C6A4C; --ok-bg:#DFEDE5;
+  --warn:#9A5B00; --danger:#A02F27; --danger-bg:#F6E1DF;
+  --shadow:0 1px 2px rgba(20,28,35,.06), 0 8px 24px -12px rgba(20,28,35,.24);
+  --shadow-lg:0 24px 64px -24px rgba(20,28,35,.45);
+  --r:6px;
+  --sans:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo",system-ui,sans-serif;
+  --mono:"IBM Plex Mono","SFMono-Regular",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E141A; --surface:#18212A; --surface2:#1E2833; --surface3:#26323D;
+    --border:#2C3945; --border-strong:#42525F;
+    --text:#E3EAF0; --muted:#9DAEBB; --faint:#7A8B98;
+    --accent:#5FA8CE; --accent-hover:#7CBCDD; --accent-soft:#1C3140; --on-accent:#0B1218;
+    --rank-a:#E8917F; --rank-a-bg:#3B2320;
+    --rank-b:#DDB65C; --rank-b-bg:#372C16;
+    --rank-c:#9FB2BC; --rank-c-bg:#232F37;
+    --ok:#78C79C; --ok-bg:#1B2F26;
+    --warn:#D9A45B; --danger:#EE9086; --danger-bg:#3A1F1D;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.7);
+    --shadow-lg:0 24px 64px -24px rgba(0,0,0,.85);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E141A; --surface:#18212A; --surface2:#1E2833; --surface3:#26323D;
+  --border:#2C3945; --border-strong:#42525F;
+  --text:#E3EAF0; --muted:#9DAEBB; --faint:#7A8B98;
+  --accent:#5FA8CE; --accent-hover:#7CBCDD; --accent-soft:#1C3140; --on-accent:#0B1218;
+  --rank-a:#E8917F; --rank-a-bg:#3B2320;
+  --rank-b:#DDB65C; --rank-b-bg:#372C16;
+  --rank-c:#9FB2BC; --rank-c-bg:#232F37;
+  --ok:#78C79C; --ok-bg:#1B2F26;
+  --warn:#D9A45B; --danger:#EE9086; --danger-bg:#3A1F1D;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.7);
+  --shadow-lg:0 24px 64px -24px rgba(0,0,0,.85);
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{margin:0;text-wrap:balance;font-weight:700;line-height:1.35}
+p{margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.mono,.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border:1px solid var(--border-strong);
+  background:var(--surface);border-radius:var(--r);cursor:pointer;font-weight:500;font-size:13px;white-space:nowrap;transition:background .12s,border-color .12s}
+.btn:hover{background:var(--surface2);border-color:var(--faint)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+.btn.danger{color:var(--danger);border-color:var(--danger)}
+.btn.danger:hover{background:var(--danger-bg)}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.ghost:hover{background:var(--surface3)}
+.btn.sm{padding:4px 9px;font-size:12px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+input[type=text],input[type=password],input[type=date],input[type=time],input[type=number],input[type=email],input[type=tel],select,textarea{
+  width:100%;padding:7px 9px;border:1px solid var(--border-strong);border-radius:var(--r);background:var(--surface);transition:border-color .12s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
+textarea{resize:vertical;min-height:70px;line-height:1.65}
+label.lb{display:block;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-family:var(--mono);margin-bottom:4px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:100px;font-size:11.5px;font-weight:500;background:var(--surface3);color:var(--muted);white-space:nowrap}
+.rank{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:5px;font-family:var(--mono);font-weight:500;font-size:12.5px}
+.rank.A{background:var(--rank-a-bg);color:var(--rank-a)}
+.rank.B{background:var(--rank-b-bg);color:var(--rank-b)}
+.rank.C{background:var(--rank-c-bg);color:var(--rank-c)}
+.rank.X{background:var(--surface3);color:var(--faint)}
+.hr{height:1px;background:var(--border);border:0}
+.row{display:flex;align-items:center}
+.grow{flex:1}
+.muted{color:var(--muted)} .faint{color:var(--faint)}
+.small{font-size:12.5px} .tiny{font-size:11.5px} .nowrap{white-space:nowrap}
+
+/* ---------- shell ---------- */
+#root{min-height:100vh}
+.shell{display:grid;grid-template-columns:212px 1fr;min-height:100vh}
+.side{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.brand{padding:16px 16px 14px;border-bottom:1px solid var(--border)}
+.brand .mark{display:flex;align-items:center;gap:9px}
+.brand b{font-size:15px;letter-spacing:.02em}
+.brand .sub{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--faint);margin-top:3px;text-transform:uppercase}
+.nav{padding:8px;display:flex;flex-direction:column;gap:1px;flex:1;overflow:auto}
+.nav a{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r);color:var(--muted);text-decoration:none;cursor:pointer;font-size:13.5px;font-weight:500;border:1px solid transparent}
+.nav a:hover{background:var(--surface2);color:var(--text)}
+.nav a.on{background:var(--accent-soft);color:var(--accent);border-color:color-mix(in srgb,var(--accent) 22%,transparent)}
+.nav a .n{margin-left:auto;font-family:var(--mono);font-size:10.5px;background:var(--surface3);color:var(--muted);padding:1px 7px;border-radius:100px}
+.nav a.on .n{background:var(--surface);color:var(--accent)}
+.nav a .n.alert{background:var(--danger);color:#fff}
+.nav .sep{margin:9px 10px 4px;font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.whoami{border-top:1px solid var(--border);padding:11px 12px;display:flex;gap:9px;align-items:center}
+.av{width:30px;height:30px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:13px;flex:none}
+.main{min-width:0;display:flex;flex-direction:column}
+.topbar{padding:13px 22px 11px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--bg)}
+.topbar h1{font-size:19px}
+.topbar .vsub{font-size:12px;color:var(--muted);margin-top:1px}
+.content{padding:20px 22px 60px;max-width:1560px;width:100%}
+
+/* ---------- scope bar（会社タブ） ---------- */
+.scopebar{position:sticky;top:0;z-index:19;display:flex;align-items:center;gap:12px;padding:9px 22px;
+  background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.scope-label{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);flex:none}
+.stabs{display:flex;gap:6px;overflow-x:auto;flex:1;min-width:0;padding-bottom:1px}
+.stab{font-size:13px;font-weight:700;border:1px solid var(--border-strong);background:var(--surface);color:var(--muted);
+  border-radius:100px;padding:6px 14px;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:7px;transition:.14s}
+.stab:hover{border-color:var(--accent);color:var(--accent)}
+.stab.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.stab .sn{font-family:var(--mono);font-size:11px;font-weight:500;background:var(--surface3);color:var(--muted);padding:0 7px;border-radius:100px}
+.stab.on .sn{background:color-mix(in srgb,var(--on-accent) 22%,transparent);color:var(--on-accent)}
+.lockchip{display:inline-flex;align-items:center;gap:7px;padding:6px 14px;border-radius:100px;background:var(--accent-soft);
+  color:var(--accent);font-weight:700;font-size:13px;white-space:nowrap}
+.scope-right{display:flex;gap:8px;align-items:center;flex:none}
+.scope-right select{width:auto;min-width:132px;padding:6px 9px;font-size:12.5px}
+
+/* ---------- KPI ---------- */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(152px,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:13px 15px 14px 18px;position:relative;overflow:hidden}
+.kpi .kbar{position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent)}
+.kpi.a .kbar{background:var(--rank-a)} .kpi.a .v{color:var(--rank-a)}
+.kpi.b .kbar{background:var(--rank-b)} .kpi.b .v{color:var(--rank-b)}
+.kpi.c .kbar{background:var(--rank-c)} .kpi.c .v{color:var(--rank-c)}
+.kpi.warn .kbar{background:var(--danger)} .kpi.warn .v{color:var(--danger)}
+.kpi.ok .kbar{background:var(--ok)} .kpi.ok .v{color:var(--ok)}
+.kpi .k{font-size:12px;color:var(--muted)}
+.kpi .v{font-family:var(--mono);font-size:29px;font-weight:500;line-height:1.12;margin-top:3px}
+.kpi .v .u{font-family:var(--sans);font-size:12px;color:var(--muted);margin-left:3px}
+.kpi .d{font-size:11px;color:var(--faint);margin-top:1px}
+
+/* ---------- A/B/C レーン ---------- */
+.board{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:1000px){.board{grid-template-columns:1fr}}
+.lane{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);display:flex;flex-direction:column;overflow:hidden}
+.lane-head{padding:13px 15px;display:flex;align-items:center;gap:12px;border-bottom:2px solid var(--border)}
+.lane.a .lane-head{background:var(--rank-a-bg);border-bottom-color:var(--rank-a)}
+.lane.b .lane-head{background:var(--rank-b-bg);border-bottom-color:var(--rank-b)}
+.lane.c .lane-head{background:var(--rank-c-bg);border-bottom-color:var(--rank-c)}
+.lane-badge{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;font-family:var(--mono);font-weight:700;font-size:18px;color:#fff;flex:none}
+.lane.a .lane-badge{background:var(--rank-a)} .lane.b .lane-badge{background:var(--rank-b)} .lane.c .lane-badge{background:var(--rank-c)}
+.lane-meta .t{font-weight:700;font-size:13px} .lane-meta .d{font-size:11px;color:var(--muted)}
+.lane-cnt{margin-left:auto;font-family:var(--mono);font-weight:500;font-size:21px}
+.lane-body{padding:9px;display:flex;flex-direction:column;gap:7px;max-height:430px;overflow:auto}
+.mini{border:1px solid var(--border);border-radius:var(--r);padding:9px 11px;cursor:pointer;background:var(--surface);transition:.12s}
+.mini:hover{border-color:var(--border-strong);background:var(--surface2)}
+.mini .mn{font-weight:500;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mini .mr{font-size:11px;color:var(--muted);display:flex;gap:7px;align-items:center;margin-top:3px;flex-wrap:wrap}
+.lane-empty{color:var(--faint);font-size:12px;text-align:center;padding:22px 0}
+
+/* ---------- 次回アポ ピル / ステータス ---------- */
+.when{font-family:var(--mono);font-size:11px;padding:1px 8px;border-radius:100px;border:1px solid transparent;white-space:nowrap}
+.when.over{background:var(--danger-bg);color:var(--danger)}
+.when.today{background:var(--accent);color:var(--on-accent)}
+.when.week{background:var(--rank-b-bg);color:var(--rank-b)}
+.when.later{background:var(--surface3);color:var(--muted)}
+.when.none{border-color:var(--danger);color:var(--danger)}
+.st{font-size:11.5px;font-weight:500;padding:2px 9px;border-radius:100px;white-space:nowrap;background:var(--surface3);color:var(--muted)}
+.st.active{background:var(--ok-bg);color:var(--ok)}
+.st.follow{background:var(--danger-bg);color:var(--danger)}
+.st.todo{background:var(--rank-b-bg);color:var(--rank-b)}
+.st.contract{background:var(--ok-bg);color:var(--ok)}
+.st.lost{background:var(--surface3);color:var(--faint)}
+
+/* ---------- panels / bars / tables ---------- */
+.panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;align-items:start}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.panel>header{padding:11px 15px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;background:var(--surface2)}
+.panel>header h3{font-size:13px}
+.panel .pad{padding:14px 15px}
+.li{display:flex;gap:10px;align-items:center;padding:9px 15px;border-bottom:1px solid var(--border)}
+.li:last-child{border-bottom:0}
+.li.click{cursor:pointer} .li.click:hover{background:var(--surface2)}
+.empty{padding:26px 15px;text-align:center;color:var(--faint);font-size:12.5px;line-height:1.8}
+.bars{display:flex;flex-direction:column;gap:9px;padding:14px 15px}
+.bar{display:grid;grid-template-columns:104px 1fr 58px;gap:10px;align-items:center;font-size:12.5px}
+.bar .track{height:16px;background:var(--surface3);border-radius:3px;overflow:hidden}
+.bar .fill{height:100%;background:var(--accent);border-radius:3px}
+.bar .val{text-align:right;font-family:var(--mono);font-size:12px}
+.sechead{display:flex;align-items:baseline;gap:10px;margin:26px 0 12px}
+.sechead:first-child{margin-top:2px}
+.sechead h2{font-size:14px}
+.sechead .hint{margin-left:auto;font-size:12px;color:var(--muted)}
+.tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--r)}
+table{border-collapse:collapse;width:100%;font-size:13px}
+thead th{position:sticky;top:0;background:var(--surface2);text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--faint);font-weight:500;padding:9px 11px;border-bottom:1px solid var(--border);white-space:nowrap;z-index:2}
+tbody td{padding:8px 11px;border-bottom:1px solid var(--border);vertical-align:middle}
+tbody tr:last-child td{border-bottom:0}
+tbody tr.click{cursor:pointer} tbody tr.click:hover{background:var(--surface2)}
+td.stripe{border-left:3px solid transparent;padding-left:9px}
+tr.rA td.stripe{border-left-color:var(--rank-a)}
+tr.rB td.stripe{border-left-color:var(--rank-b)}
+tr.rC td.stripe{border-left-color:var(--rank-c)}
+.cname{font-weight:500}
+.notecell{max-width:340px;color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rank-sel{width:auto;padding:3px 6px;font-size:12px;font-family:var(--mono);border-radius:5px;border:1px solid var(--border-strong)}
+
+/* ---------- 面談予定 行 ---------- */
+.srow{display:flex;gap:13px;align-items:center;padding:11px 15px;border-bottom:1px solid var(--border);cursor:pointer}
+.srow:last-child{border-bottom:0}
+.srow:hover{background:var(--surface2)}
+.sdate{flex:none;width:62px;text-align:center}
+.sdate .dd{font-family:var(--mono);font-size:17px;font-weight:500;line-height:1.15}
+.sdate .dl{font-size:10.5px;color:var(--muted)}
+.smain{flex:1;min-width:0}
+.smain .sn{font-weight:500;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.smain .sm{font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ---------- カレンダー ---------- */
+.cal{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.calhead{display:grid;grid-template-columns:repeat(7,1fr);background:var(--surface2);border-bottom:1px solid var(--border)}
+.calhead div{padding:7px 9px;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;color:var(--faint);text-align:center}
+.calhead div.sun{color:var(--rank-a)} .calhead div.sat{color:var(--accent)}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr)}
+.cell{min-height:106px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:5px 6px;display:flex;flex-direction:column;gap:3px;cursor:pointer}
+.cell:nth-child(7n){border-right:0}
+.cell:hover{background:var(--surface2)}
+.cell.out{background:var(--surface2);opacity:.5}
+.cell.today{background:var(--accent-soft)}
+.cell .dn{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.cell.today .dn{color:var(--accent);font-weight:500}
+.cell .dn.sun{color:var(--rank-a)} .cell .dn.sat{color:var(--accent)}
+.ev{font-size:11px;padding:2px 5px;border-radius:3px;background:var(--surface3);border-left:3px solid var(--accent);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.5}
+.ev.mA{border-left-color:var(--rank-a)} .ev.mB{border-left-color:var(--rank-b)} .ev.mC{border-left-color:var(--rank-c)} .ev.mX{border-left-color:var(--faint)}
+.ev.done{opacity:.5;text-decoration:line-through}
+.ev.other{border-left-color:var(--accent);background:var(--accent-soft)}
+.ev.gcal{background:transparent;border:1px dashed var(--border-strong);border-left:3px solid var(--faint);color:var(--muted)}
+.gdot{display:inline-block;width:9px;height:9px;border:1px dashed var(--border-strong);border-left:2px solid var(--faint)}
+
+/* ---------- 面談タイムライン ---------- */
+.tl{display:flex;flex-direction:column}
+.tlnode{position:relative;padding:0 0 16px 20px;border-left:2px solid var(--border);margin-left:6px}
+.tlnode:last-child{border-left-color:transparent;padding-bottom:0}
+.tldot{position:absolute;left:-8px;top:3px;width:14px;height:14px;border-radius:50%;background:var(--surface);border:2px solid var(--border-strong)}
+.tldot.done{background:var(--accent);border-color:var(--accent)}
+.tldot.sched{border-color:var(--accent)}
+.tltop{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tlstage{font-weight:700;font-size:13px}
+.tldate{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.tlnote{font-size:12.5px;margin-top:4px;white-space:pre-wrap;line-height:1.7}
+.tlnote.none{color:var(--faint)}
+.mblock{border:1px solid var(--border);border-radius:var(--r);padding:12px 13px;background:var(--surface2);margin-bottom:10px}
+.mblock .mh{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.mblock .mh .ms{font-weight:700;font-size:12.5px}
+
+/* ---------- drawer / modal ---------- */
+#overlay{position:fixed;inset:0;z-index:100;display:none}
+#overlay.on{display:block}
+#ask{position:fixed;inset:0;z-index:200;display:none}
+#ask.on{display:block}
+#ask .modal{width:min(440px,calc(100% - 32px))}
+#ask .amsg{font-size:13px;color:var(--muted);line-height:1.8;white-space:pre-wrap}
+.scrim{position:absolute;inset:0;background:rgba(10,16,21,.44)}
+.drawer{position:absolute;top:0;right:0;height:100%;width:min(780px,100%);background:var(--bg);
+  box-shadow:var(--shadow-lg);display:flex;flex-direction:column;animation:slidein .18s ease-out}
+@keyframes slidein{from{transform:translateX(16px);opacity:.6}to{transform:none;opacity:1}}
+.modal{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(580px,calc(100% - 32px));max-height:88vh;
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-lg);display:flex;flex-direction:column}
+@media (prefers-reduced-motion:reduce){.drawer{animation:none}}
+.dhead{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:11px;background:var(--surface)}
+.dbody{overflow:auto;padding:16px 18px;flex:1}
+.dfoot{padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;background:var(--surface);flex-wrap:wrap}
+.x{width:30px;height:30px;border-radius:var(--r);border:1px solid var(--border);background:var(--surface);cursor:pointer;display:grid;place-items:center;flex:none}
+.x:hover{background:var(--surface2)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.span2{grid-column:span 2}
+.fset{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 15px;margin-bottom:12px}
+.fset>h4{font-size:12px;font-family:var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin-bottom:11px;font-weight:500}
+.checks{display:flex;flex-wrap:wrap;gap:7px}
+.check{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border:1px solid var(--border-strong);border-radius:100px;cursor:pointer;font-size:12.5px;user-select:none}
+.check input{width:auto;margin:0}
+.check:has(input:checked){background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:500}
+.kv{display:grid;grid-template-columns:112px 1fr;gap:7px 12px;font-size:13px;margin:0}
+.kv dt{color:var(--faint);font-size:12px} .kv dd{margin:0}
+.dtabs{display:flex;gap:2px;border-bottom:1px solid var(--border);overflow-x:auto;background:var(--surface);padding:0 12px}
+.dtabs button{background:none;border:0;border-bottom:2px solid transparent;padding:9px 13px;cursor:pointer;color:var(--muted);font-weight:500;font-size:13.5px;white-space:nowrap}
+.dtabs button:hover{color:var(--text)}
+.dtabs button.on{color:var(--accent);border-bottom-color:var(--accent)}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);overflow-x:auto}
+.tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:9px 13px;cursor:pointer;color:var(--muted);font-weight:500;font-size:13.5px;white-space:nowrap;display:flex;gap:7px;align-items:center}
+.tabs button:hover{color:var(--text)}
+.tabs button.on{color:var(--accent);border-bottom-color:var(--accent)}
+.tabs button .n{font-family:var(--mono);font-size:11px;background:var(--surface3);padding:1px 6px;border-radius:100px;color:var(--muted)}
+.tabs button.on .n{background:var(--accent-soft);color:var(--accent)}
+.filters{display:flex;gap:8px;flex-wrap:wrap;padding:12px 0;align-items:center}
+.filters select,.filters input{width:auto;min-width:120px}
+.filters input[type=text]{min-width:210px}
+
+/* ---------- login ---------- */
+.loginwrap{min-height:100vh;display:grid;place-items:center;padding:24px;
+  background:radial-gradient(120% 90% at 50% -10%, var(--surface3) 0%, var(--bg) 62%)}
+.loginbox{width:min(400px,100%);background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
+.loginbox .frm{padding:22px 28px 26px;display:flex;flex-direction:column;gap:14px}
+.loginsplit{width:min(880px,100%);display:grid;grid-template-columns:1.05fr .95fr;background:var(--surface);
+  border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+.loginsplit .intro{padding:32px;background:var(--surface2);border-right:1px solid var(--border);display:flex;flex-direction:column;gap:20px}
+.loginsplit .pane{padding:32px;display:flex;flex-direction:column;gap:15px}
+.loginsplit h2{font-size:21px}
+.loginsplit .lead{font-size:13px;color:var(--muted);line-height:1.75}
+.canlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px;font-size:12.5px;color:var(--muted)}
+.canlist li{display:block;position:relative;padding-left:15px;line-height:1.6}
+.canlist li::before{content:"";position:absolute;left:0;top:8px;width:6px;height:6px;border-radius:1px;background:var(--accent)}
+.steps{counter-reset:st;list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:11px}
+.steps li{counter-increment:st;display:block;position:relative;padding-left:34px;min-height:23px;font-size:12.5px;color:var(--muted);line-height:1.65}
+.steps li::before{content:counter(st);position:absolute;left:0;top:0;font-family:var(--mono);font-size:11px;width:23px;height:23px;border-radius:50%;
+  background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:500}
+.steps li b{color:var(--text);font-weight:500}
+@media(max-width:780px){
+  .loginsplit{grid-template-columns:1fr}
+  .loginsplit .intro{border-right:0;border-bottom:1px solid var(--border);padding:24px}
+  .loginsplit .pane{padding:24px}
+}
+.pwwrap{position:relative}
+.pwwrap input{padding-right:52px}
+.pwwrap .eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:none;cursor:pointer;
+  color:var(--faint);padding:5px 8px;border-radius:4px;font-family:var(--mono);font-size:10.5px}
+.pwwrap .eye:hover{color:var(--accent);background:var(--surface3)}
+.pwshow{font-family:var(--mono);font-size:17px;letter-spacing:.08em;background:var(--surface3);padding:12px 14px;
+  border-radius:var(--r);user-select:all;word-break:break-all;text-align:center}
+.err{background:var(--danger-bg);color:var(--danger);border-radius:var(--r);padding:9px 12px;font-size:12.5px}
+.note{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:11px 13px;font-size:12.5px;color:var(--muted);line-height:1.75}
+.banner{display:flex;gap:10px;align-items:flex-start;padding:11px 13px;border-radius:var(--r);font-size:12.5px;
+  border:1px solid var(--border);background:var(--surface2);color:var(--muted);line-height:1.65}
+.banner.warn{background:var(--rank-b-bg);border-color:transparent;color:var(--rank-b)}
+.banner.bad{background:var(--danger-bg);border-color:transparent;color:var(--danger)}
+.banner.good{background:var(--ok-bg);border-color:transparent;color:var(--ok)}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:300;background:var(--text);color:var(--bg);
+  padding:9px 18px;border-radius:100px;font-size:13px;box-shadow:var(--shadow-lg);opacity:0;transition:opacity .18s;pointer-events:none}
+.toast.on{opacity:1}
+.mobnav{display:none}
+@media (max-width:900px){
+  .shell{grid-template-columns:1fr}
+  .side{display:none}
+  .mobnav{display:flex;position:sticky;top:0;z-index:30;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto;gap:2px;padding:6px}
+  .mobnav a{padding:7px 12px;border-radius:var(--r);color:var(--muted);text-decoration:none;cursor:pointer;font-size:13px;font-weight:500;white-space:nowrap}
+  .mobnav a.on{background:var(--accent-soft);color:var(--accent)}
+  .content{padding:14px} .topbar{padding:11px 14px} .scopebar{padding:8px 14px}
+  .grid2,.grid3{grid-template-columns:1fr} .span2{grid-column:auto}
+  .cell{min-height:76px} .kv{grid-template-columns:92px 1fr}
+}
+
+/* ---------- login: 会社えらび ---------- */
+.pickgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+@media(max-width:520px){.pickgrid{grid-template-columns:1fr}}
+.pick{display:flex;flex-direction:column;gap:3px;align-items:flex-start;text-align:left;padding:14px 15px;
+  border:1px solid var(--border-strong);border-radius:var(--r);background:var(--surface);cursor:pointer;transition:.14s;width:100%}
+.pick:hover{border-color:var(--accent);background:var(--accent-soft)}
+.pick b{font-size:14.5px}
+.pick span{font-size:11.5px;color:var(--muted);line-height:1.5}
+.pick.hq{grid-column:1/-1;border-style:dashed}
+.picked{display:flex;align-items:center;gap:9px;padding:11px 13px;border:1px solid var(--accent);
+  background:var(--accent-soft);border-radius:var(--r);color:var(--accent)}
+.picked b{font-size:14px}
+.linkbtn{border:0;background:none;color:var(--accent);cursor:pointer;font-size:12.5px;text-decoration:underline;padding:0}
+.stepnum{display:flex;align-items:center;gap:8px;margin:0 0 9px}
+.stepnum i{width:21px;height:21px;border-radius:50%;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;
+  font-family:var(--mono);font-size:11px;font-style:normal;flex:none}
+.stepnum b{font-size:13px}
+.pwcard{display:flex;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--border);
+  border-radius:var(--r);background:var(--surface2);margin-bottom:9px;flex-wrap:wrap}
+.pwcard .pt{font-weight:700;font-size:13.5px}
+.pwcard .pd{font-size:11.5px;color:var(--faint);line-height:1.55}
+</style>
+
+<div id="root"><div class="loginwrap"><div class="loginbox"><div class="frm"><p class="muted small">読み込み中…</p></div></div></div></div>
+<div id="overlay"></div>
+<div id="ask"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   住宅営業カルテ — グループ3社の営業顧客管理
+   ============================================================ */
+const DEFAULT_COMPANIES = [
+  { id:"noark",  name:"ノークホームズ", short:"ノーク", products:[
+      {id:"noark",name:"ノークホームズ"},{id:"folk",name:"フォルク"},{id:"gp",name:"GP"},{id:"pg",name:"PG"}]},
+  { id:"fujita", name:"フジタ", short:"フジタ", products:[
+      {id:"fujita",name:"フジタ"},{id:"gp",name:"GP"},{id:"pg",name:"PG"}]},
+  { id:"ash",    name:"アッシュホーム", short:"アッシュ", products:[
+      {id:"ash",name:"アッシュホーム"}]},
+];
+const RANKS = {
+  A:{label:"最優先", desc:"土地あり・興味あり"},
+  B:{label:"商談中心", desc:"土地なし・興味あり"},
+  C:{label:"温度低", desc:"土地なし・興味なし"},
+};
+const STAGES = [
+  {id:"reach",name:"反響"},{id:"visit",name:"初回接客"},{id:"hearing",name:"ヒアリング"},
+  {id:"finance",name:"資金計画"},{id:"plan",name:"プラン提案"},{id:"estimate",name:"見積提示"},{id:"land",name:"土地決定"},
+];
+const STAGE_NAME = Object.fromEntries(STAGES.map(s=>[s.id,s.name]));
+const SOURCES = ["SUUMO","自社HP","完成見学会","モデルハウス","展示場","紹介","チラシ・折込","SNS","看板・通りがかり","不動産会社","その他"];
+const LAND = {own:"所有している",contracted:"契約済み",searching:"探している",none:"未定"};
+const LOAN = {none:"未実施",applied:"申込中",approved:"承認",rejected:"否決"};
+const EVT = {
+  visit:"来場", meeting:"社内打合せ", event:"見学会・イベント", cere:"地鎮祭・上棟", hand:"引渡し", other:"その他",
+};
+/* ---------- ログイン区分（会社ごとの共通パスワード） ----------
+   個人アカウントは作りません。入口＝「本部」または「会社」の共通パスワードだけ。
+   退職者が出たら、その会社のパスワードを変えるだけで全端末から入れなくなります。 */
+const HQ = "hq";
+const PW_WORDS = ["sakura","house","green","tulip","orange","forest","sunny","river","maple","lemon",
+  "piano","kirin","rocket","cosmos","tomato","hinoki","wakaba","momiji","kaede","tsubaki"];
+const FOLLOW_DAYS = 14;
+const WD = ["日","月","火","水","木","金","土"];
+
+/* ---------- state ---------- */
+let DB = null, dbState = "loading";
+let CFG = { companies: DEFAULT_COMPANIES };
+let AUTH = null;
+let staff = [], customers = [], events = [], todos = [];
+let loaded = { auth:false, staff:false, customers:false, events:false, todos:false };
+let me = null, view = "dash", unsubs = [];
+const ui = {
+  scope:"all", scopeRep:"",
+  rankTab:"all", fStage:"", fProduct:"", fStatus:"", fQuery:"", fAlert:false,
+  calYM:null, todoTab:"open", reportBy:"owner", adminTab:"pw", sort:{key:"next",dir:1},
+};
+const login = { scope:"", staffId:"", newName:"", err:"", remember:true };
+
+/* ---------- helpers ---------- */
+const $ = (s,r)=> (r||document).querySelector(s);
+const esc = s => String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+const pad = n => String(n).padStart(2,"0");
+const isoDate = d => d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const TODAY = () => isoDate(new Date());
+function parseD(s){ if(!s) return null; const p=String(s).split("-").map(Number); if(p.length<3||!p[0]) return null; const d=new Date(p[0],p[1]-1,p[2]); return isNaN(d)?null:d; }
+function fmtD(s){ const d=parseD(s); return d? (d.getMonth()+1)+"/"+d.getDate()+"("+WD[d.getDay()]+")" : "—"; }
+function fmtDY(s){ const d=parseD(s); return d? d.getFullYear()+"/"+pad(d.getMonth()+1)+"/"+pad(d.getDate()) : "—"; }
+function daysFrom(s){ const d=parseD(s); if(!d) return null; const t=parseD(TODAY()); return Math.round((d-t)/86400000); }
+function num(v){ const n=Number(v); return isFinite(n)?n:0; }
+function man(v){ return (v||v===0) && v!=="" ? Number(v).toLocaleString("ja-JP") : "—"; }
+const initials = n => (n||"?").trim().slice(0,1);
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("on"); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("on"),2400); }
+function sortBy(a,f,d){ return a.slice().sort((x,y)=>{const p=f(x),q=f(y); if(p===q) return 0; return (p>q?1:-1)*(d==="desc"?-1:1);}); }
+async function sha256(t){ const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""); }
+const hashPw = (s,p)=> sha256(s+":"+p);
+const newSalt = ()=> [...crypto.getRandomValues(new Uint8Array(12))].map(x=>x.toString(16).padStart(2,"0")).join("");
+
+/* ---------- master ---------- */
+const companies = () => CFG.companies || DEFAULT_COMPANIES;
+const companyById = id => companies().find(c=>c.id===id) || null;
+const companyName = id => (companyById(id)||{}).name || "—";
+const companyShort = id => (companyById(id)||{}).short || companyName(id);
+function productName(cid,pid){ const c=companyById(cid); if(!c) return pid||"—"; const p=(c.products||[]).find(p=>p.id===pid); return p?p.name:(pid||"—"); }
+const staffById = id => staff.find(s=>s.id===id) || null;
+const staffName = id => (staffById(id)||{}).name || (id? "（削除済）" : "未割当");
+
+/* ---------- ログイン区分とスコープ ---------- */
+const scopeKeys = () => [HQ].concat(companies().map(c=>c.id));
+const scopeTitle = k => k===HQ ? "本部（全社共通）" : companyName(k);
+function scopeAuth(k){ return (AUTH && AUTH.scopes) ? (AUTH.scopes[k]||null) : null; }
+function scopeFp(k){ const a=scopeAuth(k); return (a && a.hash)? String(a.hash).slice(0,16) : ""; }
+const authReady = () => scopeKeys().some(k=>!!scopeFp(k));
+function myCompanies(){
+  if(!me) return [];
+  if(me.scope===HQ) return companies().map(c=>c.id);
+  return companyById(me.scope)? [me.scope] : [];
+}
+const canSeeCompany = cid => myCompanies().includes(cid);
+const isHQ = () => !!me && me.scope===HQ;
+const canSwitchCompany = () => myCompanies().length > 1;
+/* 権限は入口だけ。見える会社の中では全員が同じことをできます（役職の設定はありません） */
+const canEditCustomer = c => !!c && canSeeCompany(c.companyId);
+const canCreateCustomer = () => !!me && myCompanies().length>0;
+const canManagePw = k => isHQ() || (!!me && me.scope===k);
+/* 表示中のスコープ（会社） */
+function scopeCompanies(){ return ui.scope==="all" ? myCompanies() : [ui.scope]; }
+function scopeLabel(){ return ui.scope==="all" ? "全社" : companyName(ui.scope); }
+function inScope(c){
+  if(!scopeCompanies().includes(c.companyId)) return false;
+  if(ui.scopeRep && c.ownerId!==ui.scopeRep) return false;
+  return true;
+}
+const allVisible = () => customers.filter(c=>myCompanies().includes(c.companyId));
+const scoped = () => allVisible().filter(inScope);
+const scopedActive = () => scoped().filter(c=>!c.lost && !c.contracted);
+const scopedLost = () => scoped().filter(c=>c.lost);
+const scopedWon = () => scoped().filter(c=>c.contracted);
+/* 名簿（担当者を選ぶための一覧。ログイン情報は持ちません） */
+const roster = () => sortBy(staff.filter(s=>s.active!==false), s=>s.name, "asc");
+const rosterFor = k => k===HQ ? roster() : roster().filter(s=>(s.companies||[]).includes(k));
+function scopeStaff(){
+  const cs = scopeCompanies();
+  return roster().filter(s=>(s.companies||[]).some(c=>cs.includes(c)));
+}
+function visEvents(){ const cs=scopeCompanies(); return events.filter(e=>!e.companyId || cs.includes(e.companyId)); }
+function visTodos(){
+  const cs=scopeCompanies();
+  return todos.filter(t=> t.staffId===me.id || !t.companyId || cs.includes(t.companyId));
+}
+
+/* ---------- 面談（回数管理） ---------- */
+function meetingDone(m){
+  const hasNote = !!(m.note||"").trim();
+  if(m.date){
+    const d = daysFrom(m.date);
+    if(d!==null){
+      if(d<0) return true;      // 過去日は実施済み
+      if(d>0) return false;     // 未来日は必ず予定
+      return hasNote;           // 当日はメモの有無で判断
+    }
+  }
+  return hasNote;
+}
+function meetingsOf(c){ return (c.meetings||[]).map((m,i)=>({...m, idx:i, n:stageName(i)})); }
+function stageName(i){ return i===0 ? "初回" : (i+1)+"回目"; }
+function scheduledMeeting(c){
+  const l = meetingsOf(c).filter(m=>m.date && parseD(m.date) && !meetingDone(m));
+  if(!l.length) return null;
+  l.sort((a,b)=>a.date.localeCompare(b.date));
+  return l[0];
+}
+function lastDoneMeeting(c){
+  const l = meetingsOf(c).filter(meetingDone);
+  l.sort((a,b)=> String(b.date||"").localeCompare(String(a.date||"")));
+  return l.length? l[0] : null;
+}
+const nextDate = c => { const m=scheduledMeeting(c); return m? m.date : null; };
+const lastContact = c => { const m=lastDoneMeeting(c); return m? m.date : (c.inquiryDate||c.createdAt||"").slice(0,10); };
+function statusOf(c){
+  if(c.contracted) return {key:"contract", label:"契約済"};
+  if(c.lost) return {key:"lost", label:"没"};
+  if(!c.rank && !(c.meetings||[]).length) return {key:"todo", label:"情報未入力"};
+  if(scheduledMeeting(c)) return {key:"active", label:"商談中"};
+  return {key:"follow", label:"次回アポ未設定"};
+}
+function whenClass(s){
+  const d = daysFrom(s);
+  if(d===null) return ["",""];
+  if(d<0) return ["over","超過"+(-d)+"日"];
+  if(d===0) return ["today","本日"];
+  if(d<=7) return ["week","あと"+d+"日"];
+  const dd = parseD(s);
+  return ["later",(dd.getMonth()+1)+"/"+dd.getDate()];
+}
+function needsFollow(c){
+  if(c.contracted||c.lost) return false;
+  if(scheduledMeeting(c)) return false;
+  const lc = lastContact(c);
+  const d = lc? -daysFrom(lc) : null;
+  return d===null || d>=FOLLOW_DAYS;
+}
+function whenPill(c){
+  const nd = nextDate(c);
+  if(!nd) return '<span class="when none">アポ未設定</span>';
+  const m = scheduledMeeting(c);
+  const [cls,txt] = whenClass(nd);
+  return '<span class="when '+cls+'">'+esc(txt)+(m.time?' '+esc(m.time):'')+'</span>';
+}
+
+/* ---------- icons ---------- */
+const I = {
+  dash:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.8" y="1.8" width="5.2" height="5.6" rx="1"/><rect x="9" y="1.8" width="5.2" height="3.2" rx="1"/><rect x="1.8" y="9.4" width="5.2" height="4.8" rx="1"/><rect x="9" y="7" width="5.2" height="7.2" rx="1"/></svg>',
+  users:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="6" cy="5" r="2.6"/><path d="M1.6 14c.4-2.7 2.3-4.2 4.4-4.2S10 11.3 10.4 14"/><path d="M10.6 3a2.5 2.5 0 010 4.6M11.6 9.9c1.7.3 2.6 1.8 2.9 4.1"/></svg>',
+  clock:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.4V8l2.6 1.6"/></svg>',
+  cal:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.8" y="3" width="12.4" height="11.2" rx="1.4"/><path d="M1.8 6.4h12.4M5 1.6v2.6M11 1.6v2.6"/></svg>',
+  check:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.8" y="2.4" width="12.4" height="11.4" rx="1.6"/><path d="M4.8 8.2l2.1 2.1 4.3-4.3"/></svg>',
+  chart:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 14V2M2 14h12"/><rect x="4.4" y="8" width="2.4" height="4"/><rect x="8" y="5" width="2.4" height="7"/><rect x="11.6" y="9.6" width="2.4" height="2.4"/></svg>',
+  seal:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="6.4" r="4.2"/><path d="M5.4 10.2L4.4 14.4l3.6-1.8 3.6 1.8-1-4.2"/></svg>',
+  box:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.8 5.2h12.4v8.2a1 1 0 01-1 1H2.8a1 1 0 01-1-1z"/><path d="M1.4 2.6h13.2v2.6H1.4zM6.4 8.4h3.2"/></svg>',
+  gear:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.3"/><path d="M8 1.6l1 1.7 2-.4.5 1.9 1.8.9-1 1.8 1 1.8-1.8.9-.5 1.9-2-.4-1 1.7-1-1.7-2 .4-.5-1.9-1.8-.9 1-1.8-1-1.8 1.8-.9.5-1.9 2 .4z"/></svg>',
+  house:'<svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.5 8.6L10 2.6l7.5 6"/><path d="M4.2 9.9v7.5h11.6V9.9"/><path d="M8.1 17.4v-4.3h3.8v4.3"/></svg>',
+  lock:'<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.6" y="6.2" width="8.8" height="6.2" rx="1.2"/><path d="M4.6 6.2V4.4a2.4 2.4 0 014.8 0v1.8"/></svg>',
+  x:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l8 8M11 3l-8 8"/></svg>',
+  plus:'<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 2v10M2 7h10"/></svg>',
+  L:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8.6 3L4.6 7l4 4"/></svg>',
+  R:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5.4 3l4 4-4 4"/></svg>',
+};
+/* ============================================================
+   接続・セッション
+   ============================================================ */
+async function boot(){
+  if(!window.claude || typeof window.claude.use !== "function"){ dbState="off"; return renderAll(); }
+  let db=null;
+  try{ db = await window.claude.use("db"); }catch(e){ db=null; }
+  if(!db){ dbState="off"; return renderAll(); }
+  DB = db; dbState = "ok";
+  initGcal();
+  try{
+    DB.doc("meta/config").onSnapshot(s=>{
+      const d = s.exists? s.data():null;
+      if(d && Array.isArray(d.companies) && d.companies.length) CFG = {companies:d.companies};
+      renderAll();
+    }, ()=>{});
+    /* パスワード（会社ごとの共通パスワード） */
+    DB.doc("meta/auth").onSnapshot(s=>{
+      AUTH = s.exists? (s.data()||null) : null;
+      loaded.auth = true;
+      if(me){
+        const fp = scopeFp(me.scope);
+        if(!fp){ signOut(true); toast("ログイン設定が変更されました。もう一度ログインしてください"); return; }
+        if(fp!==me.fp){ signOut(true); toast("パスワードが変更されました。新しいパスワードでログインしてください"); return; }
+      }
+      tryRestore(); renderAll();
+    }, ()=>{ dbState="off"; renderAll(); });
+    /* 名簿 */
+    DB.collection("staff").onSnapshot(s=>{
+      staff = s.docs.map(d=>({id:d.id, ...d.data()}));
+      loaded.staff = true;
+      if(me){
+        const fresh = staffById(me.id);
+        if(!fresh || fresh.active===false){ signOut(true); toast("名簿から外れたため、ログアウトしました"); return; }
+        me.name = fresh.name;
+      }
+      tryRestore(); renderAll();
+    }, ()=>{ dbState="off"; renderAll(); });
+  }catch(e){ dbState="off"; renderAll(); }
+}
+function subscribeData(){
+  unsubs.forEach(u=>{try{u();}catch(e){}}); unsubs=[];
+  loaded.customers=loaded.events=loaded.todos=false;
+  const sub=(name,setter)=>DB.collection(name).onSnapshot(s=>{
+    setter(s.docs.map(d=>({id:d.id, ...d.data()}))); loaded[name]=true; refreshCurrent();
+  }, ()=>{ loaded[name]=true; refreshCurrent(); });
+  unsubs.push(sub("customers", v=>customers=v));
+  unsubs.push(sub("events", v=>events=v));
+  unsubs.push(sub("todos", v=>todos=v));
+}
+/* ---------- セッション（この端末に覚えておく） ---------- */
+function saveSession(){
+  if(!me) return;
+  try{ localStorage.setItem("crm.login", JSON.stringify({scope:me.scope, id:me.id, fp:me.fp})); }catch(e){}
+}
+function clearSession(){ try{ localStorage.removeItem("crm.login"); }catch(e){} }
+/* パスワードを自分で変えたときは、自分だけログインを保ちます */
+function refreshSessionFp(fp){
+  if(!me) return;
+  me.fp = fp;
+  let has=false; try{ has=!!localStorage.getItem("crm.login"); }catch(e){}
+  if(has) saveSession();
+}
+function tryRestore(){ if(!me && loaded.auth && loaded.staff) restoreSession(); }
+function restoreSession(){
+  let raw=null; try{ raw=localStorage.getItem("crm.login"); }catch(e){}
+  if(!raw) return;
+  let o=null; try{ o=JSON.parse(raw); }catch(e){ return clearSession(); }
+  if(!o || !o.scope || !o.id) return clearSession();
+  if(o.scope!==HQ && !companyById(o.scope)) return clearSession();
+  const fp = scopeFp(o.scope);
+  if(!fp || fp!==o.fp) return clearSession();      // パスワードが変わっていたら入り直し
+  const s = staffById(o.id);
+  if(!s || s.active===false) return clearSession(); // 名簿から外れていたら入り直し
+  me = {scope:o.scope, id:s.id, name:s.name, fp:fp};
+  afterLogin();
+}
+const lastNameFor = k => { try{ return localStorage.getItem("crm.last."+k)||""; }catch(e){ return ""; } };
+function setLastNameFor(k,id){ try{ localStorage.setItem("crm.last."+k, id||""); }catch(e){} }
+function afterLogin(){
+  const cs = myCompanies();
+  ui.scope = cs.length===1 ? cs[0] : "all";
+  ui.scopeRep = "";
+  subscribeData();
+}
+function signOut(silent){
+  clearSession();
+  me=null; unsubs.forEach(u=>{try{u();}catch(e){}}); unsubs=[];
+  customers=[];events=[];todos=[]; view="dash";
+  login.scope=""; login.staffId=""; login.newName=""; login.err="";
+  closeOverlay(); renderAll();
+  if(!silent) toast("ログアウトしました");
+}
+
+/* ============================================================
+   Google カレンダー連携
+   ============================================================ */
+const GCAL = "Google Calendar";
+const gcal = { mcp:null, status:"loading", errCode:"", events:[], range:"", unwatch:null, evErr:"" };
+const gcalShow = ()=>{ try{ return localStorage.getItem("crm.gcal.show")!=="0"; }catch(e){ return true; } };
+const gcalPushPref = ()=>{ try{ return localStorage.getItem("crm.gcal.push")!=="0"; }catch(e){ return true; } };
+function setGcalPref(k,v){ try{ localStorage.setItem("crm.gcal."+k, v?"1":"0"); }catch(e){} }
+async function initGcal(){
+  let m=null;
+  try{ m = await window.claude.use("mcp"); }catch(e){ m=null; }
+  if(!m){ gcal.status="off"; gcal.errCode="capability"; return refreshCurrent(); }
+  gcal.mcp = m;
+  try{
+    const r = await m.listTools();
+    const s = (r.servers||[]).find(x=>x.server===GCAL);
+    if(!s || !(s.tools||[]).length){ gcal.status="off"; gcal.errCode="server_not_connected"; }
+    else if(s.authStatus==="needs_reauth"){ gcal.status="off"; gcal.errCode="needs_reauth"; }
+    else { gcal.status="ready"; gcal.errCode=""; }
+  }catch(e){ gcal.status="off"; gcal.errCode=(e&&e.code)||"upstream_error"; }
+  if(me && view==="calendar" && $("#viewRoot")) renderView(); else refreshCurrent();
+}
+function gcalMsg(code){
+  switch(code){
+    case "capability": case "not_granted": case "capability_disabled": case "capability_removed":
+      return {cls:"", text:"この画面ではGoogleカレンダー連携を使えません。公開されたリンクから開き直してください。"};
+    case "server_not_connected":
+      return {cls:"warn", text:"Googleカレンダーがまだ接続されていません。claude.ai の <b>設定 → コネクタ</b> で「Google Calendar」を追加すると、予定の読み書きができるようになります。"};
+    case "needs_reauth":
+      return {cls:"warn", text:"Googleカレンダーの接続が切れています。claude.ai の <b>設定 → コネクタ</b> から再接続してください。"};
+    case "selection_required":
+      return {cls:"warn", text:"Googleカレンダーの接続先が複数あります。使うアカウントを選んでから、ページを再読み込みしてください。"};
+    case "blocked_by_policy":
+      return {cls:"bad", text:"組織の設定でGoogleカレンダーの利用が許可されていません。管理者にご確認ください。"};
+    case "approval_required":
+      return {cls:"bad", text:"この操作には組織の承認が必要です。管理者にご確認ください。"};
+    case "server_not_found":
+      return {cls:"bad", text:"Googleカレンダーの接続先が見つかりません。設定 → コネクタ をご確認ください。"};
+    case "server_unavailable":
+      return {cls:"warn", text:"Googleカレンダーに一時的につながりません。少し待ってから再試行してください。", retry:true};
+    case "rate_limited":
+      return {cls:"warn", text:"アクセスが集中しています。少し待ってから再度お試しください。", retry:true};
+    case "tool_error":
+      return {cls:"bad", text:"Googleカレンダー側でエラーが返されました。日付・時刻の入力をご確認ください。"};
+    case "not_in_manifest":
+      return {cls:"bad", text:"このアプリにはその操作の許可がありません。"};
+    case "cancelled":
+      return {cls:"warn", text:"操作が中断されました。もう一度お試しください。"};
+    default:
+      return {cls:"warn", text:"Googleカレンダーと通信できませんでした。時間をおいて再度お試しください。", retry:true};
+  }
+}
+function gLocal(dt){
+  if(/[+-]\d\d:\d\d$/.test(dt)) return {d:dt.slice(0,10), t:dt.slice(11,16)};
+  const d=new Date(dt);
+  if(isNaN(d)) return {d:String(dt).slice(0,10), t:String(dt).slice(11,16)};
+  return {d:isoDate(d), t:pad(d.getHours())+":"+pad(d.getMinutes())};
+}
+function normalizeG(e){
+  if(!e || e.status==="cancelled") return null;
+  const st=e.start||{};
+  if(st.dateTime){ const l=gLocal(st.dateTime); return {gid:e.id,date:l.d,time:l.t,title:e.summary||"（無題）",link:e.htmlLink||"",place:e.location||""}; }
+  if(st.date) return {gid:e.id,date:String(st.date).slice(0,10),time:"",title:e.summary||"（無題）",link:e.htmlLink||"",place:e.location||""};
+  return null;
+}
+function watchGcalMonth(ym){
+  if(gcal.status!=="ready" || !gcal.mcp) return;
+  if(gcal.range===ym && gcal.unwatch) return;
+  if(gcal.unwatch){ try{gcal.unwatch();}catch(e){} gcal.unwatch=null; }
+  gcal.range=ym; gcal.events=[]; gcal.evErr="";
+  const [y,m]=ym.split("-").map(Number);
+  const s=new Date(y,m-1,-7), e=new Date(y,m,7);
+  const input={ startTime:isoDate(s)+"T00:00:00+09:00", endTime:isoDate(e)+"T23:59:59+09:00",
+    orderBy:"startTime", pageSize:250, timeZone:"Asia/Tokyo" };
+  try{
+    gcal.unwatch = gcal.mcp.watchTool(GCAL,"list_events",input, ev=>{
+      if(ev.type==="error"){
+        const c=(ev.error&&ev.error.code)||"upstream_error";
+        if(["needs_reauth","server_not_connected","blocked_by_policy","approval_required","selection_required"].includes(c)) gcal.events=[];
+        if(c==="bad_request"||c==="capability_removed"){ gcal.evErr=""; gcalFetchOnce(input); return; }
+        gcal.evErr=c; renderCalGrid(); return;
+      }
+      const p = ev.result && ev.result.payload;
+      gcal.events = (p && Array.isArray(p.events) ? p.events : []).map(normalizeG).filter(Boolean);
+      gcal.evErr=""; renderCalGrid();
+    }, {cache:{staleTime:60000}, refetchInterval:300000});
+  }catch(err){ gcal.evErr="upstream_error"; }
+}
+async function gcalFetchOnce(input){
+  if(!gcal.mcp) return;
+  try{
+    const r = await gcal.mcp.callTool(GCAL,"list_events",input,{cache:{staleTime:60000}});
+    const p = r && r.payload;
+    gcal.events = (p && Array.isArray(p.events) ? p.events : []).map(normalizeG).filter(Boolean);
+    gcal.evErr="";
+  }catch(e){ gcal.evErr=(e&&e.code)||"upstream_error"; }
+  renderCalGrid();
+}
+function addHour(t){
+  const p=String(t||"10:00").split(":").map(Number);
+  const d=new Date(2000,0,1,p[0]||0,p[1]||0); d.setHours(d.getHours()+1);
+  return pad(d.getHours())+":"+pad(d.getMinutes());
+}
+/* 面談をGoogleカレンダーへ（顧客情報つき） */
+function meetingGBody(c, m){
+  const L = [];
+  L.push("お客様：" + (c.name||"") + " 様（" + m.n + "面談）");
+  L.push("会社：" + companyName(c.companyId));
+  L.push("ランク：" + (c.rank || "未設定") + (c.rank? "（"+RANKS[c.rank].desc+"）":""));
+  L.push("商談ステージ：" + (STAGE_NAME[c.stage] || "—"));
+  const ps=(c.products||[]).map(p=>productName(c.companyId,p));
+  if(ps.length) L.push("提案商品：" + ps.join("、"));
+  if(c.tel) L.push("連絡先：" + c.tel);
+  if(c.budgetTotal!=="" && c.budgetTotal!=null) L.push("総予算：" + man(c.budgetTotal) + " 万円");
+  if(c.landStatus) L.push("土地：" + (LAND[c.landStatus]||"—") + (c.wishArea? "／希望エリア "+c.wishArea : ""));
+  L.push("営業担当：" + staffName(c.ownerId));
+  if(m.place) L.push("場所：" + m.place);
+  const prev = lastDoneMeeting(c);
+  if(prev && (prev.note||"").trim()) L.push("", "【前回（"+prev.n+"）の記録】", prev.note);
+  if((m.note||"").trim()) L.push("", "【メモ】", m.note);
+  L.push("", "— 住宅営業カルテ から登録された予定です");
+  return L.join("\n");
+}
+async function gcalCreateMeeting(c, m){
+  if(gcal.status!=="ready" || !gcal.mcp) return {ok:false, code:"server_not_connected"};
+  const start = m.time || "10:00", end = addHour(start);
+  const input = {
+    summary: "【"+m.n+"面談】" + (c.name||"") + " 様（" + companyShort(c.companyId) + "）",
+    startTime: m.date+"T"+start+":00+09:00",
+    endTime: m.date+"T"+end+":00+09:00",
+    timeZone: "Asia/Tokyo",
+    description: meetingGBody(c,m),
+    notificationLevel: "NONE",
+  };
+  if(m.place) input.location = m.place;
+  try{
+    const r = await gcal.mcp.callTool(GCAL,"create_event",input);
+    const p = r && r.payload;
+    if(p && p.id) return {ok:true, id:p.id, link:p.htmlLink||""};
+    return {ok:false, code:"upstream_error"};
+  }catch(e){ return {ok:false, code:(e&&e.code)||"upstream_error"}; }
+}
+async function gcalCreateEvent(doc){
+  if(gcal.status!=="ready" || !gcal.mcp) return {ok:false, code:"server_not_connected"};
+  const start = doc.startTime || "10:00";
+  const end = (doc.endTime && doc.endTime>start) ? doc.endTime : addHour(start);
+  const L = ["種別：" + (EVT[doc.type]||"その他"), "担当：" + staffName(doc.staffId)];
+  if(doc.companyId) L.push("会社：" + companyName(doc.companyId));
+  if(doc.place) L.push("場所：" + doc.place);
+  if(doc.note) L.push("", doc.note);
+  L.push("", "— 住宅営業カルテ から登録された予定です");
+  const input = { summary:"【"+(EVT[doc.type]||"その他")+"】"+doc.title,
+    startTime:doc.date+"T"+start+":00+09:00", endTime:doc.date+"T"+end+":00+09:00",
+    timeZone:"Asia/Tokyo", description:L.join("\n"), notificationLevel:"NONE" };
+  if(doc.place) input.location = doc.place;
+  try{
+    const r = await gcal.mcp.callTool(GCAL,"create_event",input);
+    const p = r && r.payload;
+    if(p && p.id) return {ok:true, id:p.id, link:p.htmlLink||""};
+    return {ok:false, code:"upstream_error"};
+  }catch(e){ return {ok:false, code:(e&&e.code)||"upstream_error"}; }
+}
+async function gcalRemove(gid){
+  if(!gid || gcal.status!=="ready" || !gcal.mcp) return false;
+  try{ await gcal.mcp.callTool(GCAL,"delete_event",{eventId:gid, notificationLevel:"NONE"}); return true; }
+  catch(e){ return false; }
+}
+async function gcalRefresh(){ if(gcal.mcp) try{ await gcal.mcp.invalidate(GCAL,"list_events"); }catch(e){} }
+/* ============================================================
+   RENDER — 全体
+   ============================================================ */
+function renderAll(){
+  const root = $("#root");
+  if(dbState==="off") return void(root.innerHTML = offlineHTML());
+  if(dbState==="loading" || !loaded.staff || !loaded.auth) return void(root.innerHTML = loadingHTML());
+  if(!authReady()){ root.innerHTML = setupHTML(); return bindSetup(); }
+  if(!me){ root.innerHTML = loginHTML(); return bindLogin(); }
+  root.innerHTML = shellHTML();
+  bindShell();
+  renderView();
+}
+function loadingHTML(){
+  return '<div class="loginwrap"><div class="loginbox"><div class="frm"><p class="muted small">データベースに接続しています…</p></div></div></div>';
+}
+function offlineHTML(){
+  return '<div class="loginwrap"><div class="loginbox"><div class="frm">'+
+    '<div class="row" style="gap:9px;color:var(--accent)">'+I.house+'<b style="color:var(--text)">住宅営業カルテ</b></div>'+
+    '<div class="err">データベースに接続できません。</div>'+
+    '<p class="small muted">公開されたリンクから開いたときにデータへ接続します。ファイルを直接開いた場合や権限が無い場合は読み書きできません。リンクから開き直してください。</p>'+
+    '</div></div></div>';
+}
+/* ---------- パスワード欄（表示切替つき） ---------- */
+function pwField(id, ac, ph){
+  return '<div class="pwwrap"><input id="'+id+'" type="password"'+(ac?' autocomplete="'+ac+'"':'')+
+    (ph?' placeholder="'+esc(ph)+'"':'')+'>'+
+    '<button type="button" class="eye" data-eye="'+id+'" aria-label="パスワードを表示">表示</button></div>';
+}
+function bindEyes(scope){
+  (scope||document).querySelectorAll("[data-eye]").forEach(b=>b.addEventListener("click",()=>{
+    const el=document.getElementById(b.dataset.eye); if(!el) return;
+    const show = el.type==="password";
+    el.type = show?"text":"password";
+    b.textContent = show?"隠す":"表示";
+    b.setAttribute("aria-label", show?"パスワードを隠す":"パスワードを表示");
+    el.focus();
+  }));
+}
+/* 伝えやすいパスワードを作る（例：maple4821） */
+function easyPw(){
+  const r=crypto.getRandomValues(new Uint32Array(2));
+  return PW_WORDS[r[0]%PW_WORDS.length] + String(1000 + (r[1]%9000));
+}
+function setPwInputs(ids, val){
+  ids.forEach(i=>{ const el=$("#"+i); if(el){ el.value=val; el.type="text"; } });
+  document.querySelectorAll("[data-eye]").forEach(b=>{ if(ids.includes(b.dataset.eye)) b.textContent="隠す"; });
+}
+/* 決めたパスワードを大きく表示する画面 */
+function showPwList(rows, title, msg){
+  openOverlay('<div class="modal"><div class="dhead"><b>'+esc(title)+'</b><div class="grow"></div>'+
+    '<button class="x" id="dClose">'+I.x+'</button></div><div class="dbody">'+
+    '<div class="banner good" style="margin-bottom:14px">'+esc(msg)+'</div>'+
+    rows.map(r=>'<div class="fset"><h4>'+esc(r[0])+'</h4><div class="pwshow">'+esc(r[1])+'</div></div>').join("")+
+    '<div class="note">上の文字をなぞるとまとめて選択できます。パスワードは元に戻せない形で保存するため、'+
+    'この画面を閉じると確認できません。忘れたときは新しいパスワードに変えてください（誰でも変えられます）。</div>'+
+    '</div><div class="dfoot"><button class="btn primary" id="dCancel">控えたので閉じる</button></div></div>');
+  $("#dClose").addEventListener("click", closeOverlay);
+  $("#dCancel").addEventListener("click", closeOverlay);
+}
+/* ---------- 初回設定：パスワードを決めるだけ ---------- */
+function setupHTML(){
+  const keys = scopeKeys();
+  return '<div class="loginwrap"><div class="loginsplit">'+
+    '<div class="intro">'+
+      '<div><div class="row" style="gap:9px;color:var(--accent)">'+I.house+'<span class="eyebrow">Setup — 最初の1回だけ</span></div>'+
+      '<h2 style="margin-top:10px">パスワードを決めて<br>使いはじめる</h2></div>'+
+      '<p class="lead">社員ひとりずつのIDやアカウントは作りません。<b>会社ごとに1つのパスワード</b>を決めて、その会社の営業さんに伝えるだけです。</p>'+
+      '<div><p class="eyebrow" style="margin-bottom:11px">仕組み</p><ul class="canlist">'+
+        '<li>各社のパスワードで入ると、<b>その会社のお客様だけ</b>が見えます</li>'+
+        '<li><b>本部のパスワード</b>で入ると、3社を会社タブで切り替えて見られます</li>'+
+        '<li>名前はログイン画面で選ぶだけ。無ければその場で追加できます</li>'+
+        '<li><b>退職者が出たら、その会社のパスワードを変えるだけ</b>。開いたままの端末も次から入れなくなります</li>'+
+      '</ul></div>'+
+      '<div class="note">パスワードは「誰でもいつでも変えられる」設計です。管理者の設定や役職の登録はありません。</div>'+
+    '</div>'+
+    '<form class="pane" id="setupForm">'+
+      '<div><p class="eyebrow">Step 1</p><h2 style="margin-top:5px;font-size:17px">パスワードを決める</h2>'+
+      '<p class="small muted" style="margin-top:7px">4文字以上。口で伝えやすいものがおすすめです。あとからいつでも変更できます。</p></div>'+
+      '<div id="setupErr"></div>'+
+      keys.map(k=>'<div><label class="lb" for="sp_'+esc(k)+'">'+esc(scopeTitle(k))+
+        (k===HQ? '（3社ぜんぶ見る人用）':'')+'</label>'+pwField("sp_"+k,"new-password")+'</div>').join("")+
+      '<button class="btn sm" type="button" id="setupGen">4つまとめて自動で作る</button>'+
+      '<button class="btn primary" type="submit" style="justify-content:center;padding:11px;margin-top:4px">この内容ではじめる</button>'+
+    '</form></div></div>';
+}
+function bindSetup(){
+  bindEyes();
+  const keys = scopeKeys();
+  $("#setupGen").addEventListener("click",()=>{
+    keys.forEach(k=>setPwInputs(["sp_"+k], easyPw()));
+    toast("パスワードを作りました。控えてから「はじめる」を押してください");
+  });
+  $("#setupForm").addEventListener("submit", async ev=>{
+    ev.preventDefault();
+    const err=$("#setupErr"), scopes={}, rows=[];
+    for(const k of keys){
+      const pw = $("#sp_"+k).value;
+      if(!pw || pw.length<4) return void(err.innerHTML='<div class="err">'+esc(scopeTitle(k))+' のパスワードを4文字以上で入れてください。</div>');
+      const salt=newSalt();
+      scopes[k]={salt, hash:await hashPw(salt,pw), updatedAt:new Date().toISOString(), updatedBy:"初回設定"};
+      rows.push([scopeTitle(k), pw]);
+    }
+    try{
+      await DB.doc("meta/auth").set({scopes, updatedAt:new Date().toISOString()});
+      await DB.doc("meta/config").set({companies:companies(), updatedAt:new Date().toISOString()});
+      showPwList(rows, "パスワードを設定しました", "この内容を各社の営業さんに伝えてください。会社ごとに、伝える相手を分けてください。");
+    }catch(e){ err.innerHTML='<div class="err">保存できませんでした。時間をおいて再度お試しください。</div>'; }
+  });
+}
+/* ---------- ログイン ---------- */
+function loginIntro(){
+  return '<div class="intro">'+
+    '<div><div class="row" style="gap:9px;color:var(--accent)">'+I.house+'<span class="eyebrow">'+esc(companies().map(c=>c.name).join("／"))+'</span></div>'+
+    '<h2 style="margin-top:10px">住宅営業カルテ</h2></div>'+
+    '<p class="lead">お客様との出会いから契約までを記録する営業台帳です。'+
+    '誰がどのお客様に、どの商品を、何回目の面談まで進めているかを一覧で把握します。</p>'+
+    '<div><p class="eyebrow" style="margin-bottom:11px">ログインは2ステップ</p><ol class="steps">'+
+      '<li><b>自分の会社を押す</b><br>各社のパスワードでは自社のお客様だけが見えます。本部を選ぶと3社を切り替えて見られます。</li>'+
+      '<li><b>名前を選んでパスワードを入れる</b><br>パスワードは会社で共通です。名簿に名前が無ければ、その場で追加できます。</li>'+
+    '</ol></div>'+
+    '<div><p class="eyebrow" style="margin-bottom:11px">できること</p><ul class="canlist">'+
+      '<li>お客様を <b>A（土地あり・興味あり）／B（土地なし・興味あり）／C（土地なし・興味なし）</b> で整理</li>'+
+      '<li><b>初回・2回目・3回目…</b> と面談を積み上げ、次回アポと未接触を自動で見張ります</li>'+
+      '<li>面談は<b>Googleカレンダー</b>にお客様情報つきで書き出せます</li>'+
+      '<li>担当者別・商品別・ランク別の<b>集計</b>、契約済／没リスト</li>'+
+    '</ul></div>'+
+    '<div class="note"><b>パスワードが分からない方へ</b>　社内の誰かに聞いてください（個人ごとのIDはありません）。'+
+    '<b>退職者が出たとき</b>は、ログイン後の「設定・パスワード」から、その会社のパスワードを新しくできます。</div>'+
+    '</div>';
+}
+function loginHTML(){
+  const k = login.scope, picked = k===HQ || !!companyById(k);
+  let pane;
+  if(!picked){
+    pane = '<div><p class="eyebrow">Sign in</p><h2 style="margin-top:5px;font-size:17px">ログイン</h2></div>'+
+      (login.err? '<div class="err">'+esc(login.err)+'</div>':'')+
+      '<div class="stepnum"><i>1</i><b>自分の会社を押してください</b></div>'+
+      '<div class="pickgrid">'+
+        companies().map(c=>'<button type="button" class="pick" data-pick="'+esc(c.id)+'"><b>'+esc(c.name)+'</b>'+
+          '<span>'+esc((c.products||[]).map(p=>p.name).join("・"))+'</span></button>').join("")+
+        '<button type="button" class="pick hq" data-pick="'+HQ+'"><b>本部（3社をまとめて見る）</b>'+
+        '<span>会社タブで '+esc(companies().map(c=>c.short||c.name).join("／"))+' を切り替えられます</span></button>'+
+      '</div>'+
+      '<p class="tiny faint">押すと、名前とパスワードの入力に進みます。</p>';
+  }else{
+    const list = rosterFor(k);
+    const pre = login.staffId || lastNameFor(k);
+    const sel = list.some(s=>s.id===pre) ? pre : (list.length? list[0].id : "__new");
+    pane = '<div class="picked">'+I.lock+'<div><b>'+esc(scopeTitle(k))+'</b></div><div class="grow"></div>'+
+        '<button type="button" class="linkbtn" id="lgBack">会社を選び直す</button></div>'+
+      (login.err? '<div class="err">'+esc(login.err)+'</div>':'')+
+      '<div><div class="stepnum" style="margin-top:4px"><i>2</i><b>お名前</b></div>'+
+        '<select id="lg_name">'+
+          list.map(s=>'<option value="'+s.id+'"'+(sel===s.id?" selected":"")+'>'+esc(s.name)+'</option>').join("")+
+          '<option value="__new"'+(sel==="__new"?" selected":"")+'>＋ 名簿にない（新しく登録する）</option>'+
+        '</select>'+
+        '<div id="lg_newwrap" style="margin-top:9px"'+(sel==="__new"?"":" hidden")+'>'+
+          '<input type="text" id="lg_newname" value="'+esc(login.newName)+'" placeholder="お名前（例：山田 太郎）">'+
+          '<p class="tiny faint" style="margin-top:5px">名簿に追加されます。担当者として選べるようになります。</p></div></div>'+
+      '<div><div class="stepnum"><i>3</i><b>パスワード</b></div>'+
+        pwField("lg_pw","current-password","会社で共通のパスワード")+
+        '<p class="tiny faint" style="margin-top:5px">入力した文字は「表示」で確認できます。</p></div>'+
+      '<label class="check"><input type="checkbox" id="lg_remember"'+(login.remember?" checked":"")+
+        '>この端末では次回から自動でログイン</label>'+
+      '<button class="btn primary" type="submit" style="justify-content:center;padding:11px;margin-top:2px">ログイン</button>';
+  }
+  return '<div class="loginwrap"><div class="loginsplit">'+loginIntro()+
+    '<form class="pane" id="loginForm">'+pane+'</form></div></div>';
+}
+function bindLogin(){
+  bindEyes();
+  document.querySelectorAll("[data-pick]").forEach(b=>b.addEventListener("click",()=>{
+    login.scope=b.dataset.pick; login.err=""; login.staffId=lastNameFor(login.scope); renderAll();
+  }));
+  const back=$("#lgBack");
+  if(back) back.addEventListener("click",()=>{ login.scope=""; login.err=""; renderAll(); });
+  const ns=$("#lg_name");
+  if(ns) ns.addEventListener("change",()=>{
+    const w=$("#lg_newwrap"); if(w) w.hidden = ns.value!=="__new";
+    if(ns.value==="__new"){ const el=$("#lg_newname"); if(el) el.focus(); }
+  });
+  const form=$("#loginForm");
+  form.addEventListener("submit", async ev=>{
+    ev.preventDefault();
+    const k=login.scope; if(!k) return;
+    const a=scopeAuth(k);
+    const pw=($("#lg_pw")||{}).value||"";
+    const fail=m=>{ login.err=m; login.staffId=($("#lg_name")||{}).value||""; login.newName=(($("#lg_newname")||{}).value||"").trim(); renderAll(); };
+    if(!a || !a.hash) return fail("この会社のパスワードがまだ設定されていません。本部の方に設定を依頼してください。");
+    if(await hashPw(a.salt||"",pw) !== a.hash)
+      return fail("パスワードが違います。退職者が出たなどで新しいパスワードに変わっているかもしれません。社内で最新のパスワードをご確認ください。");
+    /* 名前 */
+    const v=($("#lg_name")||{}).value||"__new";
+    let sid=v, nm="";
+    if(v==="__new"){
+      nm=(($("#lg_newname")||{}).value||"").trim();
+      if(!nm) return fail("お名前を入れてください。");
+      const dup = roster().find(s=>s.name===nm && (k===HQ || (s.companies||[]).includes(k)));
+      if(dup) sid=dup.id;
+      else{
+        sid=uid();
+        const comps = k===HQ ? companies().map(c=>c.id) : [k];
+        try{ await DB.doc("staff/"+sid).set({name:nm, companies:comps, active:true, tel:"", email:"", createdAt:new Date().toISOString()}); }
+        catch(e){ return fail("名簿に登録できませんでした。時間をおいて再度お試しください。"); }
+      }
+    }else{
+      const s=staffById(sid);
+      if(!s) return fail("お名前を選び直してください。");
+      nm=s.name;
+    }
+    const rem = !!(($("#lg_remember")||{}).checked);
+    login.remember=rem; login.err=""; login.newName="";
+    me = {scope:k, id:sid, name:nm, fp:scopeFp(k)};
+    setLastNameFor(k, sid);
+    if(rem) saveSession(); else clearSession();
+    afterLogin(); renderAll();
+  });
+}
+/* ---------- シェル ---------- */
+const NAV = [
+  {id:"dash", name:"ダッシュボード", icon:"dash"},
+  {id:"customers", name:"顧客", icon:"users"},
+  {id:"meetings", name:"面談予定", icon:"clock"},
+  {id:"calendar", name:"カレンダー", icon:"cal"},
+  {id:"todo", name:"TODO", icon:"check"},
+  {id:"report", name:"集計", icon:"chart"},
+];
+const ARCHIVE_NAV = [
+  {id:"contract", name:"契約済", icon:"seal"},
+  {id:"lost", name:"没リスト", icon:"box"},
+];
+function navCounts(){
+  const a = scopedActive();
+  return {
+    customers:a.length,
+    meetings:a.filter(c=>scheduledMeeting(c)).length,
+    todo:visTodos().filter(x=>!x.done && x.staffId===me.id && x.due && x.due<=TODAY()).length,
+    contract:scopedWon().length,
+    lost:scopedLost().length,
+  };
+}
+function navHTML(kind){
+  const n = navCounts();
+  const item = it => '<a data-nav="'+it.id+'" class="'+(view===it.id?"on":"")+'">'+(kind==="nav"?I[it.icon]:"")+
+    '<span>'+it.name+'</span>'+
+    (n[it.id]!==undefined && n[it.id]>0 ? '<span class="n'+(it.id==="todo"?" alert":"")+'">'+n[it.id]+'</span>' : '')+'</a>';
+  let h = NAV.map(item).join("");
+  h += (kind==="nav"?'<div class="sep">アーカイブ</div>':'') + ARCHIVE_NAV.map(item).join("");
+  h += (kind==="nav"?'<div class="sep">設定</div>':'') +
+    '<a data-nav="admin" class="'+(view==="admin"?"on":"")+'">'+(kind==="nav"?I.gear:"")+'<span>パスワード・名簿</span></a>';
+  return h;
+}
+function shellHTML(){
+  return '<div class="shell">'+
+   '<aside class="side">'+
+     '<div class="brand"><div class="mark" style="color:var(--accent)">'+I.house+'<b style="color:var(--text)">住宅営業カルテ</b></div>'+
+     '<div class="sub">Group CRM</div></div>'+
+     '<nav class="nav">'+navHTML("nav")+'</nav>'+
+     '<div class="whoami"><div class="av">'+esc(initials(me.name))+'</div>'+
+       '<div class="grow" style="min-width:0"><div class="small" style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(me.name||"（名前未設定）")+'</div>'+
+       '<div class="tiny faint">'+esc(scopeTitle(me.scope))+'</div></div>'+
+       '<button class="x" id="btnAcct" title="アカウント">'+I.gear+'</button></div>'+
+   '</aside>'+
+   '<div class="main">'+
+     '<nav class="mobnav">'+navHTML("mob")+'</nav>'+
+     '<div id="scopeWrap"></div>'+
+     '<div id="viewRoot"></div>'+
+   '</div></div>';
+}
+function bindShell(){
+  bindNav();
+  $("#btnAcct").addEventListener("click", openAccount);
+  renderScopeBar();
+}
+function bindNav(){
+  document.querySelectorAll("[data-nav]").forEach(a=>a.addEventListener("click",()=>{ view=a.dataset.nav; renderAll(); }));
+}
+/* ---------- 会社スコープタブ ---------- */
+function renderScopeBar(){
+  const box = $("#scopeWrap"); if(!box) return;
+  const cs = myCompanies();
+  const act = allVisible().filter(c=>!c.lost&&!c.contracted);
+  let left;
+  if(canSwitchCompany()){
+    const tabs = [["all","全社",act.length]].concat(cs.map(id=>[id, companyName(id), act.filter(c=>c.companyId===id).length]));
+    left = '<span class="scope-label">会社</span><div class="stabs">'+
+      tabs.map(([v,label,n])=>'<button class="stab'+(ui.scope===v?" on":"")+'" data-scope="'+esc(v)+'">'+esc(label)+
+        '<span class="sn">'+n+'</span></button>').join("")+'</div>';
+  }else{
+    left = '<span class="scope-label">会社</span><span class="lockchip">'+I.lock+esc(companyName(cs[0]||""))+
+      '<span class="tiny" style="font-weight:400;opacity:.75">自社のみ</span></span>'+
+      '<span class="tiny faint">担当者は自社のお客様だけを閲覧できます</span><div class="grow"></div>';
+  }
+  const reps = scopeStaff();
+  const right = '<div class="scope-right"><span class="scope-label">担当</span>'+
+    '<select id="scopeRep"><option value="">全員</option>'+
+    reps.map(s=>'<option value="'+s.id+'"'+(ui.scopeRep===s.id?" selected":"")+'>'+esc(s.name)+'</option>').join("")+'</select>'+
+    '<button class="btn sm" id="scopeMine">'+(ui.scopeRep===me.id? "全員に戻す":"自分の担当")+'</button></div>';
+  box.innerHTML = '<div class="scopebar">'+left+right+'</div>';
+  box.querySelectorAll("[data-scope]").forEach(b=>b.addEventListener("click",()=>{
+    ui.scope = b.dataset.scope; renderScopeBar(); renderView();
+  }));
+  const sr=$("#scopeRep"); if(sr) sr.addEventListener("change",()=>{ ui.scopeRep=sr.value; renderScopeBar(); renderView(); });
+  const sm=$("#scopeMine"); if(sm) sm.addEventListener("click",()=>{ ui.scopeRep = ui.scopeRep===me.id? "" : me.id; renderScopeBar(); renderView(); });
+}
+function refreshCurrent(){
+  if(!me || dbState!=="ok") return;
+  if(!$("#viewRoot")) return renderAll();
+  const nav=$(".nav"); if(nav) nav.innerHTML=navHTML("nav");
+  const mob=$(".mobnav"); if(mob) mob.innerHTML=navHTML("mob");
+  bindNav(); renderScopeBar();
+  if(view==="customers") renderCustomerTable();
+  else if(view==="calendar") renderCalGrid();
+  else if(view==="todo") renderTodoList();
+  else renderView();
+}
+function renderView(){
+  const r=$("#viewRoot"); if(!r) return;
+  ({dash:renderDash, customers:renderCustomers, meetings:renderMeetings, calendar:renderCalendar,
+    todo:renderTodo, report:renderReport, contract:renderContract, lost:renderLost, admin:renderAdmin}[view] || renderDash)(r);
+}
+const VIEW_SUB = {
+  dash:"商談サマリー", customers:"行をクリックでカルテを開きます", meetings:"次回アポを時系列で確認",
+  calendar:"面談と予定を月単位で確認", todo:"やることの管理", report:"担当者別・商品別の実績",
+  contract:"成約したお客様", lost:"見送り・失注したお客様", admin:"ログインパスワードとメンバー名簿",
+};
+function topbar(title, right){
+  return '<div class="topbar"><div><h1>'+esc(title)+'</h1>'+
+    '<div class="vsub">'+esc(scopeLabel())+(ui.scopeRep? " ／ "+esc(staffName(ui.scopeRep))+" 担当":"")+' ／ '+esc(VIEW_SUB[view]||"")+'</div></div>'+
+    '<div class="grow"></div>'+(right||"")+'</div>';
+}
+function kpi(cls,k,v,u,d){
+  return '<div class="kpi '+cls+'"><span class="kbar"></span><div class="k">'+esc(k)+'</div>'+
+    '<div class="v">'+v+(u?'<span class="u">'+esc(u)+'</span>':'')+'</div><div class="d">'+esc(d)+'</div></div>';
+}
+function barRows(rows){
+  const max = Math.max(1, ...rows.map(r=>r[1]));
+  return rows.map(([n,v,col])=>'<div class="bar"><span class="nowrap" style="overflow:hidden;text-overflow:ellipsis">'+esc(n)+'</span>'+
+    '<span class="track"><span class="fill" style="width:'+(v/max*100)+'%'+(col?';background:'+col:'')+'"></span></span>'+
+    '<span class="val">'+v+'</span></div>').join("");
+}
+/* ============================================================
+   VIEW: ダッシュボード
+   ============================================================ */
+function miniCard(c){
+  const sub = ui.scopeRep ? (companyShort(c.companyId)) : (staffName(c.ownerId)||"担当未定");
+  return '<div class="mini" data-cust="'+c.id+'"><div class="mn">'+esc(c.name||"（無名）")+'</div>'+
+    '<div class="mr"><span>'+esc(sub)+'</span>'+whenPill(c)+'</div></div>';
+}
+function renderDash(root){
+  const act = scopedActive();
+  const won = scopedWon();
+  const cnt = r => act.filter(c=>c.rank===r).length;
+  const t = TODAY();
+  const week = act.filter(c=>{const d=daysFrom(nextDate(c)); return d!==null && d>=0 && d<=7;}).length;
+  const over = act.filter(c=>{const d=daysFrom(nextDate(c)); return d!==null && d<0;}).length;
+  const follow = act.filter(c=>statusOf(c).key==="follow").length;
+  const now = new Date(), ym = now.getFullYear()+"-"+pad(now.getMonth()+1);
+  const monthWon = won.filter(c=>(c.contractDate||"").startsWith(ym));
+  const monthAmt = monthWon.reduce((s,c)=>s+num(c.contractAmount),0);
+
+  let h = topbar("ダッシュボード",
+    '<button class="btn" id="dHelp">使い方</button>'+
+    '<button class="btn primary" id="dNew">'+I.plus+'顧客を追加</button>');
+  h += '<div class="content">';
+  h += '<div class="kpis">'+
+    kpi("", "稼働中の顧客", act.length, "件", "契約・没を除く")+
+    kpi("a", "ランク A", cnt("A"), "件", RANKS.A.desc)+
+    kpi("b", "ランク B", cnt("B"), "件", RANKS.B.desc)+
+    kpi("c", "ランク C", cnt("C"), "件", RANKS.C.desc)+
+    kpi("", "今週の面談", week, "件", "7日以内のアポ")+
+    kpi("warn", "要フォロー", follow, "件", "次回アポ未設定")+
+    kpi("ok", "今月の契約", monthWon.length, "棟", man(monthAmt)+" 万円")+
+    '</div>';
+
+  /* A/B/C レーン */
+  h += '<div class="sechead"><h2>ランク別 商談ボード</h2>'+
+    '<span class="hint">次回アポが近い順　'+(over? '<span class="when over">超過 '+over+'件</span>':'')+'</span></div>';
+  h += '<div class="board">'+["A","B","C"].map(r=>{
+    const info = RANKS[r];
+    const list = act.filter(c=>c.rank===r).sort((a,b)=>{
+      const da=daysFrom(nextDate(a)), db=daysFrom(nextDate(b));
+      return (da===null?9999:da)-(db===null?9999:db);
+    });
+    const body = list.length ? list.map(miniCard).join("") : '<div class="lane-empty">該当なし</div>';
+    return '<div class="lane '+r.toLowerCase()+'"><div class="lane-head"><div class="lane-badge">'+r+'</div>'+
+      '<div class="lane-meta"><div class="t">'+esc(info.label)+'</div><div class="d">'+esc(info.desc)+'</div></div>'+
+      '<div class="lane-cnt">'+list.length+'</div></div><div class="lane-body">'+body+'</div></div>';
+  }).join("")+'</div>';
+  const noRank = act.filter(c=>!c.rank);
+  if(noRank.length) h += '<div class="banner warn" style="margin-top:12px">ランク未設定のお客様が '+noRank.length+
+    ' 件あります。カルテを開いてA／B／Cを設定すると、ボードと集計に反映されます。</div>';
+
+  /* 予定・フォロー */
+  const up = upcomingList().slice(0,7);
+  const followList = sortBy(act.filter(needsFollow), c=>lastContact(c)||"", "asc").slice(0,7);
+  const myTodos = sortBy(visTodos().filter(x=>!x.done && x.staffId===me.id), x=>x.due||"9999","asc").slice(0,7);
+
+  h += '<div class="sechead"><h2>直近の動き</h2></div><div class="panels">';
+  h += '<div class="panel"><header><h3>これからの面談</h3><div class="grow"></div>'+
+    '<button class="btn sm" data-go="meetings">すべて見る</button></header><div>'+
+    (up.length? up.map(({c,m})=>schedRowHTML(c,m)).join("") : '<div class="empty">予定されている面談はありません。<br>カルテの「面談記録」に日付を入れると、ここに並びます。</div>')+'</div></div>';
+  h += '<div class="panel"><header><h3>要フォロー</h3>'+
+    '<span class="chip" style="background:var(--danger-bg);color:var(--danger)">'+followList.length+'件</span></header><div>'+
+    (followList.length? followList.map(c=>{
+      const d = -daysFrom(lastContact(c));
+      return '<div class="li click" data-cust="'+c.id+'"><span class="rank '+(c.rank||"X")+'">'+(c.rank||"–")+'</span>'+
+        '<span class="grow" style="min-width:0"><div class="cname" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(c.name)+'</div>'+
+        '<div class="tiny faint">'+esc(companyShort(c.companyId))+' / '+esc(staffName(c.ownerId))+'</div></span>'+
+        '<span class="tiny nowrap" style="color:var(--danger)">'+(isFinite(d)?d+"日":"—")+'</span></div>';
+    }).join("") : '<div class="empty">未接触が続いているお客様はいません</div>')+'</div></div>';
+  h += '<div class="panel"><header><h3>自分のTODO</h3><div class="grow"></div>'+
+    '<button class="btn sm" data-go="todo">一覧</button></header><div>'+
+    (myTodos.length? myTodos.map(x=>{
+      const late = x.due && x.due<=t;
+      return '<div class="li"><input type="checkbox" data-todo="'+x.id+'" style="width:auto;margin:0">'+
+        '<span class="grow" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(x.title)+'</span>'+
+        (x.due? '<span class="tiny nowrap" style="color:'+(late?"var(--danger)":"var(--faint)")+'">'+fmtD(x.due)+'</span>':'')+'</div>';
+    }).join("") : '<div class="empty">未完了のTODOはありません</div>')+'</div></div>';
+
+  /* 内訳バー */
+  if(!ui.scopeRep){
+    const reps = scopeStaff().filter(s=>act.some(c=>c.ownerId===s.id));
+    h += '<div class="panel"><header><h3>担当者別 件数</h3></header><div class="bars">'+
+      (reps.length? barRows(reps.map(s=>[s.name, act.filter(c=>c.ownerId===s.id).length, null])) : '<div class="lane-empty">データがありません</div>')+'</div></div>';
+  }
+  const prodRows = [];
+  scopeCompanies().forEach(cid=>{ const co=companyById(cid); if(!co) return;
+    (co.products||[]).forEach(p=>{
+      const n = act.filter(c=>c.companyId===cid && (c.products||[]).includes(p.id)).length;
+      prodRows.push([p.name+(scopeCompanies().length>1? "（"+companyShort(cid)+"）":""), n, null]);
+    });
+  });
+  h += '<div class="panel"><header><h3>商品別 提案件数</h3></header><div class="bars">'+
+    (prodRows.length? barRows(prodRows) : '<div class="lane-empty">データがありません</div>')+'</div></div>';
+  h += '</div></div>';
+
+  root.innerHTML = h;
+  $("#dNew").addEventListener("click",()=>openCustomer(null));
+  $("#dNew").disabled = !canCreateCustomer();
+  $("#dHelp").addEventListener("click", openHelp);
+  bindCommon(root);
+}
+function bindCommon(root){
+  root.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>{ view=b.dataset.go; renderAll(); }));
+  root.querySelectorAll("[data-cust]").forEach(b=>b.addEventListener("click",()=>openCustomer(b.dataset.cust)));
+  root.querySelectorAll("[data-todo]").forEach(b=>b.addEventListener("change",()=>toggleTodo(b.dataset.todo,b.checked)));
+}
+function upcomingList(){
+  const out=[];
+  scopedActive().forEach(c=>{ const m=scheduledMeeting(c); if(m && parseD(m.date)) out.push({c,m}); });
+  return out.sort((a,b)=> (a.m.date+(a.m.time||"99")).localeCompare(b.m.date+(b.m.time||"99")));
+}
+function schedRowHTML(c,m){
+  const d = parseD(m.date), [cls,txt] = whenClass(m.date);
+  return '<div class="srow" data-cust="'+c.id+'">'+
+    '<div class="sdate"><div class="dd">'+(d.getMonth()+1)+'/'+d.getDate()+'</div>'+
+    '<div class="dl">'+WD[d.getDay()]+'曜'+(m.time? ' '+esc(m.time):'')+'</div></div>'+
+    '<div class="smain"><div class="sn">'+esc(c.name||"（無名）")+
+    '　<span class="tiny faint" style="font-weight:400">'+esc(m.n)+'面談</span></div>'+
+    '<div class="sm">'+esc(staffName(c.ownerId))+' ・ '+esc(companyShort(c.companyId))+' ・ ランク'+(c.rank||"—")+
+    ((c.products||[]).length? ' ・ '+esc((c.products||[]).map(p=>productName(c.companyId,p)).join("／")) : '')+'</div></div>'+
+    '<span class="rank '+(c.rank||"X")+'">'+(c.rank||"–")+'</span>'+
+    '<span class="when '+cls+'">'+esc(txt)+'</span></div>';
+}
+
+/* ============================================================
+   VIEW: 顧客一覧
+   ============================================================ */
+function filteredCustomers(){
+  let list = scopedActive();
+  const tab = ui.rankTab;
+  if(tab==="A"||tab==="B"||tab==="C") list = list.filter(c=>c.rank===tab);
+  else if(tab==="none") list = list.filter(c=>!c.rank);
+  if(ui.fStage) list = list.filter(c=>c.stage===ui.fStage);
+  if(ui.fProduct) list = list.filter(c=>(c.products||[]).includes(ui.fProduct));
+  if(ui.fStatus) list = list.filter(c=>statusOf(c).key===ui.fStatus);
+  if(ui.fAlert) list = list.filter(needsFollow);
+  const q = ui.fQuery.trim().toLowerCase();
+  if(q) list = list.filter(c=>[c.name,c.kana,c.tel,c.email,c.address,c.memo,c.wishArea,c.showroom]
+    .some(v=>String(v||"").toLowerCase().includes(q))
+    || (c.meetings||[]).some(m=>String(m.note||"").toLowerCase().includes(q)));
+  const {key,dir} = ui.sort, ro={A:0,B:1,C:2,"":3};
+  return list.slice().sort((a,b)=>{
+    let x,y;
+    if(key==="rank"){ x=ro[a.rank||""]; y=ro[b.rank||""]; }
+    else if(key==="name") return String(a.name||"").localeCompare(String(b.name||""),"ja")*dir;
+    else if(key==="owner") return String(staffName(a.ownerId)).localeCompare(String(staffName(b.ownerId)),"ja")*dir;
+    else if(key==="inquiry"){ x=a.inquiryDate||"9999"; y=b.inquiryDate||"9999"; return String(x).localeCompare(String(y))*dir; }
+    else { x=nextDate(a)||"9999-99-99"; y=nextDate(b)||"9999-99-99"; return String(x).localeCompare(String(y))*dir; }
+    return (x-y)*dir;
+  });
+}
+function tabCount(tab){
+  const s=ui.rankTab; ui.rankTab=tab; const n=filteredCustomers().length; ui.rankTab=s; return n;
+}
+function renderCustomers(root){
+  const prods=[];
+  scopeCompanies().forEach(cid=>{ const c=companyById(cid); if(c)(c.products||[]).forEach(p=>{ if(!prods.some(x=>x.id===p.id&&x.cid===cid)) prods.push({...p,cid}); }); });
+  const tabs=[["all","すべて"],["A","Aランク"],["B","Bランク"],["C","Cランク"],["none","ランク未設定"]];
+  let h = topbar("顧客一覧", '<button class="btn sm" id="csvBtn">CSV書き出し</button>'+
+    '<button class="btn primary" id="cNew">'+I.plus+'顧客を追加</button>');
+  h += '<div class="content">';
+  h += '<div class="tabs">'+tabs.map(t=>'<button data-tab="'+t[0]+'" class="'+(ui.rankTab===t[0]?"on":"")+'">'+
+    esc(t[1])+'<span class="n">'+tabCount(t[0])+'</span></button>').join("")+'</div>';
+  h += '<div class="filters">'+
+    '<input type="text" id="fq" placeholder="氏名・電話・住所・面談メモを検索" value="'+esc(ui.fQuery)+'">'+
+    '<select id="fStatus"><option value="">全ステータス</option>'+
+      [["active","商談中"],["follow","次回アポ未設定"],["todo","情報未入力"]].map(o=>
+      '<option value="'+o[0]+'"'+(ui.fStatus===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select>'+
+    '<select id="fStage"><option value="">全ステージ</option>'+STAGES.map(s=>
+      '<option value="'+s.id+'"'+(ui.fStage===s.id?" selected":"")+'>'+esc(s.name)+'</option>').join("")+'</select>'+
+    '<select id="fProduct"><option value="">全ての商品</option>'+prods.map(p=>
+      '<option value="'+esc(p.id)+'"'+(ui.fProduct===p.id?" selected":"")+'>'+esc(p.name)+'</option>').join("")+'</select>'+
+    '<label class="check"><input type="checkbox" id="fAlert"'+(ui.fAlert?" checked":"")+'>要フォローのみ</label>'+
+    '</div><div id="custTable"></div></div>';
+  root.innerHTML = h;
+  $("#cNew").addEventListener("click",()=>openCustomer(null));
+  $("#cNew").disabled = !canCreateCustomer();
+  $("#csvBtn").addEventListener("click", exportCSV);
+  root.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{ ui.rankTab=b.dataset.tab; renderCustomers(root); }));
+  const bind=(id,key,ev)=>{ const el=$("#"+id); el.addEventListener(ev||"change",()=>{
+    ui[key] = el.type==="checkbox"? el.checked : el.value; renderCustomerTable(); refreshTabCounts(); }); };
+  bind("fq","fQuery","input"); bind("fStatus","fStatus"); bind("fStage","fStage"); bind("fProduct","fProduct"); bind("fAlert","fAlert");
+  renderCustomerTable();
+}
+function refreshTabCounts(){
+  document.querySelectorAll("[data-tab]").forEach(b=>{ const n=b.querySelector(".n"); if(n) n.textContent=tabCount(b.dataset.tab); });
+}
+function sortHead(key,label){
+  const on = ui.sort.key===key;
+  return '<th data-sort="'+key+'" style="cursor:pointer">'+esc(label)+(on? (ui.sort.dir===1?" ▲":" ▼"):"")+'</th>';
+}
+function renderCustomerTable(){
+  const box=$("#custTable"); if(!box) return;
+  if(!loaded.customers) return void(box.innerHTML='<div class="tablewrap"><div class="empty">読み込み中…</div></div>');
+  const list = filteredCustomers();
+  if(!list.length) return void(box.innerHTML='<div class="tablewrap"><div class="empty">条件に合うお客様がいません。<br>右上の「顧客を追加」から登録できます。</div></div>');
+  const rows = list.map(c=>{
+    const st = statusOf(c), m = scheduledMeeting(c), ld = lastDoneMeeting(c);
+    let nd = '<span class="faint">—</span>';
+    if(m){ const d=parseD(m.date), [cls,txt]=whenClass(m.date);
+      nd = '<span class="num" style="font-weight:500">'+(d.getMonth()+1)+'/'+d.getDate()+'</span>'+
+        (m.time? ' <span class="num tiny faint">'+esc(m.time)+'</span>':'')+' <span class="when '+cls+'">'+esc(txt)+'</span>'; }
+    const prods = (c.products||[]).map(p=>productName(c.companyId,p));
+    return '<tr class="click r'+esc(c.rank||"")+'" data-cust="'+c.id+'">'+
+      '<td class="stripe">'+rankSelectHTML(c)+'</td>'+
+      '<td><div class="cname">'+esc(c.name||"（無名）")+'</div><div class="tiny faint">'+esc(c.kana||c.tel||"")+'</div></td>'+
+      (scopeCompanies().length>1? '<td class="small nowrap">'+esc(companyShort(c.companyId))+'</td>':'')+
+      '<td class="small nowrap">'+esc(staffName(c.ownerId))+'</td>'+
+      '<td class="small nowrap">'+((c.meetings||[]).length? (c.meetings||[]).length+' 回':'<span class="faint">—</span>')+'</td>'+
+      '<td class="nowrap">'+nd+'</td>'+
+      '<td><span class="st '+st.key+'">'+esc(st.label)+'</span></td>'+
+      '<td class="small">'+(prods.length? prods.map(p=>'<span class="chip">'+esc(p)+'</span>').join(" ") : '<span class="faint">—</span>')+'</td>'+
+      '<td class="notecell">'+(ld && (ld.note||"").trim()? esc(ld.note) : '<span class="faint">記録なし</span>')+'</td>'+
+      '</tr>';
+  }).join("");
+  box.innerHTML = '<div class="tablewrap"><table><thead><tr>'+
+    sortHead("rank","ランク")+sortHead("name","顧客名")+
+    (scopeCompanies().length>1?'<th>会社</th>':'')+
+    sortHead("owner","担当")+'<th>面談</th>'+sortHead("next","次回アポ")+'<th>状況</th><th>提案商品</th><th>直近の面談メモ</th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
+    '<p class="tiny faint" style="margin-top:8px">'+list.length+' 件を表示　／　ランクは一覧上で直接変更できます。</p>';
+  box.querySelectorAll("[data-cust]").forEach(tr=>tr.addEventListener("click",e=>{
+    if(e.target.closest(".rank-sel")) return; openCustomer(tr.dataset.cust);
+  }));
+  box.querySelectorAll("[data-sort]").forEach(th=>th.addEventListener("click",()=>{
+    const k=th.dataset.sort;
+    if(ui.sort.key===k) ui.sort.dir*=-1; else ui.sort={key:k,dir:1};
+    renderCustomerTable();
+  }));
+  box.querySelectorAll(".rank-sel").forEach(sel=>sel.addEventListener("change", async e=>{
+    e.stopPropagation();
+    const c = customers.find(x=>x.id===sel.dataset.rankid);
+    if(!c) return;
+    if(!canEditCustomer(c)){ toast("このお客様を編集する権限がありません"); renderCustomerTable(); return; }
+    try{ await DB.doc("customers/"+c.id).update({rank:sel.value, updatedAt:new Date().toISOString()}); toast("ランクを変更しました"); }
+    catch(err){ toast("変更できませんでした"); }
+  }));
+}
+function rankSelectHTML(c){
+  const bg = {A:"var(--rank-a-bg)",B:"var(--rank-b-bg)",C:"var(--rank-c-bg)","":"var(--surface3)"}[c.rank||""];
+  const fg = {A:"var(--rank-a)",B:"var(--rank-b)",C:"var(--rank-c)","":"var(--faint)"}[c.rank||""];
+  return '<select class="rank-sel" data-rankid="'+c.id+'" style="background:'+bg+';color:'+fg+'">'+
+    ["A","B","C",""].map(v=>'<option value="'+v+'"'+(v===(c.rank||"")?" selected":"")+'>'+(v||"未")+'</option>').join("")+'</select>';
+}
+
+/* ============================================================
+   VIEW: 面談予定
+   ============================================================ */
+function renderMeetings(root){
+  const up = upcomingList();
+  let h = topbar("面談予定", '<button class="btn" data-go="calendar">カレンダーで見る</button>');
+  h += '<div class="content">';
+  if(!up.length){
+    h += '<div class="panel"><div class="empty">予定されている面談はありません。<br>顧客カルテの「面談記録」に次回の日付を入れると、ここに時系列で並びます。</div></div>';
+  }else{
+    const g={over:[],today:[],week:[],later:[]};
+    up.forEach(x=>{ const d=daysFrom(x.m.date); if(d<0)g.over.push(x); else if(d===0)g.today.push(x); else if(d<=7)g.week.push(x); else g.later.push(x); });
+    [["today","本日の面談","var(--accent)"],["over","記録漏れ・期限超過","var(--danger)"],
+     ["week","今後7日以内","var(--rank-b)"],["later","それ以降","var(--muted)"]].forEach(([k,title,col])=>{
+      if(!g[k].length) return;
+      h += '<div class="sechead"><h2 style="color:'+col+'">'+esc(title)+'</h2><span class="hint">'+g[k].length+'件</span></div>'+
+        '<div class="panel">'+g[k].map(({c,m})=>schedRowHTML(c,m)).join("")+'</div>';
+    });
+    if(g.over.length) h += '<div class="banner warn" style="margin-top:14px">'+
+      '「記録漏れ・期限超過」は、日付が過ぎているのに面談メモが空のままのものです。カルテを開いて内容を記録すると実施済みになります。</div>';
+  }
+  const noNext = scopedActive().filter(c=>!scheduledMeeting(c) && !c.contracted && !c.lost);
+  if(noNext.length){
+    h += '<div class="sechead"><h2>次回アポ未設定</h2><span class="hint">'+noNext.length+'件</span></div><div class="panel">'+
+      sortBy(noNext, c=>lastContact(c)||"", "asc").map(c=>{
+        const lc = lastContact(c), d = lc? -daysFrom(lc) : null;
+        return '<div class="li click" data-cust="'+c.id+'"><span class="rank '+(c.rank||"X")+'">'+(c.rank||"–")+'</span>'+
+          '<span class="grow" style="min-width:0"><div class="cname">'+esc(c.name||"（無名）")+'</div>'+
+          '<div class="tiny faint">'+esc(staffName(c.ownerId))+' ・ '+esc(companyShort(c.companyId))+
+          (lc? ' ・ 最終接触 '+esc(fmtDY(lc)) : ' ・ 接触記録なし')+'</div></span>'+
+          (d!==null&&isFinite(d)? '<span class="tiny nowrap" style="color:'+(d>=FOLLOW_DAYS?"var(--danger)":"var(--muted)")+'">'+d+'日経過</span>':'')+
+          '</div>';
+      }).join("")+'</div>';
+  }
+  h += '</div>';
+  root.innerHTML = h;
+  bindCommon(root);
+}
+/* ============================================================
+   顧客カルテ（ドロワー）
+   ============================================================ */
+let drawerCust = null, drawerTab = "info";
+function blankCustomer(){
+  const cs = scopeCompanies();
+  return { id:null, companyId:(ui.scope!=="all"? ui.scope : (cs[0]||"")), ownerId:me.id,
+    name:"", kana:"", tel:"", email:"", postal:"", address:"",
+    rank:"B", stage:"reach", source:"", showroom:"", inquiryDate:TODAY(),
+    landStatus:"none", wishArea:"", landArea:"",
+    familySize:"", kids:"", buildTiming:"", tsubo:"", madori:"", competitors:"",
+    income:"", savings:"", loanWish:"", budgetTotal:"", loanScreen:"none",
+    products:[], mainProductId:"", productNote:"", memo:"",
+    meetings:[{date:"", time:"", place:"", note:""}],
+    lost:false, lostReason:"", lostDate:"", contracted:false, contractDate:"", contractAmount:"", grossProfit:"", contractNote:"" };
+}
+function openCustomer(id){
+  drawerCust = id ? (customers.find(c=>c.id===id)||null) : blankCustomer();
+  if(!drawerCust) return;
+  if(id) drawerCust = JSON.parse(JSON.stringify(drawerCust));
+  drawerTab = id ? "meet" : "info";
+  paintCustomer();
+}
+const canManageFor = c => canSeeCompany(c.companyId);
+function fld(label, inner, cls){ return '<div class="'+(cls||"")+'"><label class="lb">'+esc(label)+'</label>'+inner+'</div>'; }
+function inp(k,v,t,a){ return '<input data-f="'+k+'" type="'+(t||"text")+'" value="'+esc(v==null?"":v)+'" '+(a||"")+'>'; }
+function sel(k,v,opts){ return '<select data-f="'+k+'">'+opts.map(o=>'<option value="'+esc(o[0])+'"'+(String(v||"")===String(o[0])?" selected":"")+'>'+esc(o[1])+'</option>').join("")+'</select>'; }
+function ro(v){ return '<div style="padding:7px 0">'+(v||v===0? esc(v) : '<span class="faint">—</span>')+'</div>'; }
+
+function paintCustomer(){
+  const c = drawerCust, isNew = !c.id;
+  const ed = isNew ? canCreateCustomer() : canEditCustomer(c);
+  const st = statusOf(c);
+  const tabs = [["info","基本情報"],["meet","面談記録"],["money","資金・土地"],["product","提案商品"],["todo","予定・TODO"]];
+  const body = ({info:custInfo, meet:custMeet, money:custMoney, product:custProduct, todo:custTodo}[drawerTab]||custInfo)(c, ed);
+  const head = '<div class="dhead">'+
+    (isNew? '<b>新規顧客の登録</b>'
+      : '<span class="rank '+(c.rank||"X")+'">'+(c.rank||"–")+'</span>'+
+        '<div style="min-width:0"><b style="display:block">'+esc(c.name||"（無名）")+'</b>'+
+        '<span class="tiny faint">'+esc(companyName(c.companyId))+' ／ 担当 '+esc(staffName(c.ownerId))+'</span></div>'+
+        '<span class="st '+st.key+'">'+esc(st.label)+'</span>')+
+    '<div class="grow"></div>'+
+    (!isNew && !ed ? '<span class="chip">閲覧のみ</span>':'')+
+    '<button class="x" id="dClose">'+I.x+'</button></div>'+
+    (isNew? '' : '<div class="dtabs">'+tabs.map(t=>'<button data-dtab="'+t[0]+'" class="'+(drawerTab===t[0]?"on":"")+'">'+t[1]+'</button>').join("")+'</div>');
+  const foot = '<div class="dfoot">'+
+    (ed? '<button class="btn primary" id="dSave">保存</button>':'')+
+    '<button class="btn" id="dCancel">閉じる</button><div class="grow"></div>'+
+    (!isNew && ed? (c.contracted? '<button class="btn" id="dUncontract">契約を取消す</button>'
+                                : '<button class="btn" id="dContract">契約済にする</button>')+
+      (c.lost? '<button class="btn" id="dUnlost">商談に戻す</button>' : '<button class="btn" id="dLost">没にする</button>') : '')+
+    (!isNew && ed && canManageFor(c)? '<button class="btn danger" id="dDel">削除</button>':'')+
+    '</div>';
+  openOverlay('<div class="drawer">'+head+'<div class="dbody">'+body+'</div>'+foot+'</div>');
+  $("#dClose").addEventListener("click", closeOverlay);
+  $("#dCancel").addEventListener("click", closeOverlay);
+  document.querySelectorAll("[data-dtab]").forEach(b=>b.addEventListener("click",()=>{ collectCustomer(); drawerTab=b.dataset.dtab; paintCustomer(); }));
+  const on=(id,fn)=>{ const el=$("#"+id); if(el) el.addEventListener("click",fn); };
+  on("dSave", ()=>saveCustomer());
+  on("dDel", deleteCustomer);
+  on("dContract", ()=>markContract(true));
+  on("dUncontract", ()=>markContract(false));
+  on("dLost", ()=>markLost(true));
+  on("dUnlost", ()=>markLost(false));
+  bindCustExtras(c, ed);
+}
+function custInfo(c, ed){
+  const compOpts = (canManageFor(c)? myCompanies() : scopeCompanies()).map(id=>[id, companyName(id)]);
+  const ownerOpts = scopeStaff().map(s=>[s.id, s.name]);
+  if(c.ownerId && !ownerOpts.some(o=>o[0]===c.ownerId)) ownerOpts.unshift([c.ownerId, staffName(c.ownerId)]);
+  let h = '<div class="fset"><h4>顧客情報</h4><div class="grid2">'+
+    fld("氏名（必須）", ed?inp("name",c.name,"text",'placeholder="例：佐藤 一郎"'):ro(c.name))+
+    fld("ふりがな", ed?inp("kana",c.kana):ro(c.kana))+
+    fld("電話番号", ed?inp("tel",c.tel,"tel"):ro(c.tel))+
+    fld("メールアドレス", ed?inp("email",c.email,"email"):ro(c.email))+
+    fld("郵便番号", ed?inp("postal",c.postal):ro(c.postal))+
+    fld("現住所", ed?inp("address",c.address):ro(c.address), "span2")+
+    '</div></div>';
+  h += '<div class="fset"><h4>ランク・担当</h4><div class="grid2">'+
+    fld("ランク", ed?sel("rank",c.rank,[["A","A：土地あり・興味あり"],["B","B：土地なし・興味あり"],["C","C：土地なし・興味なし"],["","未設定"]])
+      :ro(c.rank? c.rank+"："+RANKS[c.rank].desc : ""))+
+    fld("商談ステージ", ed?sel("stage",c.stage,STAGES.map(s=>[s.id,s.name])):ro(STAGE_NAME[c.stage]))+
+    fld("会社", ed?sel("companyId",c.companyId,compOpts):ro(companyName(c.companyId)))+
+    fld("営業担当", (ed&&canManageFor(c))?sel("ownerId",c.ownerId,ownerOpts):ro(staffName(c.ownerId)))+
+    '</div></div>';
+  h += '<div class="fset"><h4>反響</h4><div class="grid3">'+
+    fld("問合せ日", ed?inp("inquiryDate",c.inquiryDate,"date"):ro(fmtDY(c.inquiryDate)))+
+    fld("反響経路", ed?sel("source",c.source,[["",""]].concat(SOURCES.map(s=>[s,s]))):ro(c.source))+
+    fld("展示場・反響元", ed?inp("showroom",c.showroom,"text",'placeholder="例：北安田展示場"'):ro(c.showroom))+
+    '</div></div>';
+  h += '<div class="fset"><h4>ご家族・ご希望</h4><div class="grid3">'+
+    fld("世帯人数", ed?inp("familySize",c.familySize,"number",'min="0"'):ro(c.familySize))+
+    fld("お子様（人）", ed?inp("kids",c.kids,"number",'min="0"'):ro(c.kids))+
+    fld("建築希望時期", ed?inp("buildTiming",c.buildTiming,"text",'placeholder="例：2027年春"'):ro(c.buildTiming))+
+    fld("希望坪数", ed?inp("tsubo",c.tsubo,"number",'min="0"'):ro(c.tsubo))+
+    fld("希望間取り", ed?inp("madori",c.madori,"text",'placeholder="例：4LDK"'):ro(c.madori))+
+    fld("競合他社", ed?inp("competitors",c.competitors):ro(c.competitors))+
+    '</div></div>';
+  h += '<div class="fset"><h4>メモ</h4>'+(ed?'<textarea data-f="memo" placeholder="ヒアリング内容、ご家族の事情、注意点など">'+esc(c.memo||"")+'</textarea>'
+    :'<div class="small" style="white-space:pre-wrap">'+(c.memo?esc(c.memo):'<span class="faint">—</span>')+'</div>')+'</div>';
+  return h;
+}
+function custMeet(c, ed){
+  const ms = meetingsOf(c);
+  let h = '';
+  if(ms.length){
+    h += '<div class="fset"><h4>これまでの流れ</h4><div class="tl">'+ms.map(m=>{
+      const done = meetingDone(m), hasNote = !!(m.note||"").trim();
+      let flag = "";
+      if(!done && m.date){ const [cls,txt]=whenClass(m.date); flag='<span class="when '+cls+'">予定 '+esc(txt)+'</span>'; }
+      return '<div class="tlnode"><div class="tldot '+(done?"done":(m.date?"sched":""))+'"></div>'+
+        '<div class="tltop"><span class="tlstage">'+esc(m.n)+'面談</span>'+
+        (m.date? '<span class="tldate">'+esc(fmtDY(m.date))+(m.time? ' '+esc(m.time):'')+'</span>':'<span class="tldate faint">日付未定</span>')+
+        flag+(m.gcalId? '<span class="chip">Googleに登録済</span>':'')+
+        (m.place? '<span class="tiny faint">'+esc(m.place)+'</span>':'')+'</div>'+
+        '<div class="tlnote'+(hasNote?"":" none")+'">'+(hasNote? esc(m.note) : "（記録待ち）")+'</div></div>';
+    }).join("")+'</div></div>';
+  }
+  if(ed){
+    h += '<div class="fset"><h4>面談の記録・予定</h4>'+
+      '<p class="small muted" style="margin-bottom:12px">上から順に 初回・2回目・3回目… になります。'+
+      '<b>未来の日付＝予定</b>、<b>過去の日付、または当日でメモ入り＝実施済み</b>として自動で判定します。</p>'+
+      '<div id="mFields">'+ms.map((m,i)=>mblockHTML(m,i)).join("")+'</div>'+
+      '<button class="btn" id="mAdd" type="button">'+I.plus+'面談を追加</button></div>';
+    if(gcal.status==="ready"){
+      h += '<div class="fset"><h4>Googleカレンダー</h4>'+
+        '<p class="small muted" style="margin-bottom:11px">日付が入っている「予定」の面談を、お客様情報つきでGoogleカレンダーに書き出せます。'+
+        '件名は「【2回目面談】佐藤 一郎 様（ノーク）」の形式で、詳細欄にランク・ステージ・提案商品・前回の記録が入ります。</p>'+
+        '<button class="btn primary" id="mPushG" type="button">未登録の予定をGoogleカレンダーに登録</button>'+
+        '<div id="mPushMsg" style="margin-top:11px"></div></div>';
+    }else{
+      const g = gcalMsg(gcal.errCode||"server_not_connected");
+      h += '<div class="banner '+g.cls+'">'+g.text+'</div>';
+    }
+  }
+  if(!ms.length && !ed) h += '<div class="empty">面談記録がまだありません。</div>';
+  return h;
+}
+function mblockHTML(m,i){
+  return '<div class="mblock" data-mi="'+i+'"><div class="mh"><span class="ms">'+esc(stageName(i))+'面談</span>'+
+    '<div class="grow"></div><button type="button" class="btn sm ghost mrm">削除</button></div>'+
+    '<div class="grid3">'+
+      fld("日付", '<input data-m="date" type="date" value="'+esc(m.date||"")+'">')+
+      fld("時間（任意）", '<input data-m="time" type="time" value="'+esc(m.time||"")+'">')+
+      fld("場所（任意）", '<input data-m="place" type="text" value="'+esc(m.place||"")+'" placeholder="例：北安田展示場">')+
+    '</div>'+
+    '<div style="margin-top:11px"><label class="lb">面談内容・次のアクション</label>'+
+    '<textarea data-m="note" placeholder="話した内容、ご要望、次回やること">'+esc(m.note||"")+'</textarea></div></div>';
+}
+function custMoney(c, ed){
+  const total = num(c.savings)+num(c.loanWish);
+  let h = '<div class="fset"><h4>土地</h4><div class="grid2">'+
+    fld("土地の状況", ed?sel("landStatus",c.landStatus,Object.entries(LAND)):ro(LAND[c.landStatus]))+
+    fld("土地面積（坪）", ed?inp("landArea",c.landArea,"number",'min="0" step="0.1"'):ro(c.landArea))+
+    fld("希望エリア", ed?inp("wishArea",c.wishArea):ro(c.wishArea),"span2")+
+    '</div></div>';
+  h += '<div class="fset"><h4>資金計画（単位：万円）</h4><div class="grid2">'+
+    fld("世帯年収", ed?inp("income",c.income,"number",'min="0"'):ro(man(c.income)))+
+    fld("自己資金", ed?inp("savings",c.savings,"number",'min="0"'):ro(man(c.savings)))+
+    fld("借入希望額", ed?inp("loanWish",c.loanWish,"number",'min="0"'):ro(man(c.loanWish)))+
+    fld("総予算", ed?inp("budgetTotal",c.budgetTotal,"number",'min="0"'):ro(man(c.budgetTotal)))+
+    fld("ローン事前審査", ed?sel("loanScreen",c.loanScreen,Object.entries(LOAN)):ro(LOAN[c.loanScreen]),"span2")+
+    '</div>'+(total? '<div class="note" style="margin-top:11px">自己資金＋借入希望＝<b class="num">'+man(total)+'</b> 万円'+
+      (c.budgetTotal!==""&&c.budgetTotal!=null? '（総予算との差 <span class="num">'+man(total-num(c.budgetTotal))+'</span> 万円）':'')+'</div>':'')+'</div>';
+  h += '<div class="fset"><h4>契約</h4><div class="grid3">'+
+    fld("契約日", ed?inp("contractDate",c.contractDate,"date"):ro(fmtDY(c.contractDate)))+
+    fld("契約金額（万円）", ed?inp("contractAmount",c.contractAmount,"number",'min="0"'):ro(man(c.contractAmount)))+
+    fld("粗利（万円）", ed?inp("grossProfit",c.grossProfit,"number",'min="0"'):ro(man(c.grossProfit)))+
+    '</div><div style="margin-top:11px">'+fld("契約メモ", ed?inp("contractNote",c.contractNote):ro(c.contractNote))+'</div>'+
+    '<p class="tiny faint" style="margin-top:9px">金額を入れたあと、下の「契約済にする」を押すと契約済リストへ移動し、集計に反映されます。</p></div>';
+  if(c.lost) h += '<div class="fset"><h4>没</h4><div class="grid2">'+
+    fld("没日", ed?inp("lostDate",c.lostDate,"date"):ro(fmtDY(c.lostDate)))+
+    fld("没理由", ed?inp("lostReason",c.lostReason):ro(c.lostReason))+'</div></div>';
+  return h;
+}
+function custProduct(c, ed){
+  const comp = companyById(c.companyId), prods = comp? (comp.products||[]) : [];
+  const chosen = c.products||[];
+  let h = '<div class="fset"><h4>'+esc(companyName(c.companyId))+' の商品</h4>'+
+    '<p class="small muted" style="margin-bottom:11px">このお客様に提案している商品を選びます（複数可）。会社を変えると商品も切り替わります。</p>'+
+    '<div class="checks">'+prods.map(p=>'<label class="check"><input type="checkbox" data-prod="'+esc(p.id)+'"'+
+      (chosen.includes(p.id)?" checked":"")+(ed?"":" disabled")+'>'+esc(p.name)+'</label>').join("")+'</div>'+
+    '<div style="margin-top:14px">'+fld("本命商品", ed? sel("mainProductId",c.mainProductId,[["","（未定）"]].concat(prods.map(p=>[p.id,p.name])))
+      : ro(c.mainProductId? productName(c.companyId,c.mainProductId):""))+'</div></div>';
+  h += '<div class="fset"><h4>提案の記録</h4>'+(ed?'<textarea data-f="productNote" placeholder="提案したプラン、価格帯、お客様の反応">'+esc(c.productNote||"")+'</textarea>'
+    :'<div class="small" style="white-space:pre-wrap">'+(c.productNote?esc(c.productNote):'<span class="faint">—</span>')+'</div>')+'</div>';
+  const peers = customers.filter(x=>x.ownerId===c.ownerId && x.id!==c.id && (x.products||[]).length && canSeeCompany(x.companyId) && !x.lost);
+  if(peers.length){
+    const tally={};
+    peers.forEach(x=>(x.products||[]).forEach(p=>{ const k=x.companyId+"|"+p; tally[k]=(tally[k]||0)+1; }));
+    const rows = Object.entries(tally).sort((a,b)=>b[1]-a[1]).slice(0,8)
+      .map(([k,n])=>{ const [cid,pid]=k.split("|"); return [productName(cid,pid)+"（"+companyShort(cid)+"）", n, null]; });
+    h += '<div class="fset"><h4>'+esc(staffName(c.ownerId))+' の商品別 提案件数</h4><div class="bars" style="padding:0">'+barRows(rows)+'</div></div>';
+  }
+  return h;
+}
+function custTodo(c, ed){
+  const evs = sortBy(events.filter(e=>e.customerId===c.id), e=>e.date+(e.startTime||""),"desc");
+  const tds = sortBy(todos.filter(t=>t.customerId===c.id), t=>(t.done?"1":"0")+(t.due||"9999"),"asc");
+  let h = '<div class="fset"><h4>この顧客のTODO（'+tds.length+'件）</h4>'+
+    (ed&&c.id? '<div class="row" style="gap:8px;margin-bottom:12px"><input type="text" id="td_quick" placeholder="やること（例：資金計画書を作成）">'+
+      '<input type="date" id="td_due" style="width:auto"><button class="btn primary" id="td_add" type="button">追加</button></div>':'')+
+    (tds.length? tds.map(t=>'<div class="li" style="padding-left:0;padding-right:0">'+
+      '<input type="checkbox" data-todo="'+t.id+'" style="width:auto;margin:0"'+(t.done?" checked":"")+'>'+
+      '<span class="grow small"'+(t.done?' style="text-decoration:line-through;color:var(--faint)"':'')+'>'+esc(t.title)+'</span>'+
+      (t.due? '<span class="tiny faint nowrap">'+fmtD(t.due)+'</span>':'')+'</div>').join("")
+      : '<div class="empty">TODOはありません</div>')+'</div>';
+  h += '<div class="fset"><h4>面談以外の予定（'+evs.length+'件）</h4>'+
+    (ed&&c.id? '<button class="btn" id="addEvForCust" type="button" style="margin-bottom:12px">'+I.plus+'予定を追加</button>':'')+
+    (evs.length? evs.map(e=>'<div class="li click" style="padding-left:0;padding-right:0" data-ev="'+e.id+'">'+
+      '<span class="mono small nowrap" style="width:86px;color:var(--muted)">'+esc(fmtDY(e.date))+'</span>'+
+      '<span class="chip">'+esc(EVT[e.type]||"その他")+'</span><span class="grow small">'+esc(e.title)+'</span></div>').join("")
+      : '<div class="empty">予定はありません</div>')+'</div>';
+  return h;
+}
+function collectCustomer(){
+  document.querySelectorAll(".drawer [data-f]").forEach(el=>{ drawerCust[el.dataset.f]=el.value; });
+  const blocks = document.querySelectorAll(".drawer .mblock");
+  if(blocks.length){
+    const out=[];
+    blocks.forEach(b=>{
+      const idx = Number(b.dataset.mi);
+      const old = (drawerCust.meetings||[])[idx] || {};
+      const g = k => { const el=b.querySelector('[data-m="'+k+'"]'); return el? el.value.trim() : ""; };
+      const m = {date:g("date"), time:g("time"), place:g("place"), note:g("note")};
+      if(old.gcalId){ m.gcalId=old.gcalId; m.gcalLink=old.gcalLink||""; }
+      if(m.date||m.time||m.place||m.note||old.gcalId) out.push(m);
+    });
+    drawerCust.meetings = out;
+  }
+}
+function bindCustExtras(c, ed){
+  document.querySelectorAll(".drawer [data-prod]").forEach(b=>b.addEventListener("change",()=>{
+    const set = new Set(drawerCust.products||[]);
+    b.checked? set.add(b.dataset.prod) : set.delete(b.dataset.prod);
+    drawerCust.products=[...set];
+  }));
+  const cs = $("[data-f='companyId']");
+  if(cs) cs.addEventListener("change",()=>{ collectCustomer(); drawerCust.products=[]; drawerCust.mainProductId=""; paintCustomer(); });
+  const add = $("#mAdd");
+  if(add) add.addEventListener("click",()=>{ collectCustomer();
+    drawerCust.meetings=[...(drawerCust.meetings||[]),{date:"",time:"",place:"",note:""}]; paintCustomer(); });
+  document.querySelectorAll(".drawer .mrm").forEach(b=>b.addEventListener("click", async ()=>{
+    const i = Number(b.closest(".mblock").dataset.mi);
+    collectCustomer();
+    const m = (drawerCust.meetings||[])[i];
+    if(m && m.gcalId){
+      const ok = await askConfirm("面談を削除","この面談はGoogleカレンダーに登録済みです。削除するとGoogle側の予定も消えます。","削除する",true);
+      if(!ok) return;
+      gcalRemove(m.gcalId);
+    }
+    drawerCust.meetings = (drawerCust.meetings||[]).filter((_,x)=>x!==i);
+    paintCustomer();
+  }));
+  const push = $("#mPushG");
+  if(push) push.addEventListener("click", pushMeetingsToGoogle);
+  const tq = $("#td_add");
+  if(tq) tq.addEventListener("click", async ()=>{
+    const title=$("#td_quick").value.trim(); if(!title) return;
+    try{
+      await DB.collection("todos").add({title, due:$("#td_due").value||"", done:false, staffId:c.ownerId||me.id,
+        customerId:c.id, companyId:c.companyId, priority:"normal", createdAt:new Date().toISOString()});
+      $("#td_quick").value=""; toast("TODOを追加しました");
+      setTimeout(()=>{ if(drawerCust&&drawerCust.id===c.id) paintCustomer(); },500);
+    }catch(e){ toast("追加できませんでした"); }
+  });
+  const ae = $("#addEvForCust");
+  if(ae) ae.addEventListener("click",()=>{ const id=c.id, cid=c.companyId, nm=c.name;
+    closeOverlay(); openEvent(null,{customerId:id, companyId:cid, date:TODAY(), title:nm+" 様"}); });
+  document.querySelectorAll(".drawer [data-todo]").forEach(b=>b.addEventListener("change",()=>toggleTodo(b.dataset.todo,b.checked)));
+  document.querySelectorAll(".drawer [data-ev]").forEach(b=>b.addEventListener("click",()=>openEvent(b.dataset.ev)));
+}
+async function pushMeetingsToGoogle(){
+  collectCustomer();
+  const c = drawerCust;
+  if(!c.name || !c.name.trim()) return toast("先に氏名を入力して保存してください");
+  const ms = meetingsOf(c).filter(m=>m.date && !meetingDone(m) && !m.gcalId);
+  const box = $("#mPushMsg");
+  if(!ms.length) return void(box.innerHTML='<div class="banner">Googleカレンダーに未登録の「予定」の面談はありません。</div>');
+  const btn = $("#mPushG"); btn.disabled=true; btn.textContent="登録中…";
+  let ok=0, errCode="";
+  for(const m of ms){
+    const r = await gcalCreateMeeting(c, m);
+    if(r.ok){ drawerCust.meetings[m.idx].gcalId=r.id; drawerCust.meetings[m.idx].gcalLink=r.link; ok++; }
+    else errCode = r.code;
+  }
+  await saveCustomer(true);
+  await gcalRefresh();
+  btn.disabled=false; btn.textContent="未登録の予定をGoogleカレンダーに登録";
+  if(ok) toast(ok+"件をGoogleカレンダーに登録しました");
+  if(errCode){ const g=gcalMsg(errCode); box.innerHTML='<div class="banner '+g.cls+'">'+g.text+'</div>'; }
+  paintCustomer();
+}
+async function saveCustomer(silent){
+  collectCustomer();
+  const c = drawerCust;
+  if(!c.name || !c.name.trim()){ toast("氏名を入力してください"); return false; }
+  if(!c.companyId){ toast("会社を選択してください"); return false; }
+  const doc = JSON.parse(JSON.stringify(c));
+  delete doc.id;
+  ["familySize","kids","income","savings","loanWish","budgetTotal","tsubo","landArea","contractAmount","grossProfit"]
+    .forEach(k=>{ doc[k] = (doc[k]===""||doc[k]==null) ? "" : num(doc[k]); });
+  doc.products = c.products||[];
+  doc.meetings = (c.meetings||[]).map(m=>({date:m.date||"",time:m.time||"",place:m.place||"",note:m.note||"",
+    ...(m.gcalId?{gcalId:m.gcalId,gcalLink:m.gcalLink||""}:{})}));
+  doc.lost = !!c.lost; doc.contracted = !!c.contracted;
+  doc.updatedAt = new Date().toISOString();
+  try{
+    if(c.id) await DB.doc("customers/"+c.id).set(doc);
+    else{ doc.createdAt=new Date().toISOString(); const ref=await DB.collection("customers").add(doc); drawerCust.id=ref.id; }
+    if(!silent){ toast("保存しました"); closeOverlay(); }
+    return true;
+  }catch(e){ toast("保存できませんでした（"+((e&&e.code)||"error")+"）"); return false; }
+}
+async function markContract(on){
+  collectCustomer();
+  if(on){
+    if(!drawerCust.contractDate) drawerCust.contractDate = TODAY();
+    if(!drawerCust.contractAmount && drawerCust.contractAmount!==0){
+      const ok = await askConfirm("契約済にする","契約金額が未入力です。このまま契約済にしますか？\n（あとで「資金・土地」タブから入力できます）","このまま契約済にする");
+      if(!ok){ drawerTab="money"; return paintCustomer(); }
+    }
+    drawerCust.contracted=true; drawerCust.lost=false;
+  } else drawerCust.contracted=false;
+  if(await saveCustomer(true)){ toast(on? "契約済リストに移動しました":"商談に戻しました"); closeOverlay(); }
+}
+async function markLost(on){
+  collectCustomer();
+  if(on){
+    const r = await askPrompt("没にする","このお客様を没リストに移動します。理由があれば入力してください（空欄でも構いません）。","例：他社で契約／検討中止","没にする");
+    if(r===null) return;
+    drawerCust.lost=true; drawerCust.lostReason=(r||"").trim(); drawerCust.lostDate=TODAY(); drawerCust.contracted=false;
+  }else{ drawerCust.lost=false; drawerCust.lostReason=""; drawerCust.lostDate=""; }
+  if(await saveCustomer(true)){ toast(on? "没リストに移動しました":"商談に戻しました"); closeOverlay(); }
+}
+async function deleteCustomer(){
+  const c = drawerCust; if(!c.id) return;
+  const ok = await askConfirm("顧客を削除","「"+c.name+"」を完全に削除します。面談記録も含めて元に戻せません。\n（見送りの場合は「没にする」をおすすめします）","削除する",true);
+  if(!ok) return;
+  for(const m of (c.meetings||[])) if(m.gcalId) await gcalRemove(m.gcalId);
+  try{
+    await DB.doc("customers/"+c.id).delete();
+    for(const e of events.filter(x=>x.customerId===c.id)) await DB.doc("events/"+e.id).update({customerId:""});
+    gcalRefresh(); toast("削除しました"); closeOverlay();
+  }catch(e){ toast("削除できませんでした"); }
+}
+/* ============================================================
+   VIEW: カレンダー
+   ============================================================ */
+function shiftYM(ym,d){ const [y,m]=ym.split("-").map(Number); const t=new Date(y,m-1+d,1); return t.getFullYear()+"-"+pad(t.getMonth()+1); }
+function renderCalendar(root){
+  if(!ui.calYM){ const n=new Date(); ui.calYM=n.getFullYear()+"-"+pad(n.getMonth()+1); }
+  const [y,m]=ui.calYM.split("-").map(Number);
+  const gm = gcal.status==="ready" ? null : gcalMsg(gcal.errCode||"server_not_connected");
+  let h = topbar("カレンダー",
+    '<button class="btn sm" id="calPrev">'+I.L+'</button>'+
+    '<b class="mono" style="min-width:98px;text-align:center">'+y+'年'+m+'月</b>'+
+    '<button class="btn sm" id="calNext">'+I.R+'</button>'+
+    '<button class="btn sm" id="calToday">今日</button>'+
+    '<button class="btn primary" id="calNew">'+I.plus+'予定を追加</button>');
+  h += '<div class="content">'+
+    (gcal.status==="loading"? '<div class="banner" style="margin-bottom:12px">Googleカレンダーの接続を確認しています…</div>':'')+
+    (gm? '<div class="banner '+gm.cls+'" style="margin-bottom:12px"><span>'+gm.text+'</span>'+
+      (gm.retry?'<button class="btn sm" id="gcalRetry" style="margin-left:auto">再試行</button>':'')+'</div>':'')+
+    '<div class="filters" style="padding-top:0;padding-bottom:14px">'+
+      (gcal.status==="ready"? '<label class="check"><input type="checkbox" id="gcalShow"'+(gcalShow()?" checked":"")+'>Googleカレンダーの予定も表示</label>':'')+
+      '<div class="row" style="gap:11px;flex-wrap:wrap">'+
+        '<span class="tiny row" style="gap:5px"><span style="width:9px;height:9px;border-radius:2px;background:var(--rank-a);display:inline-block"></span>面談A</span>'+
+        '<span class="tiny row" style="gap:5px"><span style="width:9px;height:9px;border-radius:2px;background:var(--rank-b);display:inline-block"></span>面談B</span>'+
+        '<span class="tiny row" style="gap:5px"><span style="width:9px;height:9px;border-radius:2px;background:var(--rank-c);display:inline-block"></span>面談C</span>'+
+        '<span class="tiny row" style="gap:5px"><span style="width:9px;height:9px;border-radius:2px;background:var(--accent);display:inline-block"></span>その他の予定</span>'+
+        (gcal.status==="ready"? '<span class="tiny row" style="gap:5px"><span class="gdot"></span>Google</span>':'')+
+      '</div></div>'+
+    '<div id="calBox"></div></div>';
+  root.innerHTML = h;
+  $("#calPrev").addEventListener("click",()=>{ ui.calYM=shiftYM(ui.calYM,-1); renderCalendar(root); });
+  $("#calNext").addEventListener("click",()=>{ ui.calYM=shiftYM(ui.calYM,1); renderCalendar(root); });
+  $("#calToday").addEventListener("click",()=>{ const n=new Date(); ui.calYM=n.getFullYear()+"-"+pad(n.getMonth()+1); renderCalendar(root); });
+  $("#calNew").addEventListener("click",()=>openEvent(null));
+  const rt=$("#gcalRetry"); if(rt) rt.addEventListener("click",()=>{ gcal.status="loading"; renderCalendar(root); initGcal(); });
+  const gs=$("#gcalShow"); if(gs) gs.addEventListener("change",()=>{ setGcalPref("show",gs.checked); renderCalGrid(); });
+  watchGcalMonth(ui.calYM);
+  renderCalGrid();
+}
+function renderCalGrid(){
+  const box=$("#calBox"); if(!box) return;
+  const [y,m]=ui.calYM.split("-").map(Number);
+  const first=new Date(y,m-1,1), start=new Date(y,m-1,1-first.getDay()), t=TODAY();
+  const byDate={};
+  const put=(d,o)=>{ (byDate[d]=byDate[d]||[]).push(o); };
+  scoped().forEach(c=>{
+    if(c.lost) return;
+    meetingsOf(c).forEach(mm=>{
+      if(!mm.date) return;
+      put(mm.date,{kind:"m", custId:c.id, rank:c.rank||"X", done:meetingDone(mm),
+        title:(c.name||"（無名）")+" "+mm.n, time:mm.time||"", _t:mm.time||"50"});
+    });
+  });
+  visEvents().forEach(e=>{ if(e.date) put(e.date,{kind:"e", id:e.id, title:e.title, time:e.startTime||"", _t:e.startTime||"60"}); });
+  if(gcal.status==="ready" && gcalShow()){
+    const mine = new Set();
+    events.forEach(e=>{ if(e.gcalId) mine.add(e.gcalId); });
+    customers.forEach(c=>(c.meetings||[]).forEach(mm=>{ if(mm.gcalId) mine.add(mm.gcalId); }));
+    gcal.events.filter(g=>!mine.has(g.gid)).forEach(g=>put(g.date,{kind:"g", gid:g.gid, title:g.title, link:g.link, place:g.place, time:g.time, _t:g.time||"70"}));
+  }
+  Object.values(byDate).forEach(a=>a.sort((x,z)=>String(x._t).localeCompare(String(z._t))));
+  let cells="";
+  for(let i=0;i<42;i++){
+    const d=new Date(start.getFullYear(),start.getMonth(),start.getDate()+i);
+    const ds=isoDate(d), out=d.getMonth()!==m-1, dow=d.getDay(), list=byDate[ds]||[];
+    cells += '<div class="cell'+(out?" out":"")+(ds===t?" today":"")+'" data-day="'+ds+'">'+
+      '<span class="dn'+(dow===0?" sun":dow===6?" sat":"")+'">'+d.getDate()+'</span>'+
+      list.slice(0,4).map(o=>{
+        if(o.kind==="g") return '<div class="ev gcal" data-glink="'+esc(o.link)+'" data-gtitle="'+esc(o.title)+'" title="Googleカレンダー：'+esc(o.title)+'">'+
+          (o.time?'<span class="mono">'+esc(o.time)+'</span> ':'')+esc(o.title)+'</div>';
+        if(o.kind==="e") return '<div class="ev other" data-ev="'+o.id+'" title="'+esc(o.title)+'">'+
+          (o.time?'<span class="mono">'+esc(o.time)+'</span> ':'')+esc(o.title)+'</div>';
+        return '<div class="ev m'+o.rank+(o.done?" done":"")+'" data-cust="'+o.custId+'" title="'+esc(o.title)+(o.done?"（実施済）":"（予定）")+'">'+
+          (o.time?'<span class="mono">'+esc(o.time)+'</span> ':'')+esc(o.title)+'</div>';
+      }).join("")+
+      (list.length>4? '<span class="tiny faint">ほか'+(list.length-4)+'件</span>':'')+'</div>';
+  }
+  box.innerHTML = '<div class="cal"><div class="calhead">'+
+    WD.map((w,i)=>'<div class="'+(i===0?"sun":i===6?"sat":"")+'">'+w+'</div>').join("")+'</div>'+
+    '<div class="calgrid">'+cells+'</div></div>'+
+    (gcal.evErr? (()=>{const g=gcalMsg(gcal.evErr); return '<div class="banner '+g.cls+'" style="margin-top:10px">'+g.text+'</div>';})():'')+
+    '<p class="tiny faint" style="margin-top:8px">面談はお客様のカルテから登録します。日付をクリックすると面談以外の予定を追加できます。'+
+    (gcal.status==="ready"&&gcalShow()? '　破線はGoogleカレンダーから読み込んだ予定です（このアプリでは編集できません）。':'')+'</p>';
+  box.querySelectorAll(".cell").forEach(c=>c.addEventListener("click",e=>{
+    if(e.target.closest(".ev")) return; openEvent(null,{date:c.dataset.day});
+  }));
+  box.querySelectorAll("[data-cust]").forEach(el=>el.addEventListener("click",e=>{ e.stopPropagation(); openCustomer(el.dataset.cust); }));
+  box.querySelectorAll("[data-ev]").forEach(el=>el.addEventListener("click",e=>{ e.stopPropagation(); openEvent(el.dataset.ev); }));
+  box.querySelectorAll("[data-glink]").forEach(el=>el.addEventListener("click",e=>{ e.stopPropagation(); openGEvent(el); }));
+}
+function openGEvent(el){
+  const title=el.dataset.gtitle||"", link=el.dataset.glink||"";
+  openOverlay('<div class="modal"><div class="dhead"><span class="gdot"></span><b>Googleカレンダーの予定</b>'+
+    '<div class="grow"></div><button class="x" id="dClose">'+I.x+'</button></div>'+
+    '<div class="dbody"><div class="fset"><h4>件名</h4><p>'+esc(title)+'</p></div>'+
+    (link? '<div class="fset"><h4>Googleカレンダーで開く</h4><p><a href="'+esc(link)+'" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">Googleカレンダーで表示する</a></p>'+
+      '<p class="tiny faint" style="margin-top:8px;word-break:break-all">'+esc(link)+'</p></div>':'')+
+    '<div class="note">この予定はGoogleカレンダー側で作られたものです。変更・削除はGoogleカレンダーから行ってください。</div></div>'+
+    '<div class="dfoot"><button class="btn" id="dCancel">閉じる</button></div></div>');
+  $("#dClose").addEventListener("click",closeOverlay);
+  $("#dCancel").addEventListener("click",closeOverlay);
+}
+/* ---------- 面談以外の予定 ---------- */
+function openEvent(id, preset){
+  const isNew=!id;
+  const e = isNew ? {id:null,title:"",type:"event",date:TODAY(),startTime:"10:00",endTime:"",place:"",note:"",
+    staffId:me.id,customerId:"",companyId:(ui.scope!=="all"?ui.scope:(myCompanies()[0]||"")), ...(preset||{})}
+    : (events.find(x=>x.id===id)||null);
+  if(!e) return;
+  const ed = isNew || !e.companyId || canSeeCompany(e.companyId);
+  const custOpts=[["","（お客様に紐付けない）"]].concat(sortBy(scoped(),c=>c.name,"asc").map(c=>[c.id,c.name+"（"+companyShort(c.companyId)+"）"]));
+  const body='<div class="fset"><div class="grid2">'+
+      fld("件名", inp("title",e.title,"text",'placeholder="例：完成見学会（松任会場）"'),"span2")+
+      fld("種別", sel("type",e.type,Object.entries(EVT)))+
+      fld("日付", inp("date",e.date,"date"))+
+      fld("開始時刻", inp("startTime",e.startTime,"time"))+
+      fld("終了時刻", inp("endTime",e.endTime,"time"))+
+      fld("場所", inp("place",e.place),"span2")+
+      fld("お客様", sel("customerId",e.customerId,custOpts),"span2")+
+      fld("担当者", sel("staffId",e.staffId,scopeStaff().map(s=>[s.id,s.name])))+
+      fld("会社", sel("companyId",e.companyId,myCompanies().map(i=>[i,companyName(i)])))+
+    '</div><div style="margin-top:12px"><label class="lb">メモ</label><textarea data-f="note">'+esc(e.note||"")+'</textarea></div></div>'+
+    (gcal.status==="ready"
+      ? '<div class="fset"><h4>Googleカレンダー</h4><label class="check"><input type="checkbox" id="gc_push"'+
+        ((e.gcalId||(isNew&&gcalPushPref()))?" checked":"")+(ed?"":" disabled")+'>この予定をGoogleカレンダーにも登録する</label>'+
+        (e.gcalLink? '<p class="tiny" style="margin-top:9px"><a href="'+esc(e.gcalLink)+'" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">Googleカレンダーで開く</a></p>':'')+'</div>'
+      : (()=>{const g=gcalMsg(gcal.errCode||"server_not_connected"); return '<div class="banner '+g.cls+'">'+g.text+'</div>';})());
+  openOverlay('<div class="modal"><div class="dhead"><b>'+(isNew?"予定を追加":"予定")+'</b><div class="grow"></div>'+
+    '<button class="x" id="dClose">'+I.x+'</button></div><div class="dbody">'+body+'</div>'+
+    '<div class="dfoot">'+(ed?'<button class="btn primary" id="evSave">保存</button>':'')+
+    '<button class="btn" id="dCancel">閉じる</button><div class="grow"></div>'+
+    (!isNew&&ed?'<button class="btn danger" id="evDel">削除</button>':'')+'</div></div>');
+  $("#dClose").addEventListener("click",closeOverlay);
+  $("#dCancel").addEventListener("click",closeOverlay);
+  if(!ed) document.querySelectorAll(".modal [data-f]").forEach(el=>el.disabled=true);
+  const sv=$("#evSave");
+  if(sv) sv.addEventListener("click", async ()=>{
+    const doc={}; document.querySelectorAll(".modal [data-f]").forEach(el=>doc[el.dataset.f]=el.value);
+    if(!doc.title.trim()) return toast("件名を入力してください");
+    if(!doc.date) return toast("日付を入力してください");
+    const box=$("#gc_push"), want=!!(box&&box.checked);
+    sv.disabled=true; sv.textContent = want? "Googleに登録中…" : "保存中…";
+    let gid=e.gcalId||"", glink=e.gcalLink||"", gErr="";
+    if(gcal.status==="ready"){
+      if(gid && !want){ await gcalRemove(gid); gid=""; glink=""; }
+      else if(want){
+        if(gid) await gcalRemove(gid);
+        const r = await gcalCreateEvent(doc);
+        if(r.ok){ gid=r.id; glink=r.link||""; } else { gid=""; glink=""; gErr=r.code; }
+      }
+    }
+    doc.gcalId=gid; doc.gcalLink=glink;
+    if(box) setGcalPref("push",want);
+    try{
+      if(e.id) await DB.doc("events/"+e.id).set({...doc, createdAt:e.createdAt||new Date().toISOString()});
+      else await DB.collection("events").add({...doc, createdAt:new Date().toISOString()});
+      gcalRefresh();
+      toast(gErr? "保存しました（Googleカレンダーには登録できませんでした）" : (want? "保存し、Googleカレンダーにも登録しました":"保存しました"));
+      closeOverlay();
+    }catch(err){ sv.disabled=false; sv.textContent="保存"; toast("保存できませんでした"); }
+  });
+  const dl=$("#evDel");
+  if(dl) dl.addEventListener("click", async ()=>{
+    const alsoG = !!e.gcalId && gcal.status==="ready";
+    const ok = await askConfirm("予定を削除", alsoG? "この予定を削除します。Googleカレンダー側の予定も削除されます。":"この予定を削除します。","削除する",true);
+    if(!ok) return;
+    dl.disabled=true; dl.textContent="削除中…";
+    if(alsoG) await gcalRemove(e.gcalId);
+    try{ await DB.doc("events/"+e.id).delete(); gcalRefresh(); toast("削除しました"); closeOverlay(); }
+    catch(err){ dl.disabled=false; dl.textContent="削除"; toast("削除できませんでした"); }
+  });
+}
+
+/* ============================================================
+   VIEW: TODO
+   ============================================================ */
+function renderTodo(root){
+  let h = topbar("TODO", '<button class="btn primary" id="tdNew">'+I.plus+'TODOを追加</button>');
+  h += '<div class="content"><div class="tabs">'+
+    [["open","自分の未完了"],["today","今日まで"],["done","完了済"],["team","チーム全体"]]
+      .map(t=>'<button data-ttab="'+t[0]+'" class="'+(ui.todoTab===t[0]?"on":"")+'">'+t[1]+'</button>').join("")+
+    '</div><div id="todoBox" style="margin-top:14px"></div></div>';
+  root.innerHTML=h;
+  $("#tdNew").addEventListener("click",()=>openTodo(null));
+  root.querySelectorAll("[data-ttab]").forEach(b=>b.addEventListener("click",()=>{ ui.todoTab=b.dataset.ttab; renderTodo(root); }));
+  renderTodoList();
+}
+function renderTodoList(){
+  const box=$("#todoBox"); if(!box) return;
+  const t=TODAY();
+  let list=visTodos();
+  if(ui.todoTab==="open") list=list.filter(x=>!x.done&&x.staffId===me.id);
+  else if(ui.todoTab==="today") list=list.filter(x=>!x.done&&x.staffId===me.id&&x.due&&x.due<=t);
+  else if(ui.todoTab==="done") list=list.filter(x=>x.done&&x.staffId===me.id);
+  else list=list.filter(x=>!x.done);
+  list=sortBy(list,x=>(x.due||"9999-99-99")+(x.title||""),"asc");
+  if(!list.length) return void(box.innerHTML='<div class="tablewrap"><div class="empty">該当するTODOはありません</div></div>');
+  box.innerHTML='<div class="panel">'+list.map(x=>{
+    const late=!x.done&&x.due&&x.due<=t;
+    const c=x.customerId? customers.find(k=>k.id===x.customerId):null;
+    return '<div class="li"><input type="checkbox" data-todo="'+x.id+'"'+(x.done?" checked":"")+' style="width:auto;margin:0">'+
+      '<span class="grow" style="min-width:0"><div'+(x.done?' style="text-decoration:line-through;color:var(--faint)"':'')+'>'+esc(x.title)+'</div>'+
+      '<div class="tiny faint">'+esc(staffName(x.staffId))+(c?' ／ <span style="color:var(--accent)">'+esc(c.name)+' 様</span>':'')+'</div></span>'+
+      (x.due? '<span class="tiny nowrap" style="color:'+(late?"var(--danger)":"var(--faint)")+'">'+fmtD(x.due)+'</span>':'')+
+      (c? '<button class="btn sm ghost" data-cust="'+c.id+'">カルテ</button>':'')+
+      '<button class="btn sm ghost" data-edtodo="'+x.id+'">編集</button></div>';
+  }).join("")+'</div>';
+  box.querySelectorAll("[data-todo]").forEach(b=>b.addEventListener("change",()=>toggleTodo(b.dataset.todo,b.checked)));
+  box.querySelectorAll("[data-cust]").forEach(b=>b.addEventListener("click",()=>openCustomer(b.dataset.cust)));
+  box.querySelectorAll("[data-edtodo]").forEach(b=>b.addEventListener("click",()=>openTodo(b.dataset.edtodo)));
+}
+async function toggleTodo(id,done){
+  try{ await DB.doc("todos/"+id).update({done:!!done, doneAt: done? new Date().toISOString():""}); }
+  catch(e){ toast("更新できませんでした"); }
+}
+function openTodo(id){
+  const isNew=!id;
+  const x = isNew? {id:null,title:"",due:"",done:false,staffId:me.id,customerId:"",companyId:(ui.scope!=="all"?ui.scope:(myCompanies()[0]||"")),priority:"normal"}
+    : (todos.find(k=>k.id===id)||null);
+  if(!x) return;
+  const custOpts=[["","（お客様に紐付けない）"]].concat(sortBy(scoped(),c=>c.name,"asc").map(c=>[c.id,c.name+"（"+companyShort(c.companyId)+"）"]));
+  const body='<div class="fset"><div class="grid2">'+
+    fld("やること", inp("title",x.title,"text",'placeholder="例：資金計画書を作成して送付"'),"span2")+
+    fld("期限", inp("due",x.due,"date"))+
+    fld("優先度", sel("priority",x.priority,[["high","高"],["normal","中"],["low","低"]]))+
+    fld("担当者", sel("staffId",x.staffId,scopeStaff().map(s=>[s.id,s.name])))+
+    fld("会社", sel("companyId",x.companyId,myCompanies().map(i=>[i,companyName(i)])))+
+    fld("お客様", sel("customerId",x.customerId,custOpts),"span2")+'</div></div>';
+  openOverlay('<div class="modal"><div class="dhead"><b>'+(isNew?"TODOを追加":"TODO")+'</b><div class="grow"></div>'+
+    '<button class="x" id="dClose">'+I.x+'</button></div><div class="dbody">'+body+'</div>'+
+    '<div class="dfoot"><button class="btn primary" id="tdSave">保存</button><button class="btn" id="dCancel">閉じる</button>'+
+    '<div class="grow"></div>'+(isNew?'':'<button class="btn danger" id="tdDel">削除</button>')+'</div></div>');
+  $("#dClose").addEventListener("click",closeOverlay);
+  $("#dCancel").addEventListener("click",closeOverlay);
+  $("#tdSave").addEventListener("click", async ()=>{
+    const doc={}; document.querySelectorAll(".modal [data-f]").forEach(el=>doc[el.dataset.f]=el.value);
+    if(!doc.title.trim()) return toast("内容を入力してください");
+    try{
+      if(x.id) await DB.doc("todos/"+x.id).update(doc);
+      else await DB.collection("todos").add({...doc, done:false, createdAt:new Date().toISOString()});
+      toast("保存しました"); closeOverlay();
+    }catch(e){ toast("保存できませんでした"); }
+  });
+  const dl=$("#tdDel");
+  if(dl) dl.addEventListener("click", async ()=>{
+    if(!await askConfirm("TODOを削除","このTODOを削除します。","削除する",true)) return;
+    try{ await DB.doc("todos/"+x.id).delete(); toast("削除しました"); closeOverlay(); }catch(e){ toast("削除できませんでした"); } });
+}
+
+/* ============================================================
+   VIEW: 契約済 / 没リスト
+   ============================================================ */
+function renderContract(root){
+  const won = sortBy(scopedWon(), c=>c.contractDate||"", "desc");
+  const amt = won.reduce((s,c)=>s+num(c.contractAmount),0);
+  let h = topbar("契約済リスト", '<span class="chip">'+won.length+' 棟 ／ '+man(amt)+' 万円</span>');
+  h += '<div class="content">'+(won.length? '<div class="tablewrap"><table><thead><tr>'+
+    '<th>ランク</th><th>顧客名</th>'+(scopeCompanies().length>1?'<th>会社</th>':'')+'<th>担当</th><th>契約日</th>'+
+    '<th style="text-align:right">契約金額</th><th style="text-align:right">粗利</th><th>商品</th><th>メモ</th><th></th></tr></thead><tbody>'+
+    won.map(c=>'<tr class="click r'+esc(c.rank||"")+'" data-cust="'+c.id+'">'+
+      '<td class="stripe"><span class="rank '+(c.rank||"X")+'">'+(c.rank||"–")+'</span></td>'+
+      '<td class="cname">'+esc(c.name)+'</td>'+
+      (scopeCompanies().length>1?'<td class="small nowrap">'+esc(companyShort(c.companyId))+'</td>':'')+
+      '<td class="small nowrap">'+esc(staffName(c.ownerId))+'</td>'+
+      '<td class="small nowrap num">'+esc(fmtDY(c.contractDate))+'</td>'+
+      '<td class="num nowrap" style="text-align:right">'+man(c.contractAmount)+'</td>'+
+      '<td class="num nowrap" style="text-align:right">'+man(c.grossProfit)+'</td>'+
+      '<td class="small">'+((c.products||[]).map(p=>'<span class="chip">'+esc(productName(c.companyId,p))+'</span>').join(" ")||'<span class="faint">—</span>')+'</td>'+
+      '<td class="notecell">'+(c.contractNote? esc(c.contractNote):'<span class="faint">—</span>')+'</td>'+
+      '<td style="text-align:right">'+(canEditCustomer(c)?'<button class="btn sm" data-back="'+c.id+'">商談に戻す</button>':'')+'</td></tr>').join("")+
+    '</tbody></table></div>'
+    : '<div class="panel"><div class="empty">契約済みのお客様はいません。<br>カルテの「契約済にする」を押すと、ここに移動します。</div></div>')+'</div>';
+  root.innerHTML=h;
+  bindCommon(root);
+  root.querySelectorAll("[data-back]").forEach(b=>b.addEventListener("click", async e=>{
+    e.stopPropagation();
+    try{ await DB.doc("customers/"+b.dataset.back).update({contracted:false, updatedAt:new Date().toISOString()}); toast("商談に戻しました"); }
+    catch(err){ toast("変更できませんでした"); }
+  }));
+}
+function renderLost(root){
+  const lost = sortBy(scopedLost(), c=>c.lostDate||"", "desc");
+  let h = topbar("没リスト", '<span class="chip">'+lost.length+' 件</span>');
+  h += '<div class="content">'+(lost.length? '<div class="tablewrap"><table><thead><tr>'+
+    '<th>ランク</th><th>顧客名</th>'+(scopeCompanies().length>1?'<th>会社</th>':'')+'<th>担当</th><th>没日</th><th>没理由</th><th>面談</th><th></th></tr></thead><tbody>'+
+    lost.map(c=>'<tr class="click r'+esc(c.rank||"")+'" data-cust="'+c.id+'">'+
+      '<td class="stripe"><span class="rank '+(c.rank||"X")+'">'+(c.rank||"–")+'</span></td>'+
+      '<td class="cname">'+esc(c.name)+'</td>'+
+      (scopeCompanies().length>1?'<td class="small nowrap">'+esc(companyShort(c.companyId))+'</td>':'')+
+      '<td class="small nowrap">'+esc(staffName(c.ownerId))+'</td>'+
+      '<td class="small nowrap num">'+esc(fmtDY(c.lostDate))+'</td>'+
+      '<td class="notecell">'+(c.lostReason? esc(c.lostReason):'<span class="faint">理由なし</span>')+'</td>'+
+      '<td class="small nowrap">'+((c.meetings||[]).length||0)+' 回</td>'+
+      '<td style="text-align:right">'+(canEditCustomer(c)?'<button class="btn sm" data-back="'+c.id+'">商談に戻す</button>':'')+'</td></tr>').join("")+
+    '</tbody></table></div>'
+    : '<div class="panel"><div class="empty">没にしたお客様はいません。<br>カルテの「没にする」を押すと、ここに移動します。商談に戻すこともできます。</div></div>')+'</div>';
+  root.innerHTML=h;
+  bindCommon(root);
+  root.querySelectorAll("[data-back]").forEach(b=>b.addEventListener("click", async e=>{
+    e.stopPropagation();
+    try{ await DB.doc("customers/"+b.dataset.back).update({lost:false, lostReason:"", lostDate:"", updatedAt:new Date().toISOString()}); toast("商談に戻しました"); }
+    catch(err){ toast("変更できませんでした"); }
+  }));
+}
+/* ============================================================
+   VIEW: 集計
+   ============================================================ */
+function renderReport(root){
+  const all = scoped();
+  const act = scopedActive(), won = scopedWon(), lost = scopedLost();
+  const amt = won.reduce((s,c)=>s+num(c.contractAmount),0);
+  const gp  = won.reduce((s,c)=>s+num(c.grossProfit),0);
+  const rate = (won.length+lost.length)? Math.round(won.length/(won.length+lost.length)*100) : 0;
+  const groupers = {
+    owner:{name:"担当者別", key:c=>c.ownerId, label:staffName},
+    company:{name:"会社別", key:c=>c.companyId, label:companyName},
+    product:{name:"商品別", key:null},
+    rank:{name:"ランク別", key:c=>c.rank||"", label:k=>k? k+"："+RANKS[k].desc : "未設定"},
+    source:{name:"反響経路別", key:c=>c.source||"", label:k=>k||"未設定"},
+    showroom:{name:"展示場・反響元別", key:c=>c.showroom||"", label:k=>k||"未設定"},
+    stage:{name:"ステージ別", key:c=>c.stage||"", label:k=>STAGE_NAME[k]||"未設定"},
+  };
+  let h = topbar("集計・分析", '<button class="btn sm" id="csvBtn2">CSV書き出し</button>');
+  h += '<div class="content"><div class="kpis">'+
+    kpi("", "登録顧客", all.length, "件", "稼働中 "+act.length+"件")+
+    kpi("ok", "契約", won.length, "棟", man(amt)+" 万円")+
+    kpi("", "平均契約単価", won.length? Math.round(amt/won.length):0, "万円", "粗利計 "+man(gp)+" 万円")+
+    kpi("", "成約率", rate, "%", "契約 "+won.length+" / 没 "+lost.length)+
+    kpi("warn", "要フォロー", act.filter(needsFollow).length, "件", "次回アポ未設定")+
+    '</div>';
+  h += '<div class="tabs" style="margin-top:18px">'+Object.entries(groupers).map(([k,g])=>
+    '<button data-rb="'+k+'" class="'+(ui.reportBy===k?"on":"")+'">'+esc(g.name)+'</button>').join("")+'</div>';
+  let rows=[];
+  if(ui.reportBy==="product"){
+    const t={};
+    all.forEach(c=>(c.products||[]).forEach(p=>{
+      const k=c.companyId+"|"+p;
+      t[k]=t[k]||{label:productName(c.companyId,p)+(scopeCompanies().length>1?"（"+companyShort(c.companyId)+"）":""), n:0, won:0, amt:0};
+      t[k].n++; if(c.contracted){ t[k].won++; t[k].amt+=num(c.contractAmount); }
+    }));
+    rows=Object.values(t);
+  }else{
+    const g=groupers[ui.reportBy], t={};
+    all.forEach(c=>{
+      const k=g.key(c)||"";
+      t[k]=t[k]||{label:g.label(k)||"未設定", n:0, won:0, amt:0};
+      t[k].n++; if(c.contracted){ t[k].won++; t[k].amt+=num(c.contractAmount); }
+    });
+    rows=Object.values(t);
+  }
+  rows.sort((a,b)=>b.n-a.n);
+  h += '<div class="panels" style="grid-template-columns:repeat(auto-fit,minmax(400px,1fr));margin-top:14px">';
+  h += '<div class="panel"><header><h3>'+esc(groupers[ui.reportBy].name)+' 件数</h3></header><div class="bars">'+
+    (rows.length? barRows(rows.map(r=>[r.label,r.n,null])) : '<div class="lane-empty">データがありません</div>')+'</div></div>';
+  h += '<div class="panel"><header><h3>'+esc(groupers[ui.reportBy].name)+' 内訳</h3></header>'+
+    '<div class="tablewrap" style="border:0"><table><thead><tr><th>区分</th><th style="text-align:right">顧客数</th>'+
+    '<th style="text-align:right">契約</th><th style="text-align:right">受注額（万円）</th></tr></thead><tbody>'+
+    (rows.length? rows.map(r=>'<tr><td>'+esc(r.label)+'</td><td class="num" style="text-align:right">'+r.n+'</td>'+
+      '<td class="num" style="text-align:right">'+r.won+'</td><td class="num" style="text-align:right">'+man(r.amt)+'</td></tr>').join("")
+      : '<tr><td colspan="4" class="empty">データがありません</td></tr>')+'</tbody></table></div></div>';
+  const months=[], now=new Date();
+  for(let i=11;i>=0;i--){ const d=new Date(now.getFullYear(),now.getMonth()-i,1); months.push(d.getFullYear()+"-"+pad(d.getMonth()+1)); }
+  const mrows = months.map(ym=>{ const cs=won.filter(c=>(c.contractDate||"").startsWith(ym));
+    return {ym, n:cs.length, amt:cs.reduce((s,c)=>s+num(c.contractAmount),0)}; });
+  const mmax = Math.max(1,...mrows.map(r=>r.n));
+  h += '<div class="panel" style="grid-column:1/-1"><header><h3>月別 契約棟数（直近12ヶ月）</h3><div class="grow"></div>'+
+    '<span class="chip">合計 '+mrows.reduce((s,r)=>s+r.n,0)+' 棟 / '+man(mrows.reduce((s,r)=>s+r.amt,0))+' 万円</span></header>'+
+    '<div style="display:flex;align-items:flex-end;gap:6px;padding:18px 16px;height:184px">'+
+    mrows.map(r=>'<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;height:100%;justify-content:flex-end">'+
+      '<span class="mono tiny" style="color:var(--muted)">'+(r.n||"")+'</span>'+
+      '<div style="width:100%;background:'+(r.n?"var(--accent)":"var(--surface3)")+';border-radius:3px 3px 0 0;height:'+Math.max(3,r.n/mmax*100)+'%"></div>'+
+      '<span class="mono tiny faint">'+r.ym.slice(5)+'</span></div>').join("")+'</div></div>';
+  h += '</div></div>';
+  root.innerHTML=h;
+  root.querySelectorAll("[data-rb]").forEach(b=>b.addEventListener("click",()=>{ ui.reportBy=b.dataset.rb; renderReport(root); }));
+  $("#csvBtn2").addEventListener("click", exportCSV);
+}
+async function exportCSV(){
+  const list = view==="customers" ? filteredCustomers() : scoped();
+  const head=["ランク","顧客名","ふりがな","会社","担当者","状況","ステージ","問合せ日","反響経路","展示場",
+    "電話","メール","住所","土地状況","希望エリア","世帯年収(万)","自己資金(万)","借入希望(万)","総予算(万)","ローン審査",
+    "提案商品","本命商品","建築希望時期","面談回数","次回アポ","最終接触","直近の面談メモ","契約日","契約金額(万)","粗利(万)","没日","没理由","メモ"];
+  const q = v => '"'+String(v==null?"":v).replace(/"/g,'""').replace(/\r?\n/g," ")+'"';
+  const lines=[head.map(q).join(",")].concat(list.map(c=>{
+    const ld=lastDoneMeeting(c);
+    return [c.rank, c.name, c.kana, companyName(c.companyId), staffName(c.ownerId), statusOf(c).label,
+      STAGE_NAME[c.stage]||"", c.inquiryDate, c.source, c.showroom, c.tel, c.email, c.address,
+      LAND[c.landStatus]||"", c.wishArea, c.income, c.savings, c.loanWish, c.budgetTotal, LOAN[c.loanScreen]||"",
+      (c.products||[]).map(p=>productName(c.companyId,p)).join(" / "),
+      c.mainProductId? productName(c.companyId,c.mainProductId):"", c.buildTiming,
+      (c.meetings||[]).length, nextDate(c)||"", lastContact(c)||"", ld?ld.note:"",
+      c.contractDate, c.contractAmount, c.grossProfit, c.lostDate, c.lostReason, c.memo].map(q).join(",");
+  }));
+  const csv = "﻿"+lines.join("\r\n");
+  let dl=null; try{ dl=await window.claude.use("downloads"); }catch(e){}
+  if(!dl) return toast("この画面ではファイルの書き出しができません");
+  try{ await dl.save({filename:"顧客リスト_"+TODAY()+".csv", data:csv}); toast("CSVを書き出しました"); }
+  catch(e){ if(e&&e.code==="declined") return; toast("書き出しできませんでした"); }
+}
+
+/* ============================================================
+   VIEW: 管理
+   ============================================================ */
+function renderAdmin(root){
+  const tabs = [["pw","パスワード"],["staff","メンバー名簿"],["master","会社・商品"]];
+  let h = topbar("パスワード・名簿");
+  h += '<div class="content"><div class="tabs">'+tabs.map(t=>
+    '<button data-atab="'+t[0]+'" class="'+(ui.adminTab===t[0]?"on":"")+'">'+t[1]+'</button>').join("")+
+    '</div><div id="adminBox" style="margin-top:14px"></div></div>';
+  root.innerHTML=h;
+  root.querySelectorAll("[data-atab]").forEach(b=>b.addEventListener("click",()=>{ ui.adminTab=b.dataset.atab; renderAdmin(root); }));
+  renderAdminBox();
+}
+function renderAdminBox(){
+  const box=$("#adminBox"); if(!box) return;
+  if(ui.adminTab==="master") return renderMaster(box);
+  if(ui.adminTab==="staff") return renderRoster(box);
+  return renderPasswords(box);
+}
+/* ---------- パスワード ---------- */
+function renderPasswords(box){
+  const keys = scopeKeys().filter(canManagePw);
+  const others = scopeKeys().filter(k=>!canManagePw(k));
+  box.innerHTML =
+    '<div class="panel" style="margin-bottom:14px"><header><h3>退職者が出たとき</h3></header><div class="pad">'+
+      '<p class="small muted">辞めた方をこのアプリから確実に外すには、<b>その会社のパスワードを新しくする</b>のが確実です。'+
+      'パスワードを変えると、ログインしたままの端末も次に開いたときに入れなくなります。'+
+      '下のボタンで、<b>① 名簿から外す　② 担当のお客様を引き継ぐ　③ パスワードを新しくする</b> をまとめて行えます。</p>'+
+      '<button class="btn primary" id="pwLeaver" style="margin-top:12px">退職者の処理をする</button>'+
+    '</div></div>'+
+    '<div class="panel"><header><h3>パスワードの変更</h3><div class="grow"></div>'+
+      '<span class="chip">変更できる区分 '+keys.length+'</span></header><div class="pad">'+
+      '<p class="small muted" style="margin-bottom:13px">承認や管理者権限はありません。いま入っている方が、いつでも変えられます。'+
+      '変えたら、その会社の全員に新しいパスワードを伝えてください。</p>'+
+      keys.map(k=>{
+        const a=scopeAuth(k)||{};
+        const upd = a.updatedAt? '最終変更 '+esc(fmtDY(String(a.updatedAt).slice(0,10)))+(a.updatedBy? '（'+esc(a.updatedBy)+'）':'') : '未設定';
+        const who = k===HQ? '3社すべてが見られます' : 'この会社のお客様だけが見られます';
+        return '<div class="pwcard"><div style="min-width:0"><div class="pt">'+esc(scopeTitle(k))+'</div>'+
+          '<div class="pd">'+who+'　／　'+upd+'</div></div><div class="grow"></div>'+
+          '<button class="btn" data-pwk="'+esc(k)+'">パスワードを変える</button></div>';
+      }).join("")+
+      (others.length? '<div class="note" style="margin-top:11px">'+esc(others.map(scopeTitle).join("、"))+
+        ' のパスワードは、その区分でログインした方（または本部）が変更できます。</div>' : '')+
+    '</div></div>';
+  const lv=$("#pwLeaver"); if(lv) lv.addEventListener("click",()=>openLeaver(""));
+  box.querySelectorAll("[data-pwk]").forEach(b=>b.addEventListener("click",()=>openPwChange(b.dataset.pwk)));
+}
+async function writeScopePw(k, pw, byName){
+  const salt=newSalt(), hash=await hashPw(salt,pw);
+  const scopes = Object.assign({}, (AUTH&&AUTH.scopes)||{});
+  scopes[k] = {salt, hash, updatedAt:new Date().toISOString(), updatedBy:byName||me.name||""};
+  const prev = me? me.fp : "";
+  const mine = !!(me && k===me.scope);
+  if(mine) refreshSessionFp(String(hash).slice(0,16));   /* 変更した本人はログインを保つ */
+  try{ await DB.doc("meta/auth").set({scopes, updatedAt:new Date().toISOString()}); }
+  catch(e){ if(mine) refreshSessionFp(prev); throw e; }
+  return hash;
+}
+function openPwChange(k){
+  if(!canManagePw(k)) return toast("この区分のパスワードは変更できません");
+  const mine = me.scope===k;
+  const body='<div class="fset"><h4>'+esc(scopeTitle(k))+'</h4>'+
+      '<p class="small muted" style="margin-bottom:12px">4文字以上。口で伝えやすいものがおすすめです。'+
+      '保存すると、この区分でログインしている'+(mine? '他の方':'方')+'は次に開いたときに再ログインが必要になります。'+
+      (mine? 'この端末はそのまま使えます。':'')+'</p>'+
+      '<div class="grid2">'+fld("新しいパスワード", pwField("np1","new-password"))+fld("確認のため再入力", pwField("np2","new-password"))+'</div>'+
+      '<button class="btn sm" id="npGen" type="button" style="margin-top:11px">自動で作る</button></div>'+
+    '<div class="note">退職者が出たときは、この変更だけで辞めた方を外せます（ログインしたままの端末も入れなくなります）。</div>'+
+    '<div id="npErr" style="margin-top:11px"></div>';
+  openOverlay('<div class="modal"><div class="dhead"><b>パスワードを変える</b><div class="grow"></div>'+
+    '<button class="x" id="dClose">'+I.x+'</button></div><div class="dbody">'+body+'</div>'+
+    '<div class="dfoot"><button class="btn primary" id="npSave">この内容に変更する</button>'+
+    '<button class="btn" id="dCancel">やめる</button></div></div>');
+  $("#dClose").addEventListener("click",closeOverlay);
+  $("#dCancel").addEventListener("click",closeOverlay);
+  $("#npGen").addEventListener("click",()=>{ setPwInputs(["np1","np2"], easyPw()); });
+  $("#npSave").addEventListener("click", async ()=>{
+    const err=$("#npErr"), p1=$("#np1").value, p2=$("#np2").value, btn=$("#npSave");
+    if(p1.length<4) return void(err.innerHTML='<div class="err">4文字以上で入れてください。</div>');
+    if(p1!==p2) return void(err.innerHTML='<div class="err">確認用のパスワードが一致しません。</div>');
+    btn.disabled=true; btn.textContent="変更中…";
+    try{
+      await writeScopePw(k, p1);
+      showPwList([[scopeTitle(k), p1]], "パスワードを変えました",
+        "この内容を"+(k===HQ? "本部で使う方":scopeTitle(k)+"の全員")+"に伝えてください。以前のパスワードでは入れません。");
+    }catch(e){ btn.disabled=false; btn.textContent="この内容に変更する"; err.innerHTML='<div class="err">変更できませんでした。</div>'; }
+  });
+}
+/* ---------- 退職者の処理 ---------- */
+function openLeaver(preId){
+  const list = roster().filter(s=>s.id!==me.id && (s.companies||[]).some(c=>canSeeCompany(c)));
+  if(!list.length) return toast("名簿に、外せるメンバーがいません");
+  const keys = scopeKeys().filter(canManagePw);
+  const opt = s => '<option value="'+s.id+'">'+esc(s.name)+'（'+esc((s.companies||[]).map(companyShort).join("・")||"—")+'）</option>';
+  const sel0 = list.some(s=>s.id===preId)? preId : list[0].id;
+  const body=
+    '<div class="fset"><h4>① 退職した方</h4>'+
+      '<select id="lvWho">'+list.map(s=>'<option value="'+s.id+'"'+(sel0===s.id?" selected":"")+'>'+
+        esc(s.name)+'（'+esc((s.companies||[]).map(companyShort).join("・")||"—")+'）</option>').join("")+'</select>'+
+      '<p class="tiny faint" style="margin-top:8px">名簿から外れます。これまでの面談記録やお客様のデータは消えません。</p></div>'+
+    '<div class="fset"><h4>② 担当していたお客様の引き継ぎ先</h4>'+
+      '<select id="lvTo"><option value="">未割当のままにする</option>'+list.map(opt).join("")+'</select>'+
+      '<div id="lvCount" class="small muted" style="margin-top:9px"></div></div>'+
+    '<div class="fset"><h4>③ パスワードを新しくする</h4>'+
+      '<p class="small muted" style="margin-bottom:11px">辞めた方が知っているパスワードを変えます。チェックした区分に同じパスワードを設定します。'+
+      '（別々にしたいときは、あとで「パスワードを変える」から個別に変更できます）</p>'+
+      '<div class="checks" id="lvKeys">'+keys.map(k=>'<label class="check"><input type="checkbox" data-lvk="'+esc(k)+'">'+
+        esc(scopeTitle(k))+'</label>').join("")+'</div>'+
+      '<div class="grid2" style="margin-top:13px">'+fld("新しいパスワード", pwField("lvPw","new-password"))+
+        fld("確認のため再入力", pwField("lvPw2","new-password"))+'</div>'+
+      '<button class="btn sm" id="lvGen" type="button" style="margin-top:11px">自動で作る</button>'+
+      '<p class="tiny faint" style="margin-top:9px">チェックを外せば、名簿から外すだけにもできます。</p></div>'+
+    '<div id="lvErr"></div>';
+  openOverlay('<div class="drawer"><div class="dhead"><b>退職者の処理</b><div class="grow"></div>'+
+    '<button class="x" id="dClose">'+I.x+'</button></div><div class="dbody">'+body+'</div>'+
+    '<div class="dfoot"><button class="btn primary" id="lvGo">この内容で実行する</button>'+
+    '<button class="btn" id="dCancel">やめる</button></div></div>');
+  $("#dClose").addEventListener("click",closeOverlay);
+  $("#dCancel").addEventListener("click",closeOverlay);
+  $("#lvGen").addEventListener("click",()=>{ setPwInputs(["lvPw","lvPw2"], easyPw()); });
+  const who=$("#lvWho"), to=$("#lvTo");
+  const sync=()=>{
+    const s=staffById(who.value);
+    const n=customers.filter(c=>c.ownerId===who.value && canSeeCompany(c.companyId)).length;
+    $("#lvCount").innerHTML = n? '担当しているお客様は <b class="num">'+n+'</b> 件です。'
+      : 'このメンバーが担当しているお客様はありません。';
+    document.querySelectorAll("[data-lvk]").forEach(b=>{
+      const k=b.dataset.lvk;
+      b.checked = s? (k===HQ ? false : (s.companies||[]).includes(k)) : false;
+    });
+    [...to.options].forEach(o=>{ o.hidden = o.value===who.value; });
+    if(to.value===who.value) to.value="";
+  };
+  who.addEventListener("change",sync); sync();
+  $("#lvGo").addEventListener("click", async ()=>{
+    const err=$("#lvErr"), btn=$("#lvGo");
+    const s=staffById(who.value); if(!s) return;
+    const rot=[...document.querySelectorAll("[data-lvk]")].filter(b=>b.checked).map(b=>b.dataset.lvk);
+    const p1=$("#lvPw").value, p2=$("#lvPw2").value;
+    if(rot.length){
+      if(p1.length<4) return void(err.innerHTML='<div class="err">新しいパスワードを4文字以上で入れてください。</div>');
+      if(p1!==p2) return void(err.innerHTML='<div class="err">確認用のパスワードが一致しません。</div>');
+    }
+    const label = rot.length? "パスワードを変えると、その区分の全員が次から新しいパスワードになります。" : "パスワードは変更しません。";
+    if(!await askConfirm("退職者の処理", "「"+s.name+"」さんを名簿から外します。\n"+label+"\n実行しますか？", "実行する")) return;
+    btn.disabled=true; btn.textContent="処理中…";
+    const target=$("#lvTo").value;
+    try{
+      for(const c of customers.filter(c=>c.ownerId===s.id && canSeeCompany(c.companyId)))
+        await DB.doc("customers/"+c.id).update({ownerId:target, updatedAt:new Date().toISOString()});
+      for(const t of todos.filter(t=>t.staffId===s.id))
+        await DB.doc("todos/"+t.id).update({staffId: target||me.id});
+      const rest=(s.companies||[]).filter(c=>!canSeeCompany(c));
+      if(rest.length) await DB.doc("staff/"+s.id).update({companies:rest});
+      else await DB.doc("staff/"+s.id).delete();
+      const rows=[];
+      for(const k of rot){ await writeScopePw(k, p1, me.name); rows.push([scopeTitle(k), p1]); }
+      if(rows.length) showPwList(rows, "退職者の処理が終わりました",
+        "「"+s.name+"」さんを名簿から外しました。新しいパスワードを、残るメンバー全員に伝えてください。");
+      else{ toast("「"+s.name+"」さんを名簿から外しました"); closeOverlay(); }
+    }catch(e){ btn.disabled=false; btn.textContent="この内容で実行する"; err.innerHTML='<div class="err">処理できませんでした。</div>'; }
+  });
+}
+/* ---------- メンバー名簿 ---------- */
+function renderRoster(box){
+  const list = roster().filter(s=>(s.companies||[]).some(c=>canSeeCompany(c)));
+  box.innerHTML='<div class="tablewrap"><table><thead><tr><th>お名前</th><th>所属</th>'+
+    '<th style="text-align:right">担当顧客</th><th></th></tr></thead><tbody>'+
+    (list.length? list.map(s=>{
+      const n=customers.filter(c=>c.ownerId===s.id).length;
+      return '<tr><td class="cname">'+esc(s.name)+(s.id===me.id?' <span class="chip">自分</span>':'')+'</td>'+
+        '<td class="small">'+esc((s.companies||[]).map(companyShort).join("・")||"—")+'</td>'+
+        '<td class="num" style="text-align:right">'+n+'</td>'+
+        '<td style="text-align:right"><button class="btn sm" data-staff="'+s.id+'">編集</button></td></tr>';
+    }).join("") : '<tr><td colspan="4" class="empty">名簿にメンバーがいません</td></tr>')+
+    '</tbody></table></div>'+
+    '<div class="row" style="gap:8px;margin-top:12px;flex-wrap:wrap">'+
+      '<button class="btn" id="stAdd">'+I.plus+'メンバーを追加</button>'+
+      '<button class="btn" id="stLeave">退職者の処理</button></div>'+
+    '<div class="note" style="margin-top:12px">名簿は「担当者」を選ぶための一覧です。ログインは会社ごとの共通パスワードなので、'+
+    '名簿に追加してもパスワードは増えません。ログイン画面で自分の名前が無い方は、その場で追加できます。</div>';
+  $("#stAdd").addEventListener("click",()=>openStaff(null));
+  $("#stLeave").addEventListener("click",()=>openLeaver(""));
+  box.querySelectorAll("[data-staff]").forEach(b=>b.addEventListener("click",()=>openStaff(b.dataset.staff)));
+}
+function openStaff(id){
+  const isNew=!id;
+  const s = isNew? {id:null,name:"",companies:myCompanies().length===1? myCompanies().slice():[],tel:"",email:""} : (staffById(id)||null);
+  if(!s) return;
+  const owned = s.id? customers.filter(c=>c.ownerId===s.id).length : 0;
+  const body='<div class="fset"><h4>お名前</h4><div class="grid2">'+
+      fld("氏名", inp("name",s.name,"text",'placeholder="例：山田 太郎"'))+
+      fld("電話（任意）", inp("tel",s.tel,"tel"))+
+      fld("メール（任意）", inp("email",s.email,"email"),"span2")+
+    '</div></div>'+
+    '<div class="fset"><h4>所属会社</h4>'+
+      '<p class="small muted" style="margin-bottom:11px">担当者としてどの会社の一覧に出すかを選びます。'+
+      '見える範囲を決めるのはログイン時のパスワードなので、ここでの選択は表示の整理用です。</p>'+
+      '<div class="checks">'+myCompanies().map(cid=>'<label class="check"><input type="checkbox" data-comp="'+esc(cid)+'"'+
+        ((s.companies||[]).includes(cid)?" checked":"")+'>'+esc(companyName(cid))+'</label>').join("")+'</div></div>'+
+    (owned? '<div class="note">現在 <b class="num">'+owned+'</b> 件のお客様を担当しています。'+
+      '名簿から外すときは「退職者の処理」を使うと、引き継ぎとパスワード変更までまとめて行えます。</div>':'')+
+    '<div id="stErr" style="margin-top:11px"></div>';
+  openOverlay('<div class="modal"><div class="dhead"><b>'+(isNew?"メンバーを追加":"メンバー")+'</b><div class="grow"></div>'+
+    '<button class="x" id="dClose">'+I.x+'</button></div><div class="dbody">'+body+'</div>'+
+    '<div class="dfoot"><button class="btn primary" id="stSave">保存</button><button class="btn" id="dCancel">閉じる</button>'+
+    '<div class="grow"></div>'+(isNew||s.id===me.id?'':'<button class="btn danger" id="stLeaver">退職者の処理へ</button>')+'</div></div>');
+  $("#dClose").addEventListener("click",closeOverlay);
+  $("#dCancel").addEventListener("click",closeOverlay);
+  const lv=$("#stLeaver"); if(lv) lv.addEventListener("click",()=>openLeaver(s.id));
+  $("#stSave").addEventListener("click", async ()=>{
+    const err=$("#stErr"), doc={};
+    document.querySelectorAll(".modal [data-f]").forEach(el=>doc[el.dataset.f]=el.value);
+    doc.name=(doc.name||"").trim();
+    if(!doc.name) return void(err.innerHTML='<div class="err">氏名を入力してください。</div>');
+    const picked=[...document.querySelectorAll("[data-comp]")].filter(b=>b.checked).map(b=>b.dataset.comp);
+    if(!picked.length) return void(err.innerHTML='<div class="err">所属会社を1つ以上選んでください。</div>');
+    const keep=(s.companies||[]).filter(c=>!canSeeCompany(c));
+    doc.companies=[...new Set(keep.concat(picked))];
+    doc.active=true;
+    doc.createdAt=s.createdAt||new Date().toISOString();
+    try{
+      if(s.id) await DB.doc("staff/"+s.id).set(doc); else await DB.doc("staff/"+uid()).set(doc);
+      toast("保存しました"); closeOverlay();
+    }catch(e){ err.innerHTML='<div class="err">保存できませんでした。</div>'; }
+  });
+}
+function renderMaster(box){
+  box.innerHTML = companies().map(c=>'<div class="panel" style="margin-bottom:12px"><header><h3>'+esc(c.name)+'</h3>'+
+    '<span class="chip">'+(c.products||[]).length+' 商品</span><div class="grow"></div>'+
+    '<span class="mono tiny faint">'+esc(c.id)+'</span></header><div class="pad">'+
+    '<div class="checks">'+(c.products||[]).map(p=>'<span class="chip">'+esc(p.name)+'</span>').join("")+'</div>'+
+    '<div class="row" style="gap:8px;margin-top:13px"><input type="text" data-newprod="'+esc(c.id)+'" placeholder="商品名を追加">'+
+    '<button class="btn" data-addprod="'+esc(c.id)+'">追加</button></div>'+
+    '<div class="row" style="margin-top:11px;gap:6px;flex-wrap:wrap">'+(c.products||[]).map(p=>
+      '<button class="btn sm ghost" data-rmprod="'+esc(c.id)+'|'+esc(p.id)+'">'+esc(p.name)+' を削除</button>').join(" ")+'</div>'+
+    '</div></div>').join("")+
+    '<div class="note">商品を削除しても、登録済みのお客様の提案履歴は残ります。会社そのものの追加が必要な場合はご相談ください。</div>';
+  box.querySelectorAll("[data-addprod]").forEach(b=>b.addEventListener("click", async ()=>{
+    const cid=b.dataset.addprod, el=box.querySelector('[data-newprod="'+cid+'"]');
+    const name=(el.value||"").trim(); if(!name) return;
+    const next=companies().map(c=> c.id!==cid? c : {...c, products:[...(c.products||[]),{id:"p"+uid().slice(-6),name}]});
+    try{ await DB.doc("meta/config").set({companies:next, updatedAt:new Date().toISOString()}); toast("商品を追加しました"); }
+    catch(e){ toast("保存できませんでした"); }
+  }));
+  box.querySelectorAll("[data-rmprod]").forEach(b=>b.addEventListener("click", async ()=>{
+    const [cid,pid]=b.dataset.rmprod.split("|");
+    if(!await askConfirm("商品を削除","この商品をマスタから削除します。登録済みのお客様の提案履歴は残ります。","削除する",true)) return;
+    const next=companies().map(c=> c.id!==cid? c : {...c, products:(c.products||[]).filter(p=>p.id!==pid)});
+    try{ await DB.doc("meta/config").set({companies:next, updatedAt:new Date().toISOString()}); toast("削除しました"); }
+    catch(e){ toast("保存できませんでした"); }
+  }));
+}
+
+/* ============================================================
+   アカウント / 使い方 / オーバーレイ
+   ============================================================ */
+function openAccount(){
+  const body='<div class="fset"><h4>ログイン中</h4><dl class="kv">'+
+      '<dt>お名前</dt><dd>'+esc(me.name||"（未設定）")+'</dd>'+
+      '<dt>入口</dt><dd>'+esc(scopeTitle(me.scope))+'</dd>'+
+      '<dt>見られる会社</dt><dd>'+esc(myCompanies().map(companyName).join("、"))+'</dd></dl>'+
+      '<p class="tiny faint" style="margin-top:10px">個人ごとのIDはありません。ログインは会社ごとの共通パスワードです。'+
+      (isHQ()? '本部の入口なので、3社すべてを会社タブで切り替えられます。' : '他社のお客様は表示されません。')+'</p></div>'+
+    '<div class="fset"><h4>パスワード・退職者の処理</h4>'+
+      '<p class="small muted" style="margin-bottom:12px">パスワードは誰でもいつでも変えられます。'+
+      '退職者が出たら、その会社のパスワードを新しくすれば、ログインしたままの端末も次から入れなくなります。</p>'+
+      '<button class="btn primary" id="ac_pw">パスワードを変える／退職者の処理</button></div>'+
+    '<div class="fset"><h4>Googleカレンダー連携</h4>'+
+      (gcal.status==="ready"
+        ? '<div class="banner good">Googleカレンダーに接続されています。面談やイベントを、お客様情報つきで書き出せます。</div>'+
+          '<label class="check" style="margin-top:12px"><input type="checkbox" id="ac_gpush"'+(gcalPushPref()?" checked":"")+'>新しい予定は既定でGoogleカレンダーにも登録する</label>'+
+          '<label class="check" style="margin-top:8px"><input type="checkbox" id="ac_gshow"'+(gcalShow()?" checked":"")+'>Googleカレンダーの予定をアプリのカレンダーに表示する</label>'+
+          '<p class="tiny faint" style="margin-top:11px">連携は開いている方ご自身のGoogleアカウントに対して行われます。他の方のカレンダーは見えません。</p>'
+        : (()=>{const g=gcalMsg(gcal.errCode||"server_not_connected"); return '<div class="banner '+g.cls+'">'+g.text+'</div>';})())+
+    '</div>'+
+    '<div class="fset"><h4>表示</h4><div class="row" style="gap:8px">'+
+      [["auto","端末に合わせる"],["light","ライト"],["dark","ダーク"]].map(o=>'<button class="btn sm" data-theme="'+o[0]+'">'+o[1]+'</button>').join("")+
+    '</div></div>'+
+    '<div class="fset"><h4>この端末の自動ログイン</h4>'+
+      '<p class="small muted">共有パソコンでは、使い終わったらログアウトしてください。ログアウトすると自動ログインも解除されます。</p></div>';
+  openOverlay('<div class="modal"><div class="dhead"><div class="av">'+esc(initials(me.name))+'</div><b>アカウント</b>'+
+    '<div class="grow"></div><button class="x" id="dClose">'+I.x+'</button></div><div class="dbody">'+body+'</div>'+
+    '<div class="dfoot"><button class="btn" id="dCancel">閉じる</button><div class="grow"></div>'+
+    '<button class="btn danger" id="signOut">ログアウト</button></div></div>');
+  $("#dClose").addEventListener("click",closeOverlay);
+  $("#dCancel").addEventListener("click",closeOverlay);
+  $("#signOut").addEventListener("click",()=>{ closeOverlay(); signOut(); });
+  $("#ac_pw").addEventListener("click",()=>{ closeOverlay(); view="admin"; ui.adminTab="pw"; renderAll(); });
+  const gp=$("#ac_gpush"); if(gp) gp.addEventListener("change",()=>setGcalPref("push",gp.checked));
+  const gsw=$("#ac_gshow"); if(gsw) gsw.addEventListener("change",()=>setGcalPref("show",gsw.checked));
+  document.querySelectorAll("[data-theme]").forEach(b=>b.addEventListener("click",()=>{
+    const v=b.dataset.theme;
+    if(v==="auto") document.documentElement.removeAttribute("data-theme");
+    else document.documentElement.setAttribute("data-theme",v);
+    try{ localStorage.setItem("crm.theme",v); }catch(e){}
+  }));
+}
+function openHelp(){
+  const body =
+    '<div class="fset"><h4>このアプリの役割</h4><p class="small muted">お客様との出会いから契約までを、担当者ごと・会社ごとに記録する営業台帳です。'+
+    '「誰が」「どのお客様に」「どの商品を」「何回目の面談まで」進めているかを一覧で把握できます。</p></div>'+
+    '<div class="fset"><h4>ログインの仕組み</h4><p class="small muted">個人ごとのIDやアカウントはありません。'+
+    '<b>会社ごとに1つの共通パスワード</b>で入り、名前はログイン画面で選ぶだけです（名簿に無ければその場で追加できます）。</p>'+
+    '<dl class="kv" style="margin-top:11px">'+
+      '<dt>各社のパスワード</dt><dd>その会社のお客様だけが見えます（会社タブは出ません）</dd>'+
+      '<dt>本部のパスワード</dt><dd>3社すべてを、上部の会社タブで切り替えて見られます</dd>'+
+    '</dl></div>'+
+    '<div class="fset"><h4>退職者が出たとき</h4><p class="small muted">左メニューの <b>パスワード・名簿</b> から'+
+    '「退職者の処理をする」を押すと、<b>① 名簿から外す　② 担当のお客様を引き継ぐ　③ パスワードを新しくする</b> をまとめて行えます。'+
+    'パスワードを変えると、辞めた方が端末を開いたままでも、次のアクセスで入れなくなります。'+
+    '新しいパスワードは画面に大きく表示されるので、残るメンバーに伝えてください。</p>'+
+    '<p class="tiny faint" style="margin-top:9px">管理者の権限はありません。パスワードは、その会社に入っている方なら誰でも変更できます。'+
+    '本部のパスワードは、本部で入った方が変更できます。</p></div>'+
+    '<div class="fset"><h4>画面上部の会社タブ</h4><p class="small muted">'+
+    (canSwitchCompany()
+      ? 'あなたは <b>'+esc(myCompanies().map(companyName).join("、"))+'</b> を見られます。上部のタブで会社を切り替えると、以降のすべての画面（ボード・一覧・カレンダー・集計）がその会社だけに絞り込まれます。「全社」で横断表示に戻ります。右側の「担当」で担当者をさらに絞れます。'
+      : 'あなたは <b>'+esc(companyName(myCompanies()[0]||""))+'</b> の入口でログインしています。他社のお客様は表示されません。')+
+    '</p></div>'+
+    '<div class="fset"><h4>日々の使い方</h4><ol class="steps">'+
+      '<li><b>反響があったら顧客を追加</b><br>氏名・問合せ日・反響経路・展示場を登録し、土地の有無と興味度でランク（A／B／C）を選びます。</li>'+
+      '<li><b>面談を積み上げる</b><br>カルテの「面談記録」に <b>初回 → 2回目 → 3回目…</b> と追加します。'+
+      '<b>未来の日付＝次回アポ</b>、<b>過去の日付や当日でメモ入り＝実施済み</b> として自動判定され、ダッシュボードと面談予定に反映されます。</li>'+
+      '<li><b>Googleカレンダーに出す</b><br>「未登録の予定をGoogleカレンダーに登録」を押すと、ランク・提案商品・前回の記録つきで書き出されます。</li>'+
+      '<li><b>提案商品を選ぶ</b><br>「提案商品」タブで、その会社の商品から提案中のものを選びます。</li>'+
+      '<li><b>決着したら移動する</b><br>カルテ下部の「契約済にする」「没にする」で、契約済リスト・没リストへ移します。どちらも商談に戻せます。</li>'+
+    '</ol></div>'+
+    '<div class="fset"><h4>ランクの決め方</h4><dl class="kv">'+
+      '<dt><span class="rank A">A</span></dt><dd>土地あり・興味あり — 最優先。資金計画とプラン提案を急ぎます。</dd>'+
+      '<dt><span class="rank B">B</span></dt><dd>土地なし・興味あり — 土地探しと並行して追客します。</dd>'+
+      '<dt><span class="rank C">C</span></dt><dd>土地なし・興味なし — 定期接触で温度が上がるのを待ちます。</dd>'+
+    '</dl><p class="tiny faint" style="margin-top:10px">ランクは顧客一覧の左端からも直接変更できます。</p></div>'+
+    '<div class="fset"><h4>状況の見方</h4><div class="row" style="gap:8px;flex-wrap:wrap">'+
+      '<span class="st active">商談中</span><span class="small muted">次回アポあり</span></div>'+
+      '<div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px"><span class="st follow">次回アポ未設定</span><span class="small muted">要フォロー</span></div>'+
+      '<div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px"><span class="st todo">情報未入力</span><span class="small muted">ランクも面談も未登録</span></div>'+
+      '<div class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px"><span class="when over">超過</span><span class="when today">本日</span>'+
+      '<span class="when week">あと◯日</span><span class="when none">アポ未設定</span></div></div>'+
+    '<div class="fset"><h4>編集できる範囲</h4><p class="small muted">見えている会社のお客様は、担当者を問わず誰でも編集できます。'+
+    '同じ会社の中で役職による制限はありません。会社をまたいだ閲覧だけが、ログイン時のパスワードで分かれています。</p></div>';
+  openOverlay('<div class="drawer"><div class="dhead"><b>使い方ガイド</b><div class="grow"></div>'+
+    '<button class="x" id="dClose">'+I.x+'</button></div><div class="dbody">'+body+'</div>'+
+    '<div class="dfoot"><button class="btn" id="dCancel">閉じる</button></div></div>');
+  $("#dClose").addEventListener("click",closeOverlay);
+  $("#dCancel").addEventListener("click",closeOverlay);
+}
+/* 確認・入力ダイアログ（ブラウザの confirm / prompt の代わり） */
+let askResolve = null;
+function askOpen(o){
+  const a=$("#ask");
+  a.innerHTML='<div class="scrim" id="askScrim"></div><div class="modal">'+
+    '<div class="dhead"><b>'+esc(o.title)+'</b></div>'+
+    '<div class="dbody"><p class="amsg">'+esc(o.msg||"")+'</p>'+
+    (o.input? '<div style="margin-top:14px"><input id="askInput" type="text" placeholder="'+esc(o.ph||"")+'"></div>':'')+
+    '</div><div class="dfoot"><button class="btn '+(o.danger?"danger":"primary")+'" id="askOk">'+esc(o.ok||"OK")+'</button>'+
+    '<button class="btn" id="askNo">キャンセル</button></div></div>';
+  a.classList.add("on");
+  const done = v=>{ a.classList.remove("on"); a.innerHTML=""; document.removeEventListener("keydown",askKey);
+    const r=askResolve; askResolve=null; if(r) r(v); };
+  a._done = done;
+  $("#askScrim").addEventListener("click",()=>done(null));
+  $("#askNo").addEventListener("click",()=>done(null));
+  $("#askOk").addEventListener("click",()=>done(o.input? ($("#askInput").value||"") : true));
+  document.addEventListener("keydown", askKey);
+  const f = o.input? $("#askInput") : $("#askOk");
+  setTimeout(()=>f&&f.focus(),30);
+  if(o.input) $("#askInput").addEventListener("keydown",e=>{ if(e.key==="Enter") done($("#askInput").value||""); });
+  return new Promise(r=>{ askResolve=r; });
+}
+function askKey(e){
+  if(e.key!=="Escape") return;
+  e.stopPropagation();
+  const a=$("#ask"); if(a && a._done) a._done(null);
+}
+const askConfirm = (title,msg,ok,danger)=> askOpen({title,msg,ok:ok||"実行する",danger});
+const askPrompt  = (title,msg,ph,ok)=> askOpen({title,msg,ph,ok:ok||"決定",input:true});
+
+function openOverlay(html){
+  const o=$("#overlay");
+  o.innerHTML='<div class="scrim" id="scrim"></div>'+html;
+  o.classList.add("on");
+  $("#scrim").addEventListener("click",closeOverlay);
+  bindEyes(o);
+  document.addEventListener("keydown", escClose);
+  const first=o.querySelector("input,select,textarea,button");
+  if(first&&first.focus) setTimeout(()=>first.focus(),30);
+}
+function escClose(e){
+  if(e.key!=="Escape") return;
+  const a=$("#ask"); if(a && a.classList.contains("on")) return;
+  closeOverlay();
+}
+function closeOverlay(){
+  const o=$("#overlay"); if(!o) return;
+  o.classList.remove("on"); o.innerHTML="";
+  drawerCust=null;
+  document.removeEventListener("keydown", escClose);
+  refreshCurrent();
+}
+try{ const th=localStorage.getItem("crm.theme"); if(th&&th!=="auto") document.documentElement.setAttribute("data-theme",th); }catch(e){}
+boot();
+</script>
