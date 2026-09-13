@@ -1021,10 +1021,61 @@ function loginHTML(){
         '<p class="tiny faint" style="margin-top:5px">入力した文字は「表示」で確認できます。</p></div>'+
       '<label class="check"><input type="checkbox" id="lg_remember"'+(login.remember?" checked":"")+
         '>この端末では次回から自動でログイン</label>'+
-      '<button class="btn primary" type="submit" style="justify-content:center;padding:11px;margin-top:2px">ログイン</button>';
+      '<button class="btn primary" type="submit" style="justify-content:center;padding:11px;margin-top:2px">ログイン</button>'+
+      '<button type="button" class="linkbtn" id="lgHelp" style="align-self:flex-start">パスワードが分からない・入れないとき</button>';
   }
   return '<div class="loginwrap"><div class="loginsplit">'+loginIntro()+
     '<form class="pane" id="loginForm">'+pane+'</form></div></div>';
+}
+/* パスワードが分からないときの作り直し。
+   本部は「3社すべての共通パスワード」を知っている方だけが作り直せる。
+   3社すべてを知っている＝すでに3社すべてを見られる、ということなので権限は増えない。 */
+function openPwRecover(k){
+  if(!k) return;
+  const need = k===HQ ? companies().map(c=>c.id) : [HQ];
+  const lead = k===HQ
+    ? "本部のパスワードは、3社すべての共通パスワードが分かる方が作り直せます。3社すべてを知っている＝すでに3社すべてのお客様を見られる、という考え方です。"
+    : "本部の共通パスワードが分かる方が、この会社のパスワードを作り直せます。";
+  const body =
+    '<div class="fset"><h4>先に試してみてください</h4><ul class="canlist">'+
+      '<li>決めたときに<b>数字を全角</b>（０１２３）で入れていた場合は、<b>全角のまま</b>入れてみてください</li>'+
+      '<li>大文字・小文字、全角・半角、前後の空白は区別しません（全角で決めたものを除く）</li>'+
+      '<li>他の会社のパスワードと取り違えていないかご確認ください</li>'+
+    '</ul></div>'+
+    '<div class="fset"><h4>① '+esc(k===HQ? "3社すべてのパスワード":"本部のパスワード")+'</h4>'+
+      '<p class="small muted" style="margin-bottom:12px">'+esc(lead)+'</p>'+
+      need.map(n=>'<div style="margin-bottom:11px"><label class="lb">'+esc(scopeTitle(n))+'</label>'+pwField("rc_"+n)+'</div>').join("")+
+    '</div>'+
+    '<div class="fset"><h4>② '+esc(scopeTitle(k))+' の新しいパスワード</h4>'+
+      '<div class="grid2">'+fld("新しいパスワード",pwField("rc_new","new-password"))+fld("確認のため再入力",pwField("rc_new2","new-password"))+'</div>'+
+      '<button class="btn sm" id="rcGen" type="button" style="margin-top:11px">自動で作る</button>'+
+      '<p class="tiny faint" style="margin-top:9px">作り直すと、'+esc(scopeTitle(k))+'でログインしている方は次から新しいパスワードになります。</p></div>'+
+    '<div id="rcErr"></div>';
+  openOverlay('<div class="drawer"><div class="dhead"><b>'+esc(scopeTitle(k))+' のパスワードを作り直す</b><div class="grow"></div>'+
+    '<button class="x" id="dClose">'+I.x+'</button></div><div class="dbody">'+body+'</div>'+
+    '<div class="dfoot"><button class="btn primary" id="rcGo">作り直す</button>'+
+    '<button class="btn" id="dCancel">やめる</button></div></div>');
+  $("#dClose").addEventListener("click",closeOverlay);
+  $("#dCancel").addEventListener("click",closeOverlay);
+  $("#rcGen").addEventListener("click",()=>{ setPwInputs(["rc_new","rc_new2"], easyPw()); });
+  $("#rcGo").addEventListener("click", async ()=>{
+    const err=$("#rcErr"), btn=$("#rcGo");
+    const p1=normPw($("#rc_new").value), p2=normPw($("#rc_new2").value);
+    if(p1.length<4) return void(err.innerHTML='<div class="err">新しいパスワードを4文字以上で入れてください。</div>');
+    if(p1!==p2) return void(err.innerHTML='<div class="err">確認用のパスワードが一致しません。</div>');
+    btn.disabled=true; btn.textContent="確認中…";
+    for(const n of need){
+      if(!await pwMatches(scopeAuth(n), $("#rc_"+n).value)){
+        btn.disabled=false; btn.textContent="作り直す";
+        return void(err.innerHTML='<div class="err">'+esc(scopeTitle(n))+' のパスワードが違います。</div>');
+      }
+    }
+    try{
+      await writeScopePw(k, p1, "ログイン画面から再設定");
+      showPwList([[scopeTitle(k), p1]], "パスワードを作り直しました",
+        "この内容でログインできます。"+(k===HQ? "本部で使う方":scopeTitle(k)+"の全員")+"に伝えてください。");
+    }catch(e){ btn.disabled=false; btn.textContent="作り直す"; err.innerHTML='<div class="err">作り直せませんでした。</div>'; }
+  });
 }
 function bindLogin(){
   bindEyes();
@@ -1033,6 +1084,8 @@ function bindLogin(){
   }));
   const back=$("#lgBack");
   if(back) back.addEventListener("click",()=>{ login.scope=""; login.err=""; renderAll(); });
+  const hlp=$("#lgHelp");
+  if(hlp) hlp.addEventListener("click",()=>openPwRecover(login.scope));
   const ns=$("#lg_name");
   if(ns) ns.addEventListener("change",()=>{
     const w=$("#lg_newwrap"); if(w) w.hidden = ns.value!=="__new";
@@ -1047,7 +1100,7 @@ function bindLogin(){
     const fail=m=>{ login.err=m; login.staffId=($("#lg_name")||{}).value||""; login.newName=(($("#lg_newname")||{}).value||"").trim(); renderAll(); };
     if(!a || !a.hash) return fail("この会社のパスワードがまだ設定されていません。本部の方に設定を依頼してください。");
     if(!await pwMatches(a, pw))
-      return fail("パスワードが違います。退職者が出たなどで新しいパスワードに変わっているかもしれません。社内で最新のパスワードをご確認ください。（大文字・小文字、全角・半角、前後の空白は区別しません）");
+      return fail("パスワードが違います。決めたときに全角（０１２３）で入れていた場合は、全角のまま入れてみてください。分からないときは下の「パスワードが分からない・入れないとき」から作り直せます。");
     /* 名前 */
     const v=($("#lg_name")||{}).value||"__new";
     let sid=v, nm="";
@@ -2281,7 +2334,7 @@ function renderPasswords(box){
 async function writeScopePw(k, pw, byName){
   const salt=newSalt(), hash=await hashPw(salt,pw);
   const scopes = Object.assign({}, (AUTH&&AUTH.scopes)||{});
-  scopes[k] = {salt, hash, updatedAt:new Date().toISOString(), updatedBy:byName||me.name||""};
+  scopes[k] = {salt, hash, updatedAt:new Date().toISOString(), updatedBy:byName||(me&&me.name)||"再設定"};
   const prev = me? me.fp : "";
   const mine = !!(me && k===me.scope);
   if(mine) refreshSessionFp(String(hash).slice(0,16));   /* 変更した本人はログインを保つ */
