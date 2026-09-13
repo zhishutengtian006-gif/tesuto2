@@ -451,6 +451,17 @@ function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("on
 function sortBy(a,f,d){ return a.slice().sort((x,y)=>{const p=f(x),q=f(y); if(p===q) return 0; return (p>q?1:-1)*(d==="desc"?-1:1);}); }
 async function sha256(t){ const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""); }
 const hashPw = (s,p)=> sha256(s+":"+p);
+/* パスワードの表記ゆれを吸収する：全角→半角（NFKC）、空白、大文字・小文字 */
+const normPw = v => String(v==null?"":v).normalize("NFKC").replace(/[\s\u3000]/g,"").toLowerCase();
+/* 入力が合っているか。いまの書き方（正規化）と、以前に設定された書き方の両方を試す */
+async function pwMatches(a, input){
+  if(!a || !a.hash) return false;
+  const salt = a.salt||"";
+  const raw = String(input==null?"":input);
+  for(const c of [...new Set([normPw(raw), raw.trim(), raw])])
+    if(await hashPw(salt,c) === a.hash) return true;
+  return false;
+}
 const newSalt = ()=> [...crypto.getRandomValues(new Uint8Array(12))].map(x=>x.toString(16).padStart(2,"0")).join("");
 
 /* ---------- master ---------- */
@@ -870,7 +881,7 @@ function offlineHTML(){
 }
 /* ---------- パスワード欄（表示切替つき） ---------- */
 function pwField(id, ac, ph){
-  return '<div class="pwwrap"><input id="'+id+'" type="password"'+(ac?' autocomplete="'+ac+'"':'')+
+  return '<div class="pwwrap"><input id="'+id+'" type="password" autocapitalize="off" autocorrect="off" spellcheck="false"'+(ac?' autocomplete="'+ac+'"':'')+
     (ph?' placeholder="'+esc(ph)+'"':'')+'>'+
     '<button type="button" class="eye" data-eye="'+id+'" aria-label="パスワードを表示">表示</button></div>';
 }
@@ -899,7 +910,7 @@ function showPwList(rows, title, msg){
     '<button class="x" id="dClose">'+I.x+'</button></div><div class="dbody">'+
     '<div class="banner good" style="margin-bottom:14px">'+esc(msg)+'</div>'+
     rows.map(r=>'<div class="fset"><h4>'+esc(r[0])+'</h4><div class="pwshow">'+esc(r[1])+'</div></div>').join("")+
-    '<div class="note">上の文字をなぞるとまとめて選択できます。パスワードは元に戻せない形で保存するため、'+
+    '<div class="note">上の文字をなぞるとまとめて選択できます。入力するときは大文字・小文字、全角・半角、前後の空白を区別しません。パスワードは元に戻せない形で保存するため、'+
     'この画面を閉じると確認できません。忘れたときは新しいパスワードに変えてください（誰でも変えられます）。</div>'+
     '</div><div class="dfoot"><button class="btn primary" id="dCancel">控えたので閉じる</button></div></div>');
   $("#dClose").addEventListener("click", closeOverlay);
@@ -923,7 +934,7 @@ function setupHTML(){
     '</div>'+
     '<form class="pane" id="setupForm">'+
       '<div><p class="eyebrow">Step 1</p><h2 style="margin-top:5px;font-size:17px">パスワードを決める</h2>'+
-      '<p class="small muted" style="margin-top:7px">4文字以上。口で伝えやすいものがおすすめです。あとからいつでも変更できます。</p></div>'+
+      '<p class="small muted" style="margin-top:7px">4文字以上。口で伝えやすいものがおすすめです。あとからいつでも変更できます。<br>大文字・小文字と全角・半角は区別しません（半角小文字で保存されます）。</p></div>'+
       '<div id="setupErr"></div>'+
       keys.map(k=>'<div><label class="lb" for="sp_'+esc(k)+'">'+esc(scopeTitle(k))+
         (k===HQ? '（3社ぜんぶ見る人用）':'')+'</label>'+pwField("sp_"+k,"new-password")+'</div>').join("")+
@@ -942,7 +953,7 @@ function bindSetup(){
     ev.preventDefault();
     const err=$("#setupErr"), scopes={}, rows=[];
     for(const k of keys){
-      const pw = $("#sp_"+k).value;
+      const pw = normPw($("#sp_"+k).value);
       if(!pw || pw.length<4) return void(err.innerHTML='<div class="err">'+esc(scopeTitle(k))+' のパスワードを4文字以上で入れてください。</div>');
       const salt=newSalt();
       scopes[k]={salt, hash:await hashPw(salt,pw), updatedAt:new Date().toISOString(), updatedBy:"初回設定"};
@@ -1035,8 +1046,8 @@ function bindLogin(){
     const pw=($("#lg_pw")||{}).value||"";
     const fail=m=>{ login.err=m; login.staffId=($("#lg_name")||{}).value||""; login.newName=(($("#lg_newname")||{}).value||"").trim(); renderAll(); };
     if(!a || !a.hash) return fail("この会社のパスワードがまだ設定されていません。本部の方に設定を依頼してください。");
-    if(await hashPw(a.salt||"",pw) !== a.hash)
-      return fail("パスワードが違います。退職者が出たなどで新しいパスワードに変わっているかもしれません。社内で最新のパスワードをご確認ください。");
+    if(!await pwMatches(a, pw))
+      return fail("パスワードが違います。退職者が出たなどで新しいパスワードに変わっているかもしれません。社内で最新のパスワードをご確認ください。（大文字・小文字、全角・半角、前後の空白は区別しません）");
     /* 名前 */
     const v=($("#lg_name")||{}).value||"__new";
     let sid=v, nm="";
@@ -2282,7 +2293,7 @@ function openPwChange(k){
   if(!canManagePw(k)) return toast("この区分のパスワードは変更できません");
   const mine = me.scope===k;
   const body='<div class="fset"><h4>'+esc(scopeTitle(k))+'</h4>'+
-      '<p class="small muted" style="margin-bottom:12px">4文字以上。口で伝えやすいものがおすすめです。'+
+      '<p class="small muted" style="margin-bottom:12px">4文字以上。口で伝えやすいものがおすすめです。大文字・小文字と全角・半角は区別しません。'+
       '保存すると、この区分でログインしている'+(mine? '他の方':'方')+'は次に開いたときに再ログインが必要になります。'+
       (mine? 'この端末はそのまま使えます。':'')+'</p>'+
       '<div class="grid2">'+fld("新しいパスワード", pwField("np1","new-password"))+fld("確認のため再入力", pwField("np2","new-password"))+'</div>'+
@@ -2297,7 +2308,7 @@ function openPwChange(k){
   $("#dCancel").addEventListener("click",closeOverlay);
   $("#npGen").addEventListener("click",()=>{ setPwInputs(["np1","np2"], easyPw()); });
   $("#npSave").addEventListener("click", async ()=>{
-    const err=$("#npErr"), p1=$("#np1").value, p2=$("#np2").value, btn=$("#npSave");
+    const err=$("#npErr"), p1=normPw($("#np1").value), p2=normPw($("#np2").value), btn=$("#npSave");
     if(p1.length<4) return void(err.innerHTML='<div class="err">4文字以上で入れてください。</div>');
     if(p1!==p2) return void(err.innerHTML='<div class="err">確認用のパスワードが一致しません。</div>');
     btn.disabled=true; btn.textContent="変更中…";
@@ -2358,7 +2369,7 @@ function openLeaver(preId){
     const err=$("#lvErr"), btn=$("#lvGo");
     const s=staffById(who.value); if(!s) return;
     const rot=[...document.querySelectorAll("[data-lvk]")].filter(b=>b.checked).map(b=>b.dataset.lvk);
-    const p1=$("#lvPw").value, p2=$("#lvPw2").value;
+    const p1=normPw($("#lvPw").value), p2=normPw($("#lvPw2").value);
     if(rot.length){
       if(p1.length<4) return void(err.innerHTML='<div class="err">新しいパスワードを4文字以上で入れてください。</div>');
       if(p1!==p2) return void(err.innerHTML='<div class="err">確認用のパスワードが一致しません。</div>');
