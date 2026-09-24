@@ -1,0 +1,6 @@
+# 見積Excel・単価マスタは原価・掛率を含むため公開リポジトリに置かない
+*.xlsm
+*.xlsx
+mitsumori/js/master-data.js
+node_modules/
+__pycache__/

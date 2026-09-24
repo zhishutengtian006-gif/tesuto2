@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>住宅見積ナビ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Noto+Sans+JP:wght@400;500;700&family=Zen+Old+Mincho:wght@500;700&display=swap">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">見</span>
+    <div class="brand-text">
+      <strong>住宅見積ナビ</strong>
+      <span id="projTitle" class="proj-title">新規見積</span>
+    </div>
+  </div>
+  <div class="top-actions">
+    <button type="button" class="btn ghost" id="btnNew">新規</button>
+    <button type="button" class="btn ghost" id="btnSample">サンプル</button>
+    <label class="btn ghost file-btn" for="fileImport">読込<input type="file" id="fileImport" accept=".json,application/json"></label>
+    <button type="button" class="btn ghost" id="btnExport">保存</button>
+  </div>
+  <div class="top-total" aria-live="polite">
+    <span class="lbl">契約金額（税込）</span>
+    <strong id="topTotal">¥0</strong>
+  </div>
+</header>
+
+<div class="shell">
+  <nav class="steps" id="steps" aria-label="入力ステップ"></nav>
+  <main id="main" tabindex="-1"></main>
+  <aside class="summary" id="summary" aria-label="金額サマリー"></aside>
+</div>
+
+<div class="mobilebar" id="mobilebar">
+  <div><span class="lbl">税込</span> <strong id="mobTotal">¥0</strong></div>
+  <button type="button" class="btn primary" id="mobEstimate">見積書を見る</button>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+<script src="js/master-data.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/plan.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
