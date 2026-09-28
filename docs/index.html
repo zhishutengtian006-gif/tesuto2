@@ -154,7 +154,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .btn.ghost:hover{background:var(--surface3)}
 .btn.sm{padding:4px 9px;font-size:12px}
 .btn:disabled{opacity:.45;cursor:not-allowed}
-input[type=text],input[type=password],input[type=date],input[type=time],input[type=number],input[type=email],input[type=tel],select,textarea{
+input[type=text],input[type=password],input[type=date],input[type=month],input[type=time],input[type=number],input[type=email],input[type=tel],select,textarea{
   width:100%;padding:7px 9px;border:1px solid var(--border-strong);border-radius:var(--r);background:var(--surface);transition:border-color .12s}
 input:focus,select:focus,textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
 textarea{resize:vertical;min-height:70px;line-height:1.65}
@@ -441,6 +441,40 @@ tr.rC td.stripe{border-left-color:var(--rank-c)}
   .cell{min-height:76px} .kv{grid-template-columns:92px 1fr}
 }
 
+/* ---------- 営業会議 ---------- */
+.mtgbar{display:flex;align-items:center;gap:10px 12px;flex-wrap:wrap;padding:10px 14px;background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--r);margin-bottom:14px}
+.mtgbar select{width:auto;min-width:200px}
+.mtgbar .period{font-size:12px;color:var(--muted)}
+.gwrap{padding-top:22px}
+.gbar{position:relative;height:24px;background:var(--surface3);border-radius:4px;display:flex}
+.gbar>span:not(.goal){height:100%}
+.gbar>span:first-child{border-radius:4px 0 0 4px}
+.gbar .w{background:var(--ok)} .gbar .h{background:var(--accent)}
+.gbar .m{background:color-mix(in srgb,var(--accent) 40%,var(--surface3))}
+.gbar .goal{position:absolute;top:-6px;bottom:-6px;width:2px;background:var(--text)}
+.gbar .goal b{position:absolute;bottom:calc(100% + 3px);left:50%;transform:translateX(-50%);font-family:var(--mono);
+  font-size:11px;font-weight:500;white-space:nowrap;color:var(--text)}
+.gbar .goal.end b{left:auto;right:0;transform:none}
+.gbar .goal.start b{left:0;transform:none}
+.glegend{display:flex;gap:6px 16px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:12px}
+.glegend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.fc{font-family:var(--mono);font-weight:500}
+.fc.hi{color:var(--ok)} .fc.mid{color:var(--accent)} .fc.lo{color:var(--muted)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.mx td.c{text-align:center;cursor:pointer;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.mx td.c:hover{background:var(--accent-soft)}
+.mx td.c.z{color:var(--faint);cursor:default}
+.mx td.c.z:hover{background:none}
+.mx .up{display:inline-block;margin-left:5px;font-size:10.5px;color:var(--ok);font-weight:500}
+.delta{font-family:var(--mono);font-size:10.5px;margin-left:5px}
+.delta.p{color:var(--ok)} .delta.n{color:var(--danger)}
+.ym-in{width:auto!important;padding:3px 6px!important;font-size:12.5px}
+.linkish{cursor:pointer;text-decoration:underline;text-decoration-color:var(--border-strong);text-underline-offset:3px}
+.linkish:hover{color:var(--accent)}
+.actrow{display:grid;grid-template-columns:minmax(0,1fr) 130px 138px 30px;gap:7px;align-items:center;margin-bottom:8px}
+@media(max-width:1100px){.actrow{grid-template-columns:1fr 1fr 30px}.actrow [data-a="title"]{grid-column:1/-1}}
+
 /* ---------- login: 会社えらび ---------- */
 .pickgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 @media(max-width:520px){.pickgrid{grid-template-columns:1fr}}
@@ -511,13 +545,14 @@ const WD = ["日","月","火","水","木","金","土"];
 let DB = null, dbState = "loading";
 let CFG = { companies: DEFAULT_COMPANIES };
 let AUTH = null;
-let staff = [], customers = [], events = [], todos = [];
-let loaded = { auth:false, staff:false, customers:false, events:false, todos:false };
+let staff = [], customers = [], events = [], todos = [], goals = [], mtgs = [];
+let loaded = { auth:false, staff:false, customers:false, events:false, todos:false, goals:false, mtgs:false };
 let me = null, view = "dash", unsubs = [];
 const ui = {
   scope:"all", scopeRep:"",
   rankTab:"all", fStage:"", fProduct:"", fStatus:"", fQuery:"", fAlert:false,
   calYM:null, todoTab:"open", reportBy:"owner", adminTab:"pw", sort:{key:"next",dir:1},
+  mtgMonth:"", mtgTab:"nums", yomiAll:false,
 };
 const login = { scope:"", staffId:"", newName:"", err:"", remember:true };
 
@@ -681,6 +716,7 @@ const I = {
   plus:'<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 2v10M2 7h10"/></svg>',
   L:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8.6 3L4.6 7l4 4"/></svg>',
   R:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5.4 3l4 4-4 4"/></svg>',
+  mtg:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2.4" y="5.6" width="11.2" height="5.6" rx="1.2"/><circle cx="5" cy="3" r="1.2"/><circle cx="11" cy="3" r="1.2"/><circle cx="5" cy="13.6" r="1.2"/><circle cx="11" cy="13.6" r="1.2"/></svg>',
 };
 /* ============================================================
    接続・セッション
@@ -692,6 +728,7 @@ async function boot(){
   if(!db){ dbState="off"; return renderAll(); }
   DB = db; dbState = "ok";
   initGcal();
+  initSample();
   try{
     DB.doc("meta/config").onSnapshot(s=>{
       const d = s.exists? s.data():null;
@@ -724,13 +761,15 @@ async function boot(){
 }
 function subscribeData(){
   unsubs.forEach(u=>{try{u();}catch(e){}}); unsubs=[];
-  loaded.customers=loaded.events=loaded.todos=false;
+  loaded.customers=loaded.events=loaded.todos=loaded.goals=loaded.mtgs=false;
   const sub=(name,setter)=>DB.collection(name).onSnapshot(s=>{
     setter(s.docs.map(d=>({id:d.id, ...d.data()}))); loaded[name]=true; refreshCurrent();
   }, ()=>{ loaded[name]=true; refreshCurrent(); });
   unsubs.push(sub("customers", v=>customers=v));
   unsubs.push(sub("events", v=>events=v));
   unsubs.push(sub("todos", v=>todos=v));
+  unsubs.push(sub("goals", v=>goals=v));
+  unsubs.push(sub("mtgs", v=>mtgs=v));
 }
 /* ---------- セッション（この端末に覚えておく） ---------- */
 function saveSession(){
@@ -770,7 +809,7 @@ function afterLogin(){
 function signOut(silent){
   clearSession();
   me=null; unsubs.forEach(u=>{try{u();}catch(e){}}); unsubs=[];
-  customers=[];events=[];todos=[]; view="dash";
+  customers=[];events=[];todos=[];goals=[];mtgs=[]; mtgDraft=null; view="dash";
   login.scope=""; login.staffId=""; login.newName=""; login.err="";
   closeOverlay(); renderAll();
   if(!silent) toast("ログアウトしました");
@@ -1224,6 +1263,7 @@ const NAV = [
   {id:"calendar", name:"カレンダー", icon:"cal"},
   {id:"todo", name:"TODO", icon:"check"},
   {id:"report", name:"集計", icon:"chart"},
+  {id:"mtg", name:"営業会議", icon:"mtg"},
 ];
 const ARCHIVE_NAV = [
   {id:"contract", name:"契約済", icon:"seal"},
@@ -1315,17 +1355,19 @@ function refreshCurrent(){
   if(view==="customers") renderCustomerTable();
   else if(view==="calendar") renderCalGrid();
   else if(view==="todo") renderTodoList();
+  else if(view==="mtg"){ if(ui.mtgTab!=="notes") renderView(); }   /* 議事録を書いている最中は描き直さない */
   else renderView();
 }
 function renderView(){
   const r=$("#viewRoot"); if(!r) return;
   ({dash:renderDash, customers:renderCustomers, meetings:renderMeetings, calendar:renderCalendar,
-    todo:renderTodo, report:renderReport, contract:renderContract, lost:renderLost, admin:renderAdmin}[view] || renderDash)(r);
+    todo:renderTodo, report:renderReport, contract:renderContract, lost:renderLost, admin:renderAdmin, mtg:renderMtg}[view] || renderDash)(r);
 }
 const VIEW_SUB = {
   dash:"商談サマリー", customers:"行をクリックでカルテを開きます", meetings:"次回アポを時系列で確認",
   calendar:"面談と予定を月単位で確認", todo:"やることの管理", report:"担当者別・商品別の実績",
   contract:"成約したお客様", lost:"見送り・失注したお客様", admin:"ログインパスワードとメンバー名簿",
+  mtg:"目標・工程・ヨミ・議事録",
 };
 function topbar(title, right){
   return '<div class="topbar"><div><h1>'+esc(title)+'</h1>'+
@@ -1374,6 +1416,8 @@ function renderDash(root){
     kpi("", "今週の面談", week, "件", "7日以内のアポ")+
     kpi("warn", "要フォロー", follow, "件", "次回アポ未設定")+
     kpi("ok", "今月の契約", monthWon.length, "棟", man(monthAmt)+" 万円")+
+    (()=>{ const mn=monthNumbers(ym, scoped()), gl=goalSum(ym, ui.scopeRep||"").units;
+      return kpi(gl && mn.won+mn.hi>=gl? "ok":"", "今月の着地予想", mn.won+mn.hi, "棟", gl? "目標 "+gl+" 棟 ／ 契約＋◎" : "目標未設定 ／ 契約＋◎"); })()+
     '</div>';
 
   /* A/B/C レーン */
@@ -1639,6 +1683,7 @@ function blankCustomer(){
     familySize:"", kids:"", buildTiming:"", tsubo:"", madori:"", competitors:"",
     income:"", savings:"", loanWish:"", budgetTotal:"", loanScreen:"none",
     products:[], mainProductId:"", productNote:"", memo:"",
+    forecast:"", expectedMonth:"", expectedAmount:"", stageLog:[],
     meetings:[{date:"", time:"", place:"", note:""}],
     lost:false, lostReason:"", lostDate:"", contracted:false, contractDate:"", contractAmount:"", grossProfit:"", contractNote:"" };
 }
@@ -1711,6 +1756,12 @@ function custInfo(c, ed){
     fld("会社", ed?sel("companyId",c.companyId,compOpts):ro(companyName(c.companyId)))+
     fld("営業担当", (ed&&canManageFor(c))?sel("ownerId",c.ownerId,ownerOpts):ro(staffName(c.ownerId)))+
     '</div></div>';
+  h += '<div class="fset"><h4>契約見込み（ヨミ）</h4><div class="grid3">'+
+    fld("確度", ed?sel("forecast",c.forecast,[["","未設定"],["hi","◎ 確度高"],["mid","○ 確度中"],["lo","△ 確度低"]])
+      :ro(c.forecast&&FORECAST[c.forecast]? FORECAST[c.forecast].mark+" "+FORECAST[c.forecast].label : ""))+
+    fld("契約予定月", ed?inp("expectedMonth",c.expectedMonth,"month"):ro(c.expectedMonth? monthLabel(c.expectedMonth):""))+
+    fld("見込み金額（万円）", ed?inp("expectedAmount",c.expectedAmount,"number",'min="0" placeholder="空欄なら総予算"'):ro(c.expectedAmount!==""&&c.expectedAmount!=null? man(c.expectedAmount):""))+
+    '</div><p class="tiny faint" style="margin-top:9px">営業会議のヨミ表と、目標に対する着地予想に使います。◎は「予定月に契約できる見込み」です。</p></div>';
   h += '<div class="fset"><h4>反響</h4><div class="grid3">'+
     fld("問合せ日", ed?inp("inquiryDate",c.inquiryDate,"date"):ro(fmtDY(c.inquiryDate)))+
     fld("反響経路", ed?sel("source",c.source,[["",""]].concat(SOURCES.map(s=>[s,s]))):ro(c.source))+
@@ -1926,12 +1977,16 @@ async function saveCustomer(silent){
   if(!c.companyId){ toast("会社を選択してください"); return false; }
   const doc = JSON.parse(JSON.stringify(c));
   delete doc.id;
-  ["familySize","kids","income","savings","loanWish","budgetTotal","tsubo","landArea","contractAmount","grossProfit"]
+  ["familySize","kids","income","savings","loanWish","budgetTotal","tsubo","landArea","contractAmount","grossProfit","expectedAmount"]
     .forEach(k=>{ doc[k] = (doc[k]===""||doc[k]==null) ? "" : num(doc[k]); });
   doc.products = c.products||[];
   doc.meetings = (c.meetings||[]).map(m=>({date:m.date||"",time:m.time||"",place:m.place||"",note:m.note||"",
     ...(m.gcalId?{gcalId:m.gcalId,gcalLink:m.gcalLink||""}:{})}));
   doc.lost = !!c.lost; doc.contracted = !!c.contracted;
+  /* 工程が変わったら記録する（営業会議の「工程が進んだ」に使う） */
+  const orig = c.id ? customers.find(x=>x.id===c.id) : null;
+  doc.stageLog = Array.isArray(doc.stageLog) ? doc.stageLog : [];
+  if(!orig || orig.stage!==doc.stage) doc.stageLog = doc.stageLog.concat([{stage:doc.stage||"", date:TODAY(), by:me.name||""}]);
   doc.updatedAt = new Date().toISOString();
   try{
     if(c.id) await DB.doc("customers/"+c.id).set(doc);
@@ -2352,7 +2407,7 @@ async function exportCSV(){
   const list = view==="customers" ? filteredCustomers() : scoped();
   const head=["ランク","顧客名","ふりがな","会社","担当者","状況","ステージ","問合せ日","反響経路","展示場",
     "電話","メール","住所","土地状況","希望エリア","世帯年収(万)","自己資金(万)","借入希望(万)","総予算(万)","ローン審査",
-    "提案商品","本命商品","建築希望時期","面談回数","次回アポ","最終接触","直近の面談メモ","契約日","契約金額(万)","粗利(万)","没日","没理由","メモ"];
+    "提案商品","本命商品","建築希望時期","確度","契約予定月","見込み金額(万)","面談回数","次回アポ","最終接触","直近の面談メモ","契約日","契約金額(万)","粗利(万)","没日","没理由","メモ"];
   const q = v => '"'+String(v==null?"":v).replace(/"/g,'""').replace(/\r?\n/g," ")+'"';
   const lines=[head.map(q).join(",")].concat(list.map(c=>{
     const ld=lastDoneMeeting(c);
@@ -2361,6 +2416,7 @@ async function exportCSV(){
       LAND[c.landStatus]||"", c.wishArea, c.income, c.savings, c.loanWish, c.budgetTotal, LOAN[c.loanScreen]||"",
       (c.products||[]).map(p=>productName(c.companyId,p)).join(" / "),
       c.mainProductId? productName(c.companyId,c.mainProductId):"", c.buildTiming,
+      c.forecast&&FORECAST[c.forecast]? FORECAST[c.forecast].mark : "", c.expectedMonth||"", c.expectedAmount,
       (c.meetings||[]).length, nextDate(c)||"", lastContact(c)||"", ld?ld.note:"",
       c.contractDate, c.contractAmount, c.grossProfit, c.lostDate, c.lostReason, c.memo].map(q).join(",");
   }));
@@ -2627,6 +2683,610 @@ function renderMaster(box){
 }
 
 /* ============================================================
+   VIEW: 営業会議（毎週）
+   ① 数字（目標と着地予想）→ ② 工程 → ③ ヨミ表 → ④ 今週の動き → ⑤ 議事録・宿題
+   ============================================================ */
+const FORECAST = {
+  hi: {mark:"◎", label:"確度高", desc:"予定月に契約できる見込み"},
+  mid:{mark:"○", label:"確度中", desc:"五分五分"},
+  lo: {mark:"△", label:"確度低", desc:"可能性はある"},
+};
+const FC_ORDER = {hi:0, mid:1, lo:2, "":3};
+const MTG_TABS = [["nums","① 数字"],["pipe","② 工程"],["yomi","③ ヨミ表"],["moves","④ 今週の動き"],["notes","⑤ 議事録・宿題"]];
+const thisMonth = () => TODAY().slice(0,7);
+function monthLabel(ym){ const p=String(ym||"").split("-").map(Number); return p[0]? p[0]+"年"+p[1]+"月" : "—"; }
+const arr = v => Array.isArray(v) ? v : [];
+function fcMark(k){ return FORECAST[k]? '<span class="fc '+k+'" title="'+esc(FORECAST[k].label)+'">'+FORECAST[k].mark+'</span>' : '<span class="faint">—</span>'; }
+function expAmt(c){ const v=(c.expectedAmount!==""&&c.expectedAmount!=null)? c.expectedAmount : c.budgetTotal; return num(v); }
+
+/* ---------- 目標 ---------- */
+const goalId = (ym,cid,sid) => ym+"_"+cid+"_"+sid;
+function goalSum(ym, sid){
+  const cs = scopeCompanies();
+  return goals.filter(g=>g.month===ym && cs.includes(g.companyId) && (!sid || g.staffId===sid))
+    .reduce((a,g)=>({units:a.units+num(g.units), amount:a.amount+num(g.amount)}), {units:0, amount:0});
+}
+/* その月の契約実績と見込み（list は対象のお客様） */
+function monthNumbers(ym, list){
+  const won = list.filter(c=>c.contracted && String(c.contractDate||"").startsWith(ym));
+  const act = list.filter(c=>!c.contracted && !c.lost && c.expectedMonth===ym);
+  const by = k => act.filter(c=>c.forecast===k);
+  const sum = (l,f) => l.reduce((s,c)=>s+f(c),0);
+  return {
+    won:won.length, wonAmt:sum(won,c=>num(c.contractAmount)),
+    hi:by("hi").length, hiAmt:sum(by("hi"),expAmt),
+    mid:by("mid").length, midAmt:sum(by("mid"),expAmt),
+    lo:by("lo").length, loAmt:sum(by("lo"),expAmt),
+  };
+}
+function mtgReps(){ return ui.scopeRep ? scopeStaff().filter(s=>s.id===ui.scopeRep) : scopeStaff(); }
+
+/* ---------- 会議の記録 ---------- */
+let mtgDraft = null;
+const mtgsInScope = () => sortBy(mtgs.filter(m=>(m.scope||"all")===ui.scope), m=>m.date||"", "desc");
+function newMtgDraft(){
+  const today = mtgsInScope().find(m=>m.date===TODAY());
+  if(today) return loadMtgDraft(today);
+  return { id:null, scope:ui.scope, date:TODAY(), month:ui.mtgMonth||thisMonth(),
+    attendees:scopeStaff().map(s=>s.id), notes:"", actions:[], minutes:null, snapshot:null, createdBy:"" };
+}
+function loadMtgDraft(m){
+  return { id:m.id, scope:m.scope||"all", date:m.date||TODAY(), month:m.month||thisMonth(),
+    attendees:arr(m.attendees).slice(), notes:m.notes||"", actions:arr(m.actions).map(a=>({...a})),
+    minutes:m.minutes||null, snapshot:m.snapshot||null, createdBy:m.createdBy||"" };
+}
+function ensureDraft(){
+  if(!ui.mtgMonth) ui.mtgMonth = thisMonth();
+  if(!mtgDraft || mtgDraft.scope!==ui.scope){ mtgDraft = newMtgDraft(); ui.mtgMonth = mtgDraft.month; }
+  return mtgDraft;
+}
+/* 集計期間：前回の会議の翌日〜今回の会議日（前回が無ければ直近7日） */
+function mtgPeriod(d){
+  const prev = mtgsInScope().find(m=>m.id!==d.id && (m.date||"") < d.date);
+  const base = parseD(d.date) || new Date();
+  const start = prev ? prev.date : isoDate(new Date(base.getFullYear(), base.getMonth(), base.getDate()-7));
+  return {start, end:d.date, prev:prev||null};
+}
+const inPeriod = (s,p) => !!s && s > p.start && s <= p.end;
+function buildSnapshot(ym){
+  const list = scoped(), reps = {};
+  mtgReps().forEach(s=>{
+    const mine = list.filter(c=>c.ownerId===s.id);
+    const pipe = {};
+    STAGES.forEach(st=>{ pipe[st.id] = mine.filter(c=>!c.lost && !c.contracted && c.stage===st.id).length; });
+    reps[s.id] = {name:s.name, goal:goalSum(ym,s.id).units, ...monthNumbers(ym,mine), pipe};
+  });
+  const g = goalSum(ym, ui.scopeRep||"");
+  return {month:ym, total:{goal:g.units, goalAmt:g.amount, ...monthNumbers(ym,list)}, reps};
+}
+
+/* ---------- 画面 ---------- */
+function renderMtg(root){
+  const d = ensureDraft();
+  if(!ui.mtgTab) ui.mtgTab = "nums";
+  const past = mtgsInScope();
+  const per = mtgPeriod(d);
+  let h = topbar("営業会議",
+    '<button class="btn sm" id="mgPrevM">'+I.L+'</button>'+
+    '<b class="mono" style="min-width:104px;text-align:center">'+esc(monthLabel(ui.mtgMonth))+'</b>'+
+    '<button class="btn sm" id="mgNextM">'+I.R+'</button>'+
+    '<button class="btn" id="mgGoals">目標を設定</button>');
+  h += '<div class="content">';
+  h += '<div class="mtgbar"><span class="scope-label">会議</span>'+
+    '<select id="mgPick"><option value="">'+(d.id? "新しい会議を始める" : esc(fmtDY(d.date))+"（未保存）")+'</option>'+
+      past.map(m=>'<option value="'+m.id+'"'+(d.id===m.id?" selected":"")+'>'+esc(fmtDY(m.date))+
+        (m.actions&&m.actions.length? "　宿題"+m.actions.length+"件":"")+'</option>').join("")+'</select>'+
+    '<span class="period">集計期間 '+esc(fmtD(isoDate(new Date(parseD(per.start).getTime()+86400000))))+' 〜 '+esc(fmtD(per.end))+
+      (per.prev? '（前回 '+esc(fmtD(per.prev.date))+' の会議から）':'（前回の会議が無いので直近7日）')+'</span>'+
+    '<div class="grow"></div>'+
+    '<button class="btn primary" id="mgSave">この会議を保存</button></div>';
+  h += '<div class="tabs">'+MTG_TABS.map(t=>'<button data-mt="'+t[0]+'" class="'+(ui.mtgTab===t[0]?"on":"")+'">'+t[1]+'</button>').join("")+'</div>';
+  h += '<div id="mtgBox" style="margin-top:16px"></div></div>';
+  root.innerHTML = h;
+  $("#mgPrevM").addEventListener("click",()=>{ ui.mtgMonth=shiftYM(ui.mtgMonth,-1); if(!d.id) d.month=ui.mtgMonth; renderMtg(root); });
+  $("#mgNextM").addEventListener("click",()=>{ ui.mtgMonth=shiftYM(ui.mtgMonth,1); if(!d.id) d.month=ui.mtgMonth; renderMtg(root); });
+  $("#mgGoals").addEventListener("click",()=>openGoals(ui.mtgMonth));
+  $("#mgSave").addEventListener("click",()=>saveMtg(true));
+  $("#mgPick").addEventListener("change",e=>{
+    syncNotesFromDom();
+    const m = mtgs.find(x=>x.id===e.target.value);
+    mtgDraft = m ? loadMtgDraft(m) : {...newMtgDraft(), id:null, date:TODAY(), notes:"", actions:[], minutes:null, snapshot:null};
+    ui.mtgMonth = mtgDraft.month; renderMtg(root);
+  });
+  root.querySelectorAll("[data-mt]").forEach(b=>b.addEventListener("click",()=>{ syncNotesFromDom(); ui.mtgTab=b.dataset.mt; renderMtg(root); }));
+  const box = $("#mtgBox");
+  ({nums:mtgNums, pipe:mtgPipe, yomi:mtgYomi, moves:mtgMoves, notes:mtgNotes}[ui.mtgTab] || mtgNums)(box, d, per);
+}
+
+/* ① 数字 */
+function mtgNums(box, d, per){
+  const ym = ui.mtgMonth, list = scoped();
+  const g = goalSum(ym, ui.scopeRep||""), n = monthNumbers(ym, list);
+  const landing = n.won + n.hi, upside = landing + n.mid;
+  const rate = g.units ? Math.round(landing/g.units*100) : null;
+  const prevSnap = per.prev && per.prev.snapshot && per.prev.snapshot.month===ym ? per.prev.snapshot : null;
+  let h = '';
+  if(!g.units) h += '<div class="banner warn" style="margin-bottom:14px">'+esc(monthLabel(ym))+' の目標がまだありません。右上の「目標を設定」から、担当者ごとの契約棟数を入れてください。</div>';
+  h += '<div class="kpis">'+
+    kpi("", "目標", g.units, "棟", g.amount? man(g.amount)+" 万円" : "金額目標なし")+
+    kpi("ok", "契約済", n.won, "棟", man(n.wonAmt)+" 万円")+
+    kpi("", "◎ 確度高", n.hi, "棟", man(n.hiAmt)+" 万円")+
+    kpi("", "着地予想", landing, "棟", "契約＋◎　（○まで "+upside+" 棟）")+
+    kpi(rate===null? "" : rate>=100? "ok" : "warn", "達成見込み", rate===null? "—" : rate, rate===null? "" : "%",
+      g.units? (g.units-landing>0? "あと "+(g.units-landing)+" 棟" : "目標到達") : "目標未設定")+
+    '</div>';
+  /* 目標バー */
+  const scale = Math.max(g.units, upside, 1);
+  const pct = v => (v/scale*100)+"%";
+  h += '<div class="panel" style="margin-top:14px"><header><h3>'+esc(monthLabel(ym))+' の積み上がり</h3></header><div class="pad">'+
+    '<div class="gwrap"><div class="gbar">'+
+      (n.won? '<span class="w" style="width:'+pct(n.won)+'"></span>':'')+
+      (n.hi? '<span class="h" style="width:'+pct(n.hi)+'"></span>':'')+
+      (n.mid? '<span class="m" style="width:'+pct(n.mid)+'"></span>':'')+
+      (g.units? '<span class="goal'+(g.units/scale>0.85?' end':g.units/scale<0.15?' start':'')+'" style="left:calc('+pct(g.units)+' - 1px)"><b>目標 '+g.units+'</b></span>':'')+
+    '</div></div>'+
+    '<div class="glegend"><span><i style="background:var(--ok)"></i>契約済 '+n.won+'</span>'+
+      '<span><i style="background:var(--accent)"></i>◎ '+n.hi+'</span>'+
+      '<span><i style="background:color-mix(in srgb,var(--accent) 40%,var(--surface3))"></i>○ '+n.mid+'</span>'+
+      '<span>△ '+n.lo+'（バーには含めていません）</span></div></div></div>';
+  /* 担当者別 */
+  const reps = mtgReps();
+  const rows = reps.map(s=>{
+    const mine = list.filter(c=>c.ownerId===s.id);
+    const x = monthNumbers(ym, mine), goal = goalSum(ym, s.id).units, land = x.won + x.hi;
+    const met = mine.reduce((t,c)=>t+meetingsOf(c).filter(m=>meetingDone(m) && inPeriod(m.date,per)).length, 0);
+    const fol = mine.filter(needsFollow).length;
+    const ps = prevSnap && prevSnap.reps ? prevSnap.reps[s.id] : null;
+    const dl = (cur,old) => { if(!ps) return ''; const v=cur-num(old); return v? '<span class="delta '+(v>0?"p":"n")+'">'+(v>0?"+":"")+v+'</span>' : ''; };
+    const gap = goal ? goal - land : null;
+    return '<tr><td class="cname">'+esc(s.name)+'</td>'+
+      '<td class="num">'+(goal||'<span class="faint">—</span>')+'</td>'+
+      '<td class="num">'+x.won+dl(x.won, ps&&ps.won)+'</td>'+
+      '<td class="num">'+x.hi+dl(x.hi, ps&&ps.hi)+'</td>'+
+      '<td class="num">'+x.mid+'</td><td class="num">'+x.lo+'</td>'+
+      '<td class="num" style="font-weight:700">'+land+'</td>'+
+      '<td class="num">'+(gap===null? '<span class="faint">—</span>' : gap>0? '<span style="color:var(--danger)">−'+gap+'</span>' : '<span style="color:var(--ok)">達成</span>')+'</td>'+
+      '<td class="num">'+met+'</td>'+
+      '<td class="num">'+(fol? '<span style="color:var(--danger)">'+fol+'</span>' : 0)+'</td></tr>';
+  }).join("");
+  h += '<div class="sechead"><h2>担当者別</h2><span class="hint">'+(prevSnap? '小さい数字は前回の会議からの増減' : '前回の会議を保存すると、次回から増減が出ます')+'</span></div>'+
+    '<div class="tablewrap"><table><thead><tr><th>担当</th><th class="num">目標</th><th class="num">契約済</th><th class="num">◎</th><th class="num">○</th><th class="num">△</th>'+
+    '<th class="num">着地予想</th><th class="num">目標との差</th><th class="num">期間中の面談</th><th class="num">要フォロー</th></tr></thead><tbody>'+
+    (rows || '<tr><td colspan="10" class="empty">名簿にメンバーがいません</td></tr>')+'</tbody></table></div>'+
+    '<p class="tiny faint" style="margin-top:8px">着地予想＝契約済＋◎（その月に契約予定で確度高）。確度と契約予定月は「③ ヨミ表」かお客様のカルテで入れます。</p>';
+  box.innerHTML = h;
+}
+
+/* ② 工程 */
+function mtgPipe(box, d, per){
+  const list = scopedActive(), reps = mtgReps();
+  const moved = (c, st) => arr(c.stageLog).some(x=>x.stage===st && inPeriod(x.date, per));
+  const cell = (cs, key) => {
+    const up = cs.filter(c=>moved(c, key.stage)).length;
+    return '<td class="c'+(cs.length?'':' z')+'"'+(cs.length? ' data-pipe="'+esc(key.sid)+'|'+esc(key.stage)+'"':'')+'>'+
+      (cs.length||'·')+(up? '<span class="up">+'+up+'</span>':'')+'</td>';
+  };
+  let h = '<div class="tablewrap mx"><table><thead><tr><th>担当</th>'+STAGES.map(s=>'<th style="text-align:center">'+esc(s.name)+'</th>').join("")+
+    '<th class="num">計</th></tr></thead><tbody>';
+  reps.forEach(s=>{
+    const mine = list.filter(c=>c.ownerId===s.id);
+    h += '<tr><td class="cname">'+esc(s.name)+'</td>'+STAGES.map(st=>cell(mine.filter(c=>c.stage===st.id), {sid:s.id, stage:st.id})).join("")+
+      '<td class="num">'+mine.length+'</td></tr>';
+  });
+  h += '<tr style="border-top:2px solid var(--border-strong)"><td class="cname">合計</td>'+
+    STAGES.map(st=>cell(list.filter(c=>c.stage===st.id && (!ui.scopeRep || c.ownerId===ui.scopeRep)), {sid:"", stage:st.id})).join("")+
+    '<td class="num">'+list.length+'</td></tr></tbody></table></div>'+
+    '<p class="tiny faint" style="margin-top:8px">数字は今その工程にいる商談中のお客様の数です。緑の「+n」は集計期間中にその工程へ進んだ件数。数字を押すとお客様の一覧が出ます。'+
+    '工程の記録はこの版から始まったため、それ以前の動きは数えられません。</p>';
+  box.innerHTML = h;
+  box.querySelectorAll("[data-pipe]").forEach(td=>td.addEventListener("click",()=>{
+    const [sid, stage] = td.dataset.pipe.split("|");
+    const cs = list.filter(c=>c.stage===stage && (sid? c.ownerId===sid : (!ui.scopeRep || c.ownerId===ui.scopeRep)));
+    openCustList((sid? staffName(sid)+" ／ " : "")+STAGE_NAME[stage], cs);
+  }));
+}
+function openCustList(title, cs){
+  openOverlay('<div class="modal"><div class="dhead"><b>'+esc(title)+'</b><span class="chip">'+cs.length+'件</span><div class="grow"></div>'+
+    '<button class="x" id="dClose">'+I.x+'</button></div><div class="dbody" style="padding:0">'+
+    (cs.length? sortBy(cs, c=>nextDate(c)||"9999","asc").map(c=>'<div class="li click" data-cust="'+c.id+'"><span class="rank '+(c.rank||"X")+'">'+(c.rank||"–")+'</span>'+
+      '<span class="grow" style="min-width:0"><div class="cname">'+esc(c.name||"（無名）")+'</div>'+
+      '<div class="tiny faint">'+esc(staffName(c.ownerId))+' ・ '+esc(companyShort(c.companyId))+(c.forecast? ' ・ '+FORECAST[c.forecast].mark+' '+esc(monthLabel(c.expectedMonth)):'')+'</div></span>'+
+      whenPill(c)+'</div>').join("") : '<div class="empty">該当なし</div>')+
+    '</div><div class="dfoot"><button class="btn" id="dCancel">閉じる</button></div></div>');
+  $("#dClose").addEventListener("click",closeOverlay);
+  $("#dCancel").addEventListener("click",closeOverlay);
+  document.querySelectorAll("#overlay [data-cust]").forEach(el=>el.addEventListener("click",()=>openCustomer(el.dataset.cust)));
+}
+
+/* ③ ヨミ表 */
+function mtgYomi(box, d, per){
+  if(!ui.yomiAll) ui.yomiAll = false;
+  const all = scopedActive();
+  const list = (ui.yomiAll ? all : all.filter(c=>c.forecast || c.expectedMonth)).slice().sort((a,b)=>
+    String(a.expectedMonth||"9999").localeCompare(String(b.expectedMonth||"9999")) ||
+    (FC_ORDER[a.forecast||""]-FC_ORDER[b.forecast||""]) || String(a.name||"").localeCompare(String(b.name||""),"ja"));
+  const unset = all.filter(c=>!c.forecast && !c.expectedMonth).length;
+  const fcSel = c => '<select class="fc-sel rank-sel" data-yf="'+c.id+'">'+[["","—"],["hi","◎"],["mid","○"],["lo","△"]]
+    .map(o=>'<option value="'+o[0]+'"'+((c.forecast||"")===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select>';
+  const stSel = c => '<select class="rank-sel" data-ys="'+c.id+'" style="font-family:var(--sans)">'+STAGES
+    .map(s=>'<option value="'+s.id+'"'+(c.stage===s.id?" selected":"")+'>'+esc(s.name)+'</option>').join("")+'</select>';
+  let h = '<div class="filters" style="padding-top:0">'+
+    '<label class="check"><input type="checkbox" id="yomiAll"'+(ui.yomiAll?" checked":"")+'>商談中のお客様をすべて出す</label>'+
+    '<span class="tiny faint">ヨミ未設定の商談中 '+unset+' 件</span></div>';
+  if(!list.length){
+    h += '<div class="panel"><div class="empty">ヨミ（確度・契約予定月）が入っているお客様はまだいません。<br>'+
+      '上のチェックを入れると商談中のお客様がすべて出るので、その場で確度と予定月を入れられます。</div></div>';
+  }else{
+    h += '<div class="tablewrap"><table><thead><tr><th>確度</th><th>顧客名</th>'+(scopeCompanies().length>1?'<th>会社</th>':'')+
+      '<th>担当</th><th>契約予定月</th><th>工程</th><th class="num">見込み金額</th><th>次回アポ</th><th>直近の面談メモ</th></tr></thead><tbody>'+
+      list.map(c=>{
+        const ld = lastDoneMeeting(c), late = c.expectedMonth && c.expectedMonth < thisMonth();
+        return '<tr class="r'+esc(c.rank||"")+'"><td class="stripe">'+fcSel(c)+'</td>'+
+          '<td><a class="cname linkish" data-cust="'+c.id+'">'+esc(c.name||"（無名）")+'</a></td>'+
+          (scopeCompanies().length>1?'<td class="small nowrap">'+esc(companyShort(c.companyId))+'</td>':'')+
+          '<td class="small nowrap">'+esc(staffName(c.ownerId))+'</td>'+
+          '<td><input type="month" class="ym-in" data-ym="'+c.id+'" value="'+esc(c.expectedMonth||"")+'"'+(late?' style="border-color:var(--danger)" title="予定月を過ぎています"':'')+'></td>'+
+          '<td>'+stSel(c)+'</td>'+
+          '<td class="num nowrap">'+(expAmt(c)? man(expAmt(c)) : '<span class="faint">—</span>')+'</td>'+
+          '<td class="nowrap">'+whenPill(c)+'</td>'+
+          '<td class="notecell">'+(ld && (ld.note||"").trim()? esc(ld.note) : '<span class="faint">記録なし</span>')+'</td></tr>';
+      }).join("")+'</tbody></table></div>'+
+      '<p class="tiny faint" style="margin-top:8px">確度・契約予定月・工程はこの表で直接変えられます（変えた瞬間に保存）。見込み金額はカルテの「基本情報」で入れます。空欄なら総予算を使います。</p>';
+  }
+  box.innerHTML = h;
+  $("#yomiAll").addEventListener("change",e=>{ ui.yomiAll=e.target.checked; mtgYomi(box,d,per); });
+  box.querySelectorAll("[data-cust]").forEach(a=>a.addEventListener("click",()=>openCustomer(a.dataset.cust)));
+  box.querySelectorAll("[data-yf]").forEach(s=>s.addEventListener("change",()=>quickUpdate(s.dataset.yf,{forecast:s.value})));
+  box.querySelectorAll("[data-ys]").forEach(s=>s.addEventListener("change",()=>quickUpdate(s.dataset.ys,{stage:s.value})));
+  box.querySelectorAll("[data-ym]").forEach(s=>s.addEventListener("change",()=>quickUpdate(s.dataset.ym,{expectedMonth:s.value})));
+}
+/* 一覧から直接1項目だけ書き換える（他の人の編集を上書きしない） */
+async function quickUpdate(cid, patch){
+  const c = customers.find(x=>x.id===cid); if(!c) return;
+  if(!canEditCustomer(c)) return toast("このお客様は編集できません");
+  const doc = {...patch, updatedAt:new Date().toISOString()};
+  if(patch.stage && patch.stage!==c.stage) doc.stageLog = arr(c.stageLog).concat([{stage:patch.stage, date:TODAY(), by:me.name||""}]);
+  try{ await DB.doc("customers/"+cid).update(doc); toast("保存しました"); }
+  catch(e){ toast("保存できませんでした"); }
+}
+
+/* ④ 今週の動き */
+function mtgMoves(box, d, per){
+  const all = scoped();
+  const rowC = (c, right) => '<div class="li click" data-cust="'+c.id+'"><span class="rank '+(c.rank||"X")+'">'+(c.rank||"–")+'</span>'+
+    '<span class="grow" style="min-width:0"><div class="cname" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(c.name||"（無名）")+'</div>'+
+    '<div class="tiny faint">'+esc(staffName(c.ownerId))+' ・ '+esc(companyShort(c.companyId))+'</div></span>'+
+    '<span class="tiny nowrap muted">'+right+'</span></div>';
+  const panel = (title, n, body, tone) => '<div class="panel"><header><h3'+(tone?' style="color:'+tone+'"':'')+'>'+esc(title)+'</h3><div class="grow"></div>'+
+    '<span class="chip">'+n+'件</span></header><div>'+(body||'<div class="empty">ありません</div>')+'</div></div>';
+  const won = all.filter(c=>c.contracted && inPeriod(c.contractDate, per));
+  const lost = all.filter(c=>c.lost && inPeriod(c.lostDate, per));
+  const fresh = all.filter(c=>inPeriod(c.inquiryDate, per));
+  const adv = [];
+  all.forEach(c=>arr(c.stageLog).forEach(x=>{ if(inPeriod(x.date, per) && arr(c.stageLog)[0]!==x) adv.push({c, x}); }));
+  const met = [];
+  all.forEach(c=>meetingsOf(c).forEach(m=>{ if(meetingDone(m) && inPeriod(m.date, per)) met.push({c, m}); }));
+  const nextWeek = upcomingList().filter(({m})=>{ const x=daysFrom(m.date); return x!==null && x>=0 && x<=7; });
+  let h = '<div class="panels">';
+  h += panel("契約", won.length, won.map(c=>rowC(c, man(c.contractAmount)+" 万円")).join(""), "var(--ok)");
+  h += panel("工程が進んだ", adv.length, sortBy(adv, a=>a.x.date, "desc").map(a=>rowC(a.c, "→ "+esc(STAGE_NAME[a.x.stage]||a.x.stage)+"　"+esc(fmtD(a.x.date)))).join(""));
+  h += panel("新しい反響", fresh.length, fresh.map(c=>rowC(c, esc(c.source||"")+"　"+esc(fmtD(c.inquiryDate)))).join(""));
+  h += panel("実施した面談", met.length, sortBy(met, a=>a.m.date, "desc").map(a=>rowC(a.c, esc(a.m.n)+"　"+esc(fmtD(a.m.date)))).join(""));
+  h += panel("没", lost.length, lost.map(c=>rowC(c, esc(c.lostReason||"理由なし"))).join(""), "var(--muted)");
+  h += panel("これから7日の面談", nextWeek.length, nextWeek.map(({c,m})=>rowC(c, esc(m.n)+"　"+esc(fmtD(m.date))+(m.time? " "+esc(m.time):""))).join(""), "var(--accent)");
+  h += '</div>';
+  box.innerHTML = h;
+  box.querySelectorAll("[data-cust]").forEach(el=>el.addEventListener("click",()=>openCustomer(el.dataset.cust)));
+}
+
+/* ⑤ 議事録・宿題 */
+function mtgNotes(box, d, per){
+  const reps = scopeStaff();
+  const prevActs = per.prev ? arr(per.prev.actions) : [];
+  const todoState = a => { const t = a.todoId ? todos.find(x=>x.id===a.todoId) : null; return t ? (t.done? "done":"open") : ""; };
+  let h = '<div class="grid2" style="align-items:start">';
+  h += '<div>';
+  h += '<div class="fset"><h4>会議の情報</h4><div class="grid2">'+
+    fld("会議日", '<input type="date" id="mgDate" value="'+esc(d.date)+'">')+
+    fld("対象月（目標）", '<input type="month" id="mgMonth" value="'+esc(d.month)+'">')+'</div>'+
+    '<div style="margin-top:12px"><label class="lb">出席者</label><div class="checks">'+
+      reps.map(s=>'<label class="check"><input type="checkbox" data-att="'+s.id+'"'+(d.attendees.includes(s.id)?" checked":"")+'>'+esc(s.name)+'</label>').join("")+
+    '</div></div></div>';
+  h += '<div class="fset"><h4>議事録</h4>'+
+    (SAMPLE? '<div class="row" style="gap:8px;margin-bottom:11px;flex-wrap:wrap"><button class="btn" id="mgAi" type="button">文字起こしから議事録を作る</button>'+
+      '<span class="tiny faint">会議の文字起こしを貼ると、Claude が要点・決定事項・宿題に整理します</span></div>'
+      : '<p class="tiny faint" style="margin-bottom:11px">文字起こしから議事録を作る機能は、Claude で公開した版でのみ使えます。</p>')+
+    '<textarea id="mgNotes" style="min-height:280px" placeholder="共有事項・決定事項・担当者ごとの報告など">'+esc(d.notes)+'</textarea></div>';
+  h += '</div><div>';
+  h += '<div class="fset"><h4>宿題（次の会議まで）</h4><div id="mgActs">'+
+    (d.actions.length? d.actions.map((a,i)=>{
+      const st = todoState(a);
+      return '<div class="actrow" data-ai="'+i+'">'+
+        '<input type="text" data-a="title" value="'+esc(a.title||"")+'" placeholder="やること">'+
+        '<select data-a="staffId"><option value="">担当を選ぶ</option>'+reps.map(s=>'<option value="'+s.id+'"'+(a.staffId===s.id?" selected":"")+'>'+esc(s.name)+'</option>').join("")+'</select>'+
+        '<input type="date" data-a="due" value="'+esc(a.due||"")+'">'+
+        (a.todoId? '<span class="chip" title="TODOに登録済み" style="justify-self:center">'+(st==="done"?"完了":"TODO")+'</span>'
+                 : '<button type="button" class="x" data-arm="'+i+'" title="この宿題を消す">'+I.x+'</button>')+'</div>';
+    }).join("") : '<p class="small muted" style="margin-bottom:10px">まだありません。</p>')+'</div>'+
+    '<div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn sm" id="mgActAdd" type="button">'+I.plus+'宿題を追加</button>'+
+    '<button class="btn sm primary" id="mgToTodo" type="button">未登録の宿題をTODOに登録</button></div>'+
+    '<p class="tiny faint" style="margin-top:9px">TODOに登録すると、各担当の「自分のTODO」に期限つきで出ます。</p></div>';
+  h += '<div class="fset"><h4>前回の宿題'+(per.prev? '（'+esc(fmtD(per.prev.date))+'）':'')+'</h4>'+
+    (prevActs.length? prevActs.map(a=>{
+      const st = todoState(a);
+      return '<div class="li" style="padding-left:0;padding-right:0">'+
+        '<span class="st '+(st==="done"?"contract":st==="open"?"follow":"")+'">'+(st==="done"?"完了":st==="open"?"未完了":"TODO未登録")+'</span>'+
+        '<span class="grow small">'+esc(a.title||"")+'</span>'+
+        '<span class="tiny faint nowrap">'+esc(staffName(a.staffId)||"")+(a.due? " ・ "+esc(fmtD(a.due)):"")+'</span></div>';
+    }).join("") : '<div class="empty" style="padding:14px 0">前回の会議の宿題はありません</div>')+'</div>';
+  if(d.snapshot && d.snapshot.total){
+    const t = d.snapshot.total;
+    h += '<div class="fset"><h4>この会議の時点の数字（'+esc(monthLabel(d.snapshot.month))+'）</h4><dl class="kv">'+
+      '<dt>目標</dt><dd class="num">'+num(t.goal)+' 棟</dd><dt>契約済</dt><dd class="num">'+num(t.won)+' 棟</dd>'+
+      '<dt>◎ / ○ / △</dt><dd class="num">'+num(t.hi)+' / '+num(t.mid)+' / '+num(t.lo)+'</dd>'+
+      '<dt>着地予想</dt><dd class="num">'+(num(t.won)+num(t.hi))+' 棟</dd></dl></div>';
+  }
+  h += '</div></div>';
+  box.innerHTML = h;
+  const syncAndRepaint = () => { syncNotesFromDom(); mtgNotes(box, mtgDraft, mtgPeriod(mtgDraft)); };
+  $("#mgActAdd").addEventListener("click",()=>{ syncNotesFromDom(); mtgDraft.actions.push({title:"", staffId:"", due:"", todoId:""}); mtgNotes(box, mtgDraft, per);
+    const rows=box.querySelectorAll('.actrow [data-a="title"]'); if(rows.length) rows[rows.length-1].focus(); });
+  box.querySelectorAll("[data-arm]").forEach(b=>b.addEventListener("click",()=>{ syncNotesFromDom(); mtgDraft.actions.splice(Number(b.dataset.arm),1); mtgNotes(box, mtgDraft, per); }));
+  $("#mgToTodo").addEventListener("click", registerMtgTodos);
+  $("#mgDate").addEventListener("change", syncAndRepaint);
+  const ai=$("#mgAi"); if(ai) ai.addEventListener("click", openAiMinutes);
+}
+function syncNotesFromDom(){
+  if(!mtgDraft) return;
+  const n=$("#mgNotes"); if(n) mtgDraft.notes = n.value;
+  const dt=$("#mgDate"); if(dt && dt.value) mtgDraft.date = dt.value;
+  const mo=$("#mgMonth"); if(mo && mo.value){ mtgDraft.month = mo.value; ui.mtgMonth = mo.value; }
+  const atts=document.querySelectorAll("[data-att]");
+  if(atts.length) mtgDraft.attendees = [...atts].filter(b=>b.checked).map(b=>b.dataset.att);
+  document.querySelectorAll(".actrow").forEach(r=>{
+    const a = mtgDraft.actions[Number(r.dataset.ai)]; if(!a) return;
+    r.querySelectorAll("[data-a]").forEach(el=>{ a[el.dataset.a] = el.value.trim ? el.value.trim() : el.value; });
+  });
+}
+async function saveMtg(showToast){
+  syncNotesFromDom();
+  const d = mtgDraft; if(!d) return false;
+  d.actions = d.actions.filter(a=>(a.title||"").trim() || a.todoId);
+  /* 数字の控えは「今日の会議」を保存したときだけ取り直す（過去の会議の数字は残す） */
+  const snapshot = (!d.snapshot || d.date===TODAY()) ? buildSnapshot(d.month) : d.snapshot;
+  const doc = { scope:ui.scope, date:d.date, month:d.month, attendees:d.attendees, notes:d.notes,
+    actions:d.actions.map(a=>({title:a.title||"", staffId:a.staffId||"", due:a.due||"", todoId:a.todoId||""})),
+    minutes:d.minutes||null, snapshot, createdBy:d.createdBy||me.name||"", updatedBy:me.name||"", updatedAt:new Date().toISOString() };
+  try{
+    if(d.id) await DB.doc("mtgs/"+d.id).set(doc);
+    else{ const r = await DB.collection("mtgs").add(doc); d.id = r.id; }
+    d.snapshot = snapshot; d.createdBy = doc.createdBy;
+    if(showToast) toast("会議を保存しました");
+    const r=$("#viewRoot"); if(r && view==="mtg") renderMtg(r);
+    return true;
+  }catch(e){ toast("保存できませんでした"); return false; }
+}
+async function registerMtgTodos(){
+  syncNotesFromDom();
+  const d = mtgDraft, todo = d.actions.filter(a=>!a.todoId && (a.title||"").trim());
+  if(!todo.length) return toast("TODOに登録する宿題がありません");
+  const cid = ui.scope!=="all" ? ui.scope : "";
+  let n = 0;
+  for(const a of todo){
+    try{
+      const ref = await DB.collection("todos").add({ title:a.title.trim(), due:a.due||"", done:false, staffId:a.staffId||me.id,
+        customerId:"", companyId:cid, priority:"normal", source:"mtg", createdAt:new Date().toISOString() });
+      a.todoId = ref.id; n++;
+    }catch(e){}
+  }
+  await saveMtg(false);
+  toast(n+"件をTODOに登録しました");
+}
+
+/* ---------- 目標の設定 ---------- */
+function openGoals(ym){
+  const cs = scopeCompanies();
+  const rows = [];
+  cs.forEach(cid=>roster().filter(s=>(s.companies||[]).includes(cid)).forEach(s=>rows.push({cid, s})));
+  const g = (cid,sid) => goals.find(x=>x.id===goalId(ym,cid,sid)) || {};
+  const body = '<div class="row" style="gap:8px;margin-bottom:14px;flex-wrap:wrap">'+
+      '<button class="btn sm" id="glPrev" type="button">'+I.L+'</button><b class="mono">'+esc(monthLabel(ym))+'</b>'+
+      '<button class="btn sm" id="glNext" type="button">'+I.R+'</button><div class="grow"></div>'+
+      '<button class="btn sm" id="glCopy" type="button">前月の目標を写す</button></div>'+
+    (rows.length? '<div class="tablewrap"><table><thead><tr>'+(cs.length>1?'<th>会社</th>':'')+'<th>担当</th><th class="num">契約棟数</th><th class="num">契約金額（万円）</th></tr></thead><tbody>'+
+      rows.map(r=>{ const x=g(r.cid, r.s.id); return '<tr>'+(cs.length>1?'<td class="small">'+esc(companyShort(r.cid))+'</td>':'')+
+        '<td class="cname">'+esc(r.s.name)+'</td>'+
+        '<td><input type="number" min="0" step="1" data-gu="'+esc(r.cid)+'|'+r.s.id+'" value="'+esc(x.units==null?"":x.units)+'" style="text-align:right"></td>'+
+        '<td><input type="number" min="0" step="10" data-ga="'+esc(r.cid)+'|'+r.s.id+'" value="'+esc(x.amount==null?"":x.amount)+'" style="text-align:right"></td></tr>'; }).join("")+
+      '<tr><td class="cname"'+(cs.length>1?' colspan="2"':'')+'>合計</td><td class="num" id="glSumU"></td><td class="num" id="glSumA"></td></tr>'+
+      '</tbody></table></div>' : '<div class="empty">名簿にメンバーがいません。「パスワード・名簿」から追加してください。</div>')+
+    '<p class="tiny faint" style="margin-top:10px">担当者ごとの月間目標です。会社タブで絞っている場合は、その会社の分だけが出ます。空欄にすると目標なしになります。</p>';
+  openOverlay('<div class="modal" style="width:min(640px,calc(100% - 32px))"><div class="dhead"><b>契約目標の設定</b><div class="grow"></div>'+
+    '<button class="x" id="dClose">'+I.x+'</button></div><div class="dbody">'+body+'</div>'+
+    '<div class="dfoot"><button class="btn primary" id="glSave">保存</button><button class="btn" id="dCancel">閉じる</button></div></div>');
+  const sums = () => {
+    const su=[...document.querySelectorAll("[data-gu]")].reduce((t,el)=>t+num(el.value),0);
+    const sa=[...document.querySelectorAll("[data-ga]")].reduce((t,el)=>t+num(el.value),0);
+    const u=$("#glSumU"), a=$("#glSumA"); if(u) u.textContent=su+" 棟"; if(a) a.textContent=man(sa)+" 万円";
+  };
+  sums();
+  document.querySelectorAll("[data-gu],[data-ga]").forEach(el=>el.addEventListener("input", sums));
+  $("#dClose").addEventListener("click",closeOverlay);
+  $("#dCancel").addEventListener("click",closeOverlay);
+  $("#glPrev").addEventListener("click",()=>openGoals(shiftYM(ym,-1)));
+  $("#glNext").addEventListener("click",()=>openGoals(shiftYM(ym,1)));
+  $("#glCopy").addEventListener("click",()=>{
+    const pm = shiftYM(ym,-1);
+    rows.forEach(r=>{ const x=goals.find(q=>q.id===goalId(pm,r.cid,r.s.id)); if(!x) return;
+      const u=document.querySelector('[data-gu="'+r.cid+'|'+r.s.id+'"]'), a=document.querySelector('[data-ga="'+r.cid+'|'+r.s.id+'"]');
+      if(u && !u.value) u.value = x.units==null?"":x.units; if(a && !a.value) a.value = x.amount==null?"":x.amount; });
+    sums(); toast("前月の目標を写しました（保存で確定します）");
+  });
+  $("#glSave").addEventListener("click", async ()=>{
+    const btn=$("#glSave"); btn.disabled=true; btn.textContent="保存中…";
+    let n=0;
+    try{
+      for(const r of rows){
+        const u=document.querySelector('[data-gu="'+r.cid+'|'+r.s.id+'"]').value, a=document.querySelector('[data-ga="'+r.cid+'|'+r.s.id+'"]').value;
+        const id = goalId(ym, r.cid, r.s.id), has = goals.some(x=>x.id===id);
+        if(u==="" && a===""){ if(has){ await DB.doc("goals/"+id).delete(); n++; } continue; }
+        await DB.doc("goals/"+id).set({month:ym, companyId:r.cid, staffId:r.s.id, units:u===""?0:num(u), amount:a===""?0:num(a),
+          updatedAt:new Date().toISOString(), updatedBy:me.name||""});
+        n++;
+      }
+      toast(monthLabel(ym)+" の目標を保存しました"); closeOverlay();
+    }catch(e){ btn.disabled=false; btn.textContent="保存"; toast("保存できませんでした"); }
+  });
+}
+
+/* ---------- 文字起こし → 議事録（Claude） ---------- */
+let SAMPLE = null;
+async function initSample(){
+  try{ SAMPLE = await window.claude.use("sample"); }catch(e){ SAMPLE = null; }
+  if(SAMPLE && view==="mtg" && ui.mtgTab==="notes"){ const r=$("#viewRoot"); if(r) renderMtg(r); }
+}
+function aiErrText(code){
+  switch(code){
+    case "not_granted": case "sampling_disabled": case "not_declared": case "capability_disabled": case "capability_removed":
+      return "このアカウントではClaudeを呼び出せません（許可されていないか、組織の設定で止められています）。";
+    case "rate_limited": return "Claudeの利用が混み合っているか、上限に達しました。少し時間をおいて、もう一度押してください。";
+    case "session_expired": return "claude.ai へのログインが切れています。ログインし直してから、もう一度押してください。";
+    case "prompt_too_large": return "文字起こしが長すぎます。会議の前半と後半に分けて、2回に分けて作ってください。";
+    case "invalid_json": return "議事録の形にうまく整えられませんでした。もう一度押してください。";
+    case "refused": return "この内容では議事録を作れませんでした。文字起こしの内容をご確認ください。";
+    case "empty_completion": return "結果が空でした。文字起こしが短すぎないかご確認ください。";
+    case "cancelled": return "中止しました。";
+    default: return "Claudeと通信できませんでした。少し時間をおいて、もう一度押してください。";
+  }
+}
+/* 字幕ファイル（.vtt/.srt）の時刻や番号を落として本文だけにする */
+function cleanTranscript(t){
+  return String(t||"").replace(/\r/g,"").split("\n").filter(l=>{
+    const s=l.trim();
+    if(!s) return false;
+    if(/^WEBVTT/i.test(s) || /^NOTE\b/.test(s)) return false;
+    if(/^\d+$/.test(s)) return false;
+    if(/^\d{1,2}:\d{2}(:\d{2})?([.,]\d+)?\s*-->/.test(s)) return false;
+    return true;
+  }).join("\n");
+}
+function splitText(t, size){
+  const out=[]; let rest=t;
+  while(rest.length > size){
+    let cut = rest.lastIndexOf("\n", size); if(cut < size*0.6) cut = rest.lastIndexOf("。", size)+1; if(cut < size*0.6) cut = size;
+    out.push(rest.slice(0,cut)); rest = rest.slice(cut);
+  }
+  if(rest.trim()) out.push(rest);
+  return out;
+}
+const MIN_SHAPE = '{"summary":"会議全体の要点（2〜4文）","decisions":["決まったこと"],'+
+  '"reports":[{"staff":"担当者名","points":["報告の要点（お客様名・工程・金額・次の一手）"]}],'+
+  '"actions":[{"title":"やること（何を・誰に）","staff":"担当者名。分からなければ空文字","due":"YYYY-MM-DD。言及が無ければ空文字"}],'+
+  '"concerns":["課題・要相談・リスク"]}';
+async function aiMinutes(text, date, onStep){
+  const dd = parseD(date) || new Date();
+  const reps = scopeStaff().map(s=>s.name);
+  const names = scopedActive().map(c=>c.name).filter(Boolean).slice(0,150);
+  const head = "あなたは住宅会社（"+scopeLabel()+"）の毎週の営業会議の書記です。以下の文字起こしから議事録の材料を抜き出してください。\n"+
+    "・会議日は "+date+"（"+WD[dd.getDay()]+"曜日）。「来週金曜まで」などの期限は、この日を基準に日付へ直してください。\n"+
+    "・文字起こしは誤変換を含みます。人名は次の一覧に近いものがあれば、その表記にそろえてください。\n"+
+    "　営業担当: "+(reps.join("、")||"（なし）")+"\n"+
+    "　商談中のお客様: "+(names.join("、")||"（なし）")+"\n"+
+    "・雑談や重複は省き、発言に無いことは書かないでください。\n";
+  const chunks = splitText(text, 12000);
+  const parts = [];
+  for(let i=0;i<chunks.length;i++){
+    onStep("読み取り中… "+(i+1)+" / "+chunks.length);
+    const p = head+"\n# 文字起こし"+(chunks.length>1? "（全"+chunks.length+"部のうち第"+(i+1)+"部）":"")+"\n"+chunks[i]+
+      "\n\n# 出力\n次の形のJSONだけを返してください。該当が無い項目は空の配列にします。\n"+MIN_SHAPE;
+    try{ parts.push(await SAMPLE.json(p)); }
+    catch(e){ if(parts.length) return {partial:true, code:e&&e.code, result:mergeLocal(parts)}; throw e; }
+  }
+  if(parts.length===1) return {result:parts[0]};
+  onStep("全体をまとめています…");
+  try{
+    const m = await SAMPLE.json("同じ営業会議の文字起こしを分割して抜き出した結果です。重複をまとめ、1つに統合してください。\n\n"+
+      JSON.stringify(parts)+"\n\n# 出力\n次の形のJSONだけを返してください。\n"+MIN_SHAPE);
+    return {result:m};
+  }catch(e){ return {partial:true, code:e&&e.code, result:mergeLocal(parts)}; }
+}
+function mergeLocal(parts){
+  const cat = k => parts.reduce((a,p)=>a.concat(arr(p&&p[k])), []);
+  return { summary: parts.map(p=>p&&p.summary).filter(Boolean).join(" "), decisions:cat("decisions"),
+    reports:cat("reports"), actions:cat("actions"), concerns:cat("concerns") };
+}
+function matchStaff(name){
+  const n = String(name||"").replace(/[\s　]/g,""); if(!n) return "";
+  const reps = scopeStaff();
+  const exact = reps.find(s=>String(s.name||"").replace(/[\s　]/g,"")===n); if(exact) return exact.id;
+  const part = reps.filter(s=>{ const m=String(s.name||"").replace(/[\s　]/g,""); return m && (m.startsWith(n) || n.startsWith(m) || m.includes(n)); });
+  return part.length===1 ? part[0].id : "";
+}
+function applyMinutes(m){
+  const L = [];
+  const list = v => arr(v).map(x=>String(x||"").trim()).filter(Boolean);
+  if(m.summary) L.push("【要点】", String(m.summary).trim(), "");
+  if(list(m.decisions).length) L.push("【決定事項】", ...list(m.decisions).map(x=>"・"+x), "");
+  const reps = arr(m.reports).filter(r=>r && list(r.points).length);
+  if(reps.length){ L.push("【担当者ごとの報告】"); reps.forEach(r=>{ L.push("■ "+(String(r.staff||"").trim()||"（担当不明）")); list(r.points).forEach(p=>L.push("・"+p)); }); L.push(""); }
+  if(list(m.concerns).length) L.push("【課題・要相談】", ...list(m.concerns).map(x=>"・"+x));
+  const text = L.join("\n").trim();
+  if(text) mtgDraft.notes = mtgDraft.notes.trim() ? mtgDraft.notes.trim()+"\n\n"+text : text;
+  arr(m.actions).forEach(a=>{
+    const t = a && String(a.title||"").trim(); if(!t) return;
+    mtgDraft.actions.push({ title:t, staffId:matchStaff(a.staff), due:/^\d{4}-\d{2}-\d{2}$/.test(String(a.due||""))? a.due : "", todoId:"" });
+  });
+  mtgDraft.minutes = m;
+}
+function openAiMinutes(){
+  syncNotesFromDom();
+  if(!SAMPLE) return toast("この版では使えません");
+  const body =
+    '<div class="fset"><h4>1. 会議の文字起こしを用意する</h4><ul class="canlist">'+
+      '<li>録音ファイル（音声）そのものは読み込めません。<b>文字起こしのテキスト</b>が必要です</li>'+
+      '<li>Zoom・Teams・Google Meet の自動文字起こし、スマホの文字起こしアプリなどで作ったものを使えます</li>'+
+      '<li>字幕ファイル（.vtt / .srt）やテキストファイル（.txt）は、そのまま読み込めます</li>'+
+    '</ul></div>'+
+    '<div class="fset"><h4>2. 貼り付ける</h4>'+
+      '<div class="row" style="gap:8px;margin-bottom:10px;flex-wrap:wrap"><label class="btn sm" for="aiFile" style="cursor:pointer">ファイルを読み込む</label>'+
+      '<input type="file" id="aiFile" accept=".txt,.vtt,.srt,text/plain,text/vtt" hidden>'+
+      '<span class="tiny faint" id="aiCount">0 文字</span></div>'+
+      '<textarea id="aiText" style="min-height:240px" placeholder="ここに文字起こしを貼り付けます"></textarea>'+
+      '<p class="tiny faint" style="margin-top:8px">文字起こしは保存しません。できあがった議事録だけを会議に残します。'+
+      'Claude の利用は、開いている方ご自身の claude.ai アカウントで行われます（初回は許可の確認が出ます）。</p></div>'+
+    '<div id="aiMsg"></div>';
+  openOverlay('<div class="drawer"><div class="dhead"><b>文字起こしから議事録を作る</b><div class="grow"></div>'+
+    '<button class="x" id="dClose">'+I.x+'</button></div><div class="dbody">'+body+'</div>'+
+    '<div class="dfoot"><button class="btn primary" id="aiGo">議事録を作る</button><button class="btn" id="dCancel">閉じる</button></div></div>');
+  const ta=$("#aiText"), cnt=$("#aiCount");
+  const upd = () => { cnt.textContent = ta.value.length.toLocaleString("ja-JP")+" 文字"; };
+  ta.addEventListener("input", upd);
+  $("#aiFile").addEventListener("change", e=>{
+    const f=e.target.files && e.target.files[0]; if(!f) return;
+    const rd=new FileReader(); rd.onload=()=>{ ta.value=cleanTranscript(String(rd.result||"")); upd(); }; rd.readAsText(f);
+  });
+  $("#dClose").addEventListener("click",closeOverlay);
+  $("#dCancel").addEventListener("click",closeOverlay);
+  $("#aiGo").addEventListener("click", async ()=>{
+    const msg=$("#aiMsg"), btn=$("#aiGo");
+    const text = cleanTranscript(ta.value);
+    if(text.length < 40) return void(msg.innerHTML='<div class="err">文字起こしを貼り付けてください。</div>');
+    btn.disabled=true; ta.disabled=true;
+    const step = s => { msg.innerHTML='<div class="banner">'+esc(s)+'</div>'; btn.textContent="作成中…"; };
+    try{
+      const r = await aiMinutes(text, mtgDraft.date, step);
+      applyMinutes(r.result || {});
+      closeOverlay();
+      ui.mtgTab="notes"; const v=$("#viewRoot"); if(v) renderMtg(v);
+      toast(r.partial? "途中までの内容で議事録を作りました（"+aiErrText(r.code)+"）" : "議事録を作りました。内容を確かめて「この会議を保存」を押してください");
+    }catch(e){
+      btn.disabled=false; ta.disabled=false; btn.textContent="議事録を作る";
+      msg.innerHTML='<div class="err">'+esc(aiErrText(e&&e.code))+'</div>';
+    }
+  });
+}
+
+/* ============================================================
    アカウント / 使い方 / オーバーレイ
    ============================================================ */
 function openAccount(){
@@ -2710,6 +3370,13 @@ function openHelp(){
       '<div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px"><span class="st todo">情報未入力</span><span class="small muted">ランクも面談も未登録</span></div>'+
       '<div class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px"><span class="when over">超過</span><span class="when today">本日</span>'+
       '<span class="when week">あと◯日</span><span class="when none">アポ未設定</span></div></div>'+
+    '<div class="fset"><h4>毎週の営業会議</h4><p class="small muted">左メニューの <b>営業会議</b> を開き、上のタブを順に進めます。</p><ol class="steps" style="margin-top:11px">'+
+      '<li><b>① 数字</b><br>月の契約目標に対して、契約済と◎（予定月に契約できる見込み）を足した<b>着地予想</b>と、担当者ごとの差を見ます。目標は右上の「目標を設定」から。</li>'+
+      '<li><b>② 工程</b><br>担当者 × 工程（反響〜土地決定）の件数と、この1週間で進んだ件数を見ます。</li>'+
+      '<li><b>③ ヨミ表</b><br>契約見込みのお客様を予定月順に並べます。確度・予定月・工程はその場で書き換えられます。</li>'+
+      '<li><b>④ 今週の動き</b><br>前回の会議からの契約・工程の前進・新しい反響・面談・没と、次の7日の面談予定。</li>'+
+      '<li><b>⑤ 議事録・宿題</b><br>決まったことと宿題を書き、「TODOに登録」で各担当のTODOに配ります。文字起こしを貼ると、Claude が議事録にまとめます（Claude版のみ）。</li>'+
+    '</ol><p class="tiny faint" style="margin-top:10px">最後に「この会議を保存」を押すと、その時点の数字も控えられ、次回の会議で先週からの増減が出ます。</p></div>'+
     '<div class="fset"><h4>編集できる範囲</h4><p class="small muted">見えている会社のお客様は、担当者を問わず誰でも編集できます。'+
     '同じ会社の中で役職による制限はありません。会社をまたいだ閲覧だけが、ログイン時のパスワードで分かれています。</p></div>';
   openOverlay('<div class="drawer"><div class="dhead"><b>使い方ガイド</b><div class="grow"></div>'+
