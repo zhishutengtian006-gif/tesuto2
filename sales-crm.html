@@ -387,6 +387,39 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .actrow{display:grid;grid-template-columns:minmax(0,1fr) 130px 138px 30px;gap:7px;align-items:center;margin-bottom:8px}
 @media(max-width:1100px){.actrow{grid-template-columns:1fr 1fr 30px}.actrow [data-a="title"]{grid-column:1/-1}}
 
+/* ---------- 打合わせシート ---------- */
+.sheetsum{display:flex;gap:6px 18px;flex-wrap:wrap;align-items:baseline;font-size:12.5px;color:var(--muted);margin-bottom:14px}
+.sheetsum b{font-size:15px;color:var(--text);margin-left:3px}
+.sheetsum .warn b{color:var(--warn)} .sheetsum .bad b{color:var(--danger)}
+.srep{margin-bottom:18px}
+.srep>header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;padding:0 2px 8px;border-bottom:2px solid var(--border-strong);margin-bottom:10px}
+.srep>header h3{font-size:15px}
+.sgrid-wrap{overflow-x:auto;padding-bottom:4px}
+.sgrid{display:grid;grid-template-columns:repeat(5,minmax(196px,1fr));gap:8px}
+.scol{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.scol-h{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;color:var(--muted);padding:0 2px}
+.scol-h .num{font-weight:500;font-size:11px;background:var(--surface3);padding:0 7px;border-radius:100px}
+.scol-empty{color:var(--faint);text-align:center;font-size:12px;padding:10px 0}
+.scard{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--border-strong);border-radius:var(--r);
+  padding:9px 10px;display:flex;flex-direction:column;gap:5px;font-size:12.5px}
+.scard.rA{border-left-color:var(--rank-a)} .scard.rB{border-left-color:var(--rank-b)} .scard.rC{border-left-color:var(--rank-c)}
+.sc-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.sc-top .cname{font-size:13.5px}
+.sc-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.sc-goal{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding-top:5px;border-top:1px dashed var(--border)}
+.sc-goal label{color:var(--muted)}
+.sc-goal input[type=date]{width:auto;padding:3px 5px;font-size:12px}
+.sc-goal .fc-sel{padding:3px 4px;font-size:12px}
+.gl{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.gl.soon{color:var(--warn);font-weight:500} .gl.over{color:var(--danger);font-weight:500} .gl.none{color:var(--danger)}
+.sc-next{color:var(--muted)}
+.sc-last{display:flex;gap:6px;align-items:flex-start;font-size:12px;color:var(--text);background:var(--surface2);border-radius:4px;padding:5px 6px;cursor:pointer}
+.sc-last input{width:auto;margin:2px 0 0}
+.sc-last b{font-weight:500;color:var(--muted)}
+.sc-last.done span{text-decoration:line-through;color:var(--faint)}
+.sc-plan{min-height:44px;font-size:12.5px;padding:6px 7px}
+.zipnote{margin-top:4px;min-height:1em}
+
 /* ---------- login: 会社えらび ---------- */
 .pickgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 @media(max-width:520px){.pickgrid{grid-template-columns:1fr}}
@@ -433,11 +466,16 @@ const RANKS = {
   B:{label:"商談中心", desc:"土地なし・興味あり"},
   C:{label:"温度低", desc:"土地なし・興味なし"},
 };
+/* 工程は毎週の打合わせシートの列と同じ（見込み予定客 → ヒアリング → プラン → 見積 → 契約） */
 const STAGES = [
-  {id:"reach",name:"反響"},{id:"visit",name:"初回接客"},{id:"hearing",name:"ヒアリング"},
-  {id:"finance",name:"資金計画"},{id:"plan",name:"プラン提案"},{id:"estimate",name:"見積提示"},{id:"land",name:"土地決定"},
+  {id:"reach",name:"見込み"},{id:"hearing",name:"ヒアリング"},{id:"plan",name:"プラン"},
+  {id:"estimate",name:"見積"},{id:"closing",name:"契約予定"},
 ];
+/* 以前の工程は近い列に読み替える */
+const STAGE_ALIAS = {visit:"reach", finance:"hearing", land:"estimate"};
 const STAGE_NAME = Object.fromEntries(STAGES.map(s=>[s.id,s.name]));
+Object.entries(STAGE_ALIAS).forEach(([a,b])=>{ STAGE_NAME[a] = STAGE_NAME[b]; });
+const BUILD_TYPES = ["新築","建替え","土地セット","モデル購入","リフォーム","その他"];
 const SOURCES = ["SUUMO","自社HP","完成見学会","モデルハウス","展示場","紹介","チラシ・折込","SNS","看板・通りがかり","不動産会社","その他"];
 const LAND = {own:"所有している",contracted:"契約済み",searching:"探している",none:"未定"};
 const LOAN = {none:"未実施",applied:"申込中",approved:"承認",rejected:"否決"};
@@ -464,7 +502,7 @@ const ui = {
   scope:"all", scopeRep:"",
   rankTab:"all", fStage:"", fProduct:"", fStatus:"", fQuery:"", fAlert:false,
   calYM:null, todoTab:"open", reportBy:"owner", adminTab:"pw", sort:{key:"next",dir:1},
-  mtgMonth:"", mtgTab:"nums", yomiAll:false,
+  mtgMonth:"", mtgTab:"sheet",
 };
 const login = { scope:"", staffId:"", newName:"", err:"", remember:true };
 
@@ -677,7 +715,7 @@ function subscribeData(){
   const sub=(name,setter)=>DB.collection(name).onSnapshot(s=>{
     setter(s.docs.map(d=>({id:d.id, ...d.data()}))); loaded[name]=true; refreshCurrent();
   }, ()=>{ loaded[name]=true; refreshCurrent(); });
-  unsubs.push(sub("customers", v=>customers=v));
+  unsubs.push(sub("customers", v=>{ v.forEach(c=>{ if(STAGE_ALIAS[c.stage]) c.stage=STAGE_ALIAS[c.stage]; }); customers=v; }));
   unsubs.push(sub("events", v=>events=v));
   unsubs.push(sub("todos", v=>todos=v));
   unsubs.push(sub("goals", v=>goals=v));
@@ -1267,7 +1305,12 @@ function refreshCurrent(){
   if(view==="customers") renderCustomerTable();
   else if(view==="calendar") renderCalGrid();
   else if(view==="todo") renderTodoList();
-  else if(view==="mtg"){ if(ui.mtgTab!=="notes") renderView(); }   /* 議事録を書いている最中は描き直さない */
+  else if(view==="mtg"){
+    /* 書いている最中は描き直さない（書き終わって枠を離れたら描き直す） */
+    if(ui.mtgTab==="notes") return;
+    const b=$("#mtgBox"); if(b && isEditingIn(b)){ mtgStale=true; return; }
+    renderView();
+  }
   else renderView();
 }
 function renderView(){
@@ -1279,7 +1322,7 @@ const VIEW_SUB = {
   dash:"商談サマリー", customers:"行をクリックでカルテを開きます", meetings:"次回アポを時系列で確認",
   calendar:"面談と予定を月単位で確認", todo:"やることの管理", report:"担当者別・商品別の実績",
   contract:"成約したお客様", lost:"見送り・失注したお客様", admin:"ログインパスワードとメンバー名簿",
-  mtg:"目標・工程・ヨミ・議事録",
+  mtg:"打合わせシート・数字・議事録",
 };
 function topbar(title, right){
   return '<div class="topbar"><div><h1>'+esc(title)+'</h1>'+
@@ -1595,7 +1638,8 @@ function blankCustomer(){
     familySize:"", kids:"", buildTiming:"", tsubo:"", madori:"", competitors:"",
     income:"", savings:"", loanWish:"", budgetTotal:"", loanScreen:"none",
     products:[], mainProductId:"", productNote:"", memo:"",
-    forecast:"", expectedMonth:"", expectedAmount:"", stageLog:[],
+    forecast:"", expectedMonth:"", expectedAmount:"", goalDate:"", stageLog:[], weekly:{},
+    age:"", workHusband:"", workWife:"", siteZip:"", buildSite:"", buildType:"", landPrice:"", buildingPrice:"", designer:"", applied:false, issues:"",
     meetings:[{date:"", time:"", place:"", note:""}],
     lost:false, lostReason:"", lostDate:"", contracted:false, contractDate:"", contractAmount:"", grossProfit:"", contractNote:"" };
 }
@@ -1658,7 +1702,7 @@ function custInfo(c, ed){
     fld("ふりがな", ed?inp("kana",c.kana):ro(c.kana))+
     fld("電話番号", ed?inp("tel",c.tel,"tel"):ro(c.tel))+
     fld("メールアドレス", ed?inp("email",c.email,"email"):ro(c.email))+
-    fld("郵便番号", ed?inp("postal",c.postal):ro(c.postal))+
+    fld("郵便番号", ed?inp("postal",c.postal,"text",'inputmode="numeric" placeholder="例：924-0801（7桁で住所が入ります）"'):ro(c.postal))+
     fld("現住所", ed?inp("address",c.address):ro(c.address), "span2")+
     '</div></div>';
   h += '<div class="fset"><h4>ランク・担当</h4><div class="grid2">'+
@@ -1668,12 +1712,25 @@ function custInfo(c, ed){
     fld("会社", ed?sel("companyId",c.companyId,compOpts):ro(companyName(c.companyId)))+
     fld("営業担当", (ed&&canManageFor(c))?sel("ownerId",c.ownerId,ownerOpts):ro(staffName(c.ownerId)))+
     '</div></div>';
-  h += '<div class="fset"><h4>契約見込み（ヨミ）</h4><div class="grid3">'+
+  h += '<div class="fset"><h4>契約のゴール</h4><div class="grid3">'+
+    fld("契約目標日", ed?inp("goalDate",c.goalDate,"date"):ro(c.goalDate? fmtDY(c.goalDate) : (c.expectedMonth? monthLabel(c.expectedMonth):"")))+
     fld("確度", ed?sel("forecast",c.forecast,[["","未設定"],["hi","◎ 確度高"],["mid","○ 確度中"],["lo","△ 確度低"]])
       :ro(c.forecast&&FORECAST[c.forecast]? FORECAST[c.forecast].mark+" "+FORECAST[c.forecast].label : ""))+
-    fld("契約予定月", ed?inp("expectedMonth",c.expectedMonth,"month"):ro(c.expectedMonth? monthLabel(c.expectedMonth):""))+
     fld("見込み金額（万円）", ed?inp("expectedAmount",c.expectedAmount,"number",'min="0" placeholder="空欄なら総予算"'):ro(c.expectedAmount!==""&&c.expectedAmount!=null? man(c.expectedAmount):""))+
-    '</div><p class="tiny faint" style="margin-top:9px">営業会議のヨミ表と、目標に対する着地予想に使います。◎は「予定月に契約できる見込み」です。</p></div>';
+    '</div><p class="tiny faint" style="margin-top:9px">毎週の営業会議で決めるゴールです。◎は「目標日に契約できる見込み」で、その月の着地予想に入ります。</p></div>';
+  h += '<div class="fset"><h4>打合わせシートの項目</h4><div class="grid3">'+
+    fld("年齢", ed?inp("age",c.age,"number",'min="0"'):ro(c.age))+
+    fld("ご主人の勤務先", ed?inp("workHusband",c.workHusband):ro(c.workHusband))+
+    fld("奥様の勤務先", ed?inp("workWife",c.workWife):ro(c.workWife))+
+    fld("建設予定地の〒", ed?inp("siteZip",c.siteZip,"text",'inputmode="numeric" placeholder="7桁で町名まで入ります"'):ro(c.siteZip))+
+    fld("建設予定地", ed?inp("buildSite",c.buildSite,"text",'placeholder="例：白山市〇〇町"'):ro(c.buildSite))+
+    fld("種別", ed?sel("buildType",c.buildType,[["",""]].concat(BUILD_TYPES.map(t=>[t,t]))):ro(c.buildType))+
+    fld("土地代（万円）", ed?inp("landPrice",c.landPrice,"number",'min="0"'):ro(man(c.landPrice)))+
+    fld("建物金額・税抜（万円）", ed?inp("buildingPrice",c.buildingPrice,"number",'min="0"'):ro(man(c.buildingPrice)))+
+    fld("設計担当", ed?inp("designer",c.designer):ro(c.designer))+
+    fld("申込", ed?sel("applied",c.applied?"1":"",[["","申込無"],["1","申込有"]]):ro(c.applied?"申込有":"申込無"))+
+    fld("問題点・課題", ed?inp("issues",c.issues,"text",'placeholder="例：リフォームも検討中"'):ro(c.issues), "span2")+
+    '</div><p class="tiny faint" style="margin-top:9px">総額・建物の大きさ（坪）・競合は「ご家族・ご希望」と「資金・土地」の欄を使います。</p></div>';
   h += '<div class="fset"><h4>反響</h4><div class="grid3">'+
     fld("問合せ日", ed?inp("inquiryDate",c.inquiryDate,"date"):ro(fmtDY(c.inquiryDate)))+
     fld("反響経路", ed?sel("source",c.source,[["",""]].concat(SOURCES.map(s=>[s,s]))):ro(c.source))+
@@ -1821,6 +1878,8 @@ function collectCustomer(){
   }
 }
 function bindCustExtras(c, ed){
+  bindZip($(".drawer [data-f='postal']"), $(".drawer [data-f='address']"), true);
+  bindZip($(".drawer [data-f='siteZip']"), $(".drawer [data-f='buildSite']"), false);
   document.querySelectorAll(".drawer [data-prod]").forEach(b=>b.addEventListener("change",()=>{
     const set = new Set(drawerCust.products||[]);
     b.checked? set.add(b.dataset.prod) : set.delete(b.dataset.prod);
@@ -1889,12 +1948,14 @@ async function saveCustomer(silent){
   if(!c.companyId){ toast("会社を選択してください"); return false; }
   const doc = JSON.parse(JSON.stringify(c));
   delete doc.id;
-  ["familySize","kids","income","savings","loanWish","budgetTotal","tsubo","landArea","contractAmount","grossProfit","expectedAmount"]
+  ["familySize","kids","income","savings","loanWish","budgetTotal","tsubo","landArea","contractAmount","grossProfit","expectedAmount","age","landPrice","buildingPrice"]
     .forEach(k=>{ doc[k] = (doc[k]===""||doc[k]==null) ? "" : num(doc[k]); });
   doc.products = c.products||[];
   doc.meetings = (c.meetings||[]).map(m=>({date:m.date||"",time:m.time||"",place:m.place||"",note:m.note||"",
     ...(m.gcalId?{gcalId:m.gcalId,gcalLink:m.gcalLink||""}:{})}));
   doc.lost = !!c.lost; doc.contracted = !!c.contracted;
+  doc.applied = c.applied===true || c.applied==="1";
+  if(doc.goalDate) doc.expectedMonth = String(doc.goalDate).slice(0,7);   /* 着地予想は目標日の月で数える */
   /* 工程が変わったら記録する（営業会議の「工程が進んだ」に使う） */
   const orig = c.id ? customers.find(x=>x.id===c.id) : null;
   doc.stageLog = Array.isArray(doc.stageLog) ? doc.stageLog : [];
@@ -2319,7 +2380,7 @@ async function exportCSV(){
   const list = view==="customers" ? filteredCustomers() : scoped();
   const head=["ランク","顧客名","ふりがな","会社","担当者","状況","ステージ","問合せ日","反響経路","展示場",
     "電話","メール","住所","土地状況","希望エリア","世帯年収(万)","自己資金(万)","借入希望(万)","総予算(万)","ローン審査",
-    "提案商品","本命商品","建築希望時期","確度","契約予定月","見込み金額(万)","面談回数","次回アポ","最終接触","直近の面談メモ","契約日","契約金額(万)","粗利(万)","没日","没理由","メモ"];
+    "提案商品","本命商品","建築希望時期","確度","契約目標日","見込み金額(万)","年齢","建設予定地","種別","申込","設計担当","問題点","面談回数","次回アポ","最終接触","直近の面談メモ","契約日","契約金額(万)","粗利(万)","没日","没理由","メモ"];
   const q = v => '"'+String(v==null?"":v).replace(/"/g,'""').replace(/\r?\n/g," ")+'"';
   const lines=[head.map(q).join(",")].concat(list.map(c=>{
     const ld=lastDoneMeeting(c);
@@ -2328,7 +2389,8 @@ async function exportCSV(){
       LAND[c.landStatus]||"", c.wishArea, c.income, c.savings, c.loanWish, c.budgetTotal, LOAN[c.loanScreen]||"",
       (c.products||[]).map(p=>productName(c.companyId,p)).join(" / "),
       c.mainProductId? productName(c.companyId,c.mainProductId):"", c.buildTiming,
-      c.forecast&&FORECAST[c.forecast]? FORECAST[c.forecast].mark : "", c.expectedMonth||"", c.expectedAmount,
+      c.forecast&&FORECAST[c.forecast]? FORECAST[c.forecast].mark : "", c.goalDate||c.expectedMonth||"", c.expectedAmount,
+      c.age, c.buildSite, c.buildType, c.applied?"有":"無", c.designer, c.issues,
       (c.meetings||[]).length, nextDate(c)||"", lastContact(c)||"", ld?ld.note:"",
       c.contractDate, c.contractAmount, c.grossProfit, c.lostDate, c.lostReason, c.memo].map(q).join(",");
   }));
@@ -2596,7 +2658,7 @@ function renderMaster(box){
 
 /* ============================================================
    VIEW: 営業会議（毎週）
-   ① 数字（目標と着地予想）→ ② 工程 → ③ ヨミ表 → ④ 今週の動き → ⑤ 議事録・宿題
+   ① 打合わせシート（お客様ごとのゴールと今週やること）→ ② 数字 → ③ 今週の動き → ④ 議事録・宿題
    ============================================================ */
 const FORECAST = {
   hi: {mark:"◎", label:"確度高", desc:"予定月に契約できる見込み"},
@@ -2604,7 +2666,7 @@ const FORECAST = {
   lo: {mark:"△", label:"確度低", desc:"可能性はある"},
 };
 const FC_ORDER = {hi:0, mid:1, lo:2, "":3};
-const MTG_TABS = [["nums","① 数字"],["pipe","② 工程"],["yomi","③ ヨミ表"],["moves","④ 今週の動き"],["notes","⑤ 議事録・宿題"]];
+const MTG_TABS = [["sheet","① 打合わせシート"],["nums","② 数字"],["moves","③ 今週の動き"],["notes","④ 議事録・宿題"]];
 const thisMonth = () => TODAY().slice(0,7);
 function monthLabel(ym){ const p=String(ym||"").split("-").map(Number); return p[0]? p[0]+"年"+p[1]+"月" : "—"; }
 const arr = v => Array.isArray(v) ? v : [];
@@ -2675,7 +2737,7 @@ function buildSnapshot(ym){
 /* ---------- 画面 ---------- */
 function renderMtg(root){
   const d = ensureDraft();
-  if(!ui.mtgTab) ui.mtgTab = "nums";
+  if(!ui.mtgTab || !MTG_TABS.some(t=>t[0]===ui.mtgTab)) ui.mtgTab = "sheet";
   const past = mtgsInScope();
   const per = mtgPeriod(d);
   let h = topbar("営業会議",
@@ -2707,10 +2769,137 @@ function renderMtg(root){
   });
   root.querySelectorAll("[data-mt]").forEach(b=>b.addEventListener("click",()=>{ syncNotesFromDom(); ui.mtgTab=b.dataset.mt; renderMtg(root); }));
   const box = $("#mtgBox");
-  ({nums:mtgNums, pipe:mtgPipe, yomi:mtgYomi, moves:mtgMoves, notes:mtgNotes}[ui.mtgTab] || mtgNums)(box, d, per);
+  ({sheet:mtgSheet, nums:mtgNums, moves:mtgMoves, notes:mtgNotes}[ui.mtgTab] || mtgSheet)(box, d, per);
 }
 
-/* ① 数字 */
+/* ① 打合わせシート：担当者ごとに、工程の列にお客様を並べる（紙のシートと同じ並び）
+   お客様ごとに「契約目標日（ゴール）」と「今週やること」を決め、翌週に結果を確かめる */
+const weekKey = s => { const d=parseD(s)||new Date(); const w=(d.getDay()+6)%7; return isoDate(new Date(d.getFullYear(), d.getMonth(), d.getDate()-w)); };
+function lastWeekPlan(c, wk){
+  const keys = Object.keys(c.weekly||{}).filter(k=>k<wk).sort();
+  const k = keys[keys.length-1];
+  return k ? {wk:k, ...c.weekly[k]} : null;
+}
+function goalLeft(c){
+  if(!c.goalDate) return '<span class="gl none">目標日を決める</span>';
+  const d = daysFrom(c.goalDate);
+  if(d===null) return '';
+  if(d<0) return '<span class="gl over">'+(-d)+'日過ぎ</span>';
+  if(d<7) return '<span class="gl soon">あと'+d+'日</span>';
+  return '<span class="gl">あと'+Math.ceil(d/7)+'週</span>';
+}
+let mtgStale = false;
+const isEditingIn = el => { const a=document.activeElement; return !!(a && el && el.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)); };
+function mtgSheet(box, d, per){
+  const wk = weekKey(d.date);
+  const list = scopedActive();
+  const reps = mtgReps();
+  const noGoal = list.filter(c=>!c.goalDate).length;
+  const noPlan = list.filter(c=>!((c.weekly||{})[wk]||{}).plan).length;
+  const overdue = list.filter(c=>c.goalDate && daysFrom(c.goalDate)<0).length;
+  const card = c => {
+    const w = (c.weekly||{})[wk] || {}, lw = lastWeekPlan(c, wk);
+    const info = [c.age? c.age+"歳":"", c.familySize? c.familySize+"人":"", c.buildType||""].filter(Boolean).join("・");
+    const money = [c.budgetTotal!==""&&c.budgetTotal!=null? "総額 "+man(c.budgetTotal)+"万" : "", c.tsubo? c.tsubo+"坪":""].filter(Boolean).join(" ／ ");
+    const app = c.applied? '<span class="chip" style="background:var(--ok-bg);color:var(--ok)">申込有</span>' : '<span class="chip">申込無</span>';
+    return '<div class="scard r'+esc(c.rank||"")+'">'+
+      '<div class="sc-top"><a class="cname linkish" data-cust="'+c.id+'">'+esc(c.name||"（無名）")+'</a>'+
+        '<span class="tiny faint">'+esc(c.source||"")+'</span></div>'+
+      ((info||c.buildSite)? '<div class="tiny muted">'+esc([info, c.buildSite].filter(Boolean).join("　"))+'</div>':'')+
+      '<div class="tiny muted sc-row">'+(money? esc(money)+'　':'')+app+(c.designer? '<span class="tiny faint">設計 '+esc(c.designer)+'</span>':'')+'</div>'+
+      '<div class="sc-goal"><label class="tiny">契約目標日</label><input type="date" data-gd="'+c.id+'" value="'+esc(c.goalDate||"")+'">'+goalLeft(c)+
+        '<select class="rank-sel fc-sel" data-yf="'+c.id+'" title="確度">'+[["","確度"],["hi","◎"],["mid","○"],["lo","△"]]
+          .map(o=>'<option value="'+o[0]+'"'+((c.forecast||"")===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div>'+
+      '<div class="tiny sc-next">次回 '+whenPill(c)+'</div>'+
+      (lw && lw.plan? '<label class="sc-last'+(lw.done?' done':'')+'"><input type="checkbox" data-lwd="'+c.id+'|'+lw.wk+'"'+(lw.done?" checked":"")+'>'+
+        '<span><b>前回やること</b> '+esc(lw.plan)+'</span></label>' : '')+
+      '<textarea class="sc-plan" data-plan="'+c.id+'" rows="2" placeholder="今週やること（例：資金計画書を出す）">'+esc(w.plan||"")+'</textarea>'+
+      (c.issues? '<div class="tiny" style="color:var(--danger)">課題：'+esc(c.issues)+'</div>':'')+
+    '</div>';
+  };
+  let h = '<div class="sheetsum">'+
+    '<span><b class="num">'+list.length+'</b> 件が商談中</span>'+
+    '<span class="'+(noGoal?"warn":"")+'">契約目標日なし <b class="num">'+noGoal+'</b></span>'+
+    '<span class="'+(overdue?"bad":"")+'">目標日を過ぎた <b class="num">'+overdue+'</b></span>'+
+    '<span class="'+(noPlan?"warn":"")+'">今週やることが未記入 <b class="num">'+noPlan+'</b></span>'+
+    '<span class="faint">今週＝'+esc(fmtD(wk))+'〜</span></div>';
+  if(!reps.length) h += '<div class="panel"><div class="empty">名簿にメンバーがいません。</div></div>';
+  const idle = reps.filter(s=>!list.some(c=>c.ownerId===s.id));
+  reps.filter(s=>!idle.includes(s)).forEach(s=>{
+    const mine = list.filter(c=>c.ownerId===s.id);
+    const won = scopedWon().filter(c=>c.ownerId===s.id && String(c.contractDate||"").startsWith(ui.mtgMonth));
+    const g = goalSum(ui.mtgMonth, s.id).units;
+    h += '<section class="srep"><header><h3>'+esc(s.name)+'</h3>'+
+      '<span class="tiny muted">商談中 '+mine.length+'件'+(g? '　／　'+esc(monthLabel(ui.mtgMonth))+'目標 '+g+'棟・契約済 '+won.length+'棟':'')+'</span></header>'+
+      '<div class="sgrid-wrap"><div class="sgrid">'+STAGES.map(st=>{
+        const cs = sortBy(mine.filter(c=>c.stage===st.id), c=>c.goalDate||"9999", "asc");
+        return '<div class="scol"><div class="scol-h">'+esc(st.name)+'<span class="num">'+cs.length+'</span></div>'+
+          (cs.length? cs.map(card).join("") : '<div class="scol-empty">—</div>')+'</div>';
+      }).join("")+'</div></div></section>';
+  });
+  if(idle.length) h += '<p class="small muted">商談中のお客様がいない担当：'+esc(idle.map(s=>s.name).join("、"))+'</p>';
+  h += '<p class="tiny faint" style="margin-top:10px">「今週やること」は書いて枠の外を押すと保存されます。翌週の会議では「前回やること」として出るので、できたらチェックを入れます。'+
+    '工程を動かすときはお名前を押してカルテで変えます。</p>';
+  box.innerHTML = h;
+  box.querySelectorAll("[data-cust]").forEach(a=>a.addEventListener("click",()=>openCustomer(a.dataset.cust)));
+  box.querySelectorAll("[data-gd]").forEach(el=>el.addEventListener("change",()=>
+    quickUpdate(el.dataset.gd, {goalDate:el.value, expectedMonth:el.value? el.value.slice(0,7) : ""})));
+  box.querySelectorAll("[data-yf]").forEach(el=>el.addEventListener("change",()=>quickUpdate(el.dataset.yf,{forecast:el.value})));
+  box.querySelectorAll("[data-plan]").forEach(el=>el.addEventListener("change",()=>{
+    const c = customers.find(x=>x.id===el.dataset.plan); if(!c) return;
+    const weekly = {...(c.weekly||{})}; weekly[wk] = {...(weekly[wk]||{}), plan:el.value.trim(), done:!!(weekly[wk]||{}).done};
+    quickUpdate(c.id, {weekly});
+  }));
+  box.querySelectorAll("[data-lwd]").forEach(el=>el.addEventListener("change",()=>{
+    const [cid, k] = el.dataset.lwd.split("|"); const c = customers.find(x=>x.id===cid); if(!c) return;
+    const weekly = {...(c.weekly||{})}; weekly[k] = {...(weekly[k]||{}), done:el.checked};
+    quickUpdate(cid, {weekly});
+  }));
+  box.addEventListener("focusout",()=>setTimeout(()=>{ if(mtgStale && !isEditingIn(box)){ mtgStale=false; renderView(); } },0));
+}
+
+/* ---------- 郵便番号 → 住所 ---------- */
+let zipLoading = null;
+function loadZip(){
+  if(window.__ZIP) return Promise.resolve(window.__ZIP);
+  if(zipLoading) return zipLoading;
+  zipLoading = new Promise((res, rej)=>{
+    const s = document.createElement("script");
+    s.src = "zip-jp.js"; s.async = true;
+    s.onload = ()=> window.__ZIP ? res(window.__ZIP) : (zipLoading=null, rej());
+    s.onerror = ()=>{ zipLoading = null; s.remove(); rej(); };
+    document.head.appendChild(s);
+  });
+  return zipLoading;
+}
+/* 郵便番号の欄に7桁そろったら、住所の欄に町名まで入れる */
+function bindZip(zipEl, addrEl, withPref){
+  if(!zipEl || !addrEl) return;
+  const note = document.createElement("div"); note.className = "tiny faint zipnote"; zipEl.insertAdjacentElement("afterend", note);
+  let last = "";
+  zipEl.addEventListener("input", async ()=>{
+    const code = String(zipEl.value||"").normalize("NFKC").replace(/\D/g,"");
+    if(code.length!==7 || code===last) { if(code.length<7) note.textContent=""; return; }
+    last = code; note.textContent = "住所を探しています…";
+    let Z; try{ Z = await loadZip(); }catch(e){ note.textContent = "住所の表を読み込めませんでした。住所は手で入力してください。"; return; }
+    const r = Z.z[code];
+    if(!r){ note.textContent = "この郵便番号は見つかりませんでした。"; return; }
+    const [pref, city] = Z.c[r[0]], towns = r.slice(1);
+    const put = t => {
+      const a = (withPref? pref : "")+city+(t||"");
+      if(!addrEl.value.trim().startsWith(a)) addrEl.value = a;   /* すでに番地まで入っていれば残す */
+      note.textContent = "番地を続けて入力してください";
+      addrEl.focus(); const n=addrEl.value.length; try{ addrEl.setSelectionRange(n,n); }catch(e){}
+    };
+    if(towns.length>1){
+      note.innerHTML = '町名を選んでください：'+towns.map((t,i)=>'<button type="button" class="linkbtn" data-town="'+i+'" style="margin-left:6px">'+esc(t)+'</button>').join("");
+      note.querySelectorAll("[data-town]").forEach(b=>b.addEventListener("click",()=>put(towns[Number(b.dataset.town)])));
+      put("");
+    } else put(towns[0]||"");
+  });
+}
+
+/* ② 数字 */
 function mtgNums(box, d, per){
   const ym = ui.mtgMonth, list = scoped();
   const g = goalSum(ym, ui.scopeRep||""), n = monthNumbers(ym, list);
@@ -2765,93 +2954,10 @@ function mtgNums(box, d, per){
     '<div class="tablewrap"><table><thead><tr><th>担当</th><th class="num">目標</th><th class="num">契約済</th><th class="num">◎</th><th class="num">○</th><th class="num">△</th>'+
     '<th class="num">着地予想</th><th class="num">目標との差</th><th class="num">期間中の面談</th><th class="num">要フォロー</th></tr></thead><tbody>'+
     (rows || '<tr><td colspan="10" class="empty">名簿にメンバーがいません</td></tr>')+'</tbody></table></div>'+
-    '<p class="tiny faint" style="margin-top:8px">着地予想＝契約済＋◎（その月に契約予定で確度高）。確度と契約予定月は「③ ヨミ表」かお客様のカルテで入れます。</p>';
+    '<p class="tiny faint" style="margin-top:8px">着地予想＝契約済＋◎（その月に契約予定で確度高）。確度と契約目標日は「① 打合わせシート」かお客様のカルテで入れます。</p>';
   box.innerHTML = h;
 }
 
-/* ② 工程 */
-function mtgPipe(box, d, per){
-  const list = scopedActive(), reps = mtgReps();
-  const moved = (c, st) => arr(c.stageLog).some(x=>x.stage===st && inPeriod(x.date, per));
-  const cell = (cs, key) => {
-    const up = cs.filter(c=>moved(c, key.stage)).length;
-    return '<td class="c'+(cs.length?'':' z')+'"'+(cs.length? ' data-pipe="'+esc(key.sid)+'|'+esc(key.stage)+'"':'')+'>'+
-      (cs.length||'·')+(up? '<span class="up">+'+up+'</span>':'')+'</td>';
-  };
-  let h = '<div class="tablewrap mx"><table><thead><tr><th>担当</th>'+STAGES.map(s=>'<th style="text-align:center">'+esc(s.name)+'</th>').join("")+
-    '<th class="num">計</th></tr></thead><tbody>';
-  reps.forEach(s=>{
-    const mine = list.filter(c=>c.ownerId===s.id);
-    h += '<tr><td class="cname">'+esc(s.name)+'</td>'+STAGES.map(st=>cell(mine.filter(c=>c.stage===st.id), {sid:s.id, stage:st.id})).join("")+
-      '<td class="num">'+mine.length+'</td></tr>';
-  });
-  h += '<tr style="border-top:2px solid var(--border-strong)"><td class="cname">合計</td>'+
-    STAGES.map(st=>cell(list.filter(c=>c.stage===st.id && (!ui.scopeRep || c.ownerId===ui.scopeRep)), {sid:"", stage:st.id})).join("")+
-    '<td class="num">'+list.length+'</td></tr></tbody></table></div>'+
-    '<p class="tiny faint" style="margin-top:8px">数字は今その工程にいる商談中のお客様の数です。緑の「+n」は集計期間中にその工程へ進んだ件数。数字を押すとお客様の一覧が出ます。'+
-    '工程の記録はこの版から始まったため、それ以前の動きは数えられません。</p>';
-  box.innerHTML = h;
-  box.querySelectorAll("[data-pipe]").forEach(td=>td.addEventListener("click",()=>{
-    const [sid, stage] = td.dataset.pipe.split("|");
-    const cs = list.filter(c=>c.stage===stage && (sid? c.ownerId===sid : (!ui.scopeRep || c.ownerId===ui.scopeRep)));
-    openCustList((sid? staffName(sid)+" ／ " : "")+STAGE_NAME[stage], cs);
-  }));
-}
-function openCustList(title, cs){
-  openOverlay('<div class="modal"><div class="dhead"><b>'+esc(title)+'</b><span class="chip">'+cs.length+'件</span><div class="grow"></div>'+
-    '<button class="x" id="dClose">'+I.x+'</button></div><div class="dbody" style="padding:0">'+
-    (cs.length? sortBy(cs, c=>nextDate(c)||"9999","asc").map(c=>'<div class="li click" data-cust="'+c.id+'"><span class="rank '+(c.rank||"X")+'">'+(c.rank||"–")+'</span>'+
-      '<span class="grow" style="min-width:0"><div class="cname">'+esc(c.name||"（無名）")+'</div>'+
-      '<div class="tiny faint">'+esc(staffName(c.ownerId))+' ・ '+esc(companyShort(c.companyId))+(c.forecast? ' ・ '+FORECAST[c.forecast].mark+' '+esc(monthLabel(c.expectedMonth)):'')+'</div></span>'+
-      whenPill(c)+'</div>').join("") : '<div class="empty">該当なし</div>')+
-    '</div><div class="dfoot"><button class="btn" id="dCancel">閉じる</button></div></div>');
-  $("#dClose").addEventListener("click",closeOverlay);
-  $("#dCancel").addEventListener("click",closeOverlay);
-  document.querySelectorAll("#overlay [data-cust]").forEach(el=>el.addEventListener("click",()=>openCustomer(el.dataset.cust)));
-}
-
-/* ③ ヨミ表 */
-function mtgYomi(box, d, per){
-  if(!ui.yomiAll) ui.yomiAll = false;
-  const all = scopedActive();
-  const list = (ui.yomiAll ? all : all.filter(c=>c.forecast || c.expectedMonth)).slice().sort((a,b)=>
-    String(a.expectedMonth||"9999").localeCompare(String(b.expectedMonth||"9999")) ||
-    (FC_ORDER[a.forecast||""]-FC_ORDER[b.forecast||""]) || String(a.name||"").localeCompare(String(b.name||""),"ja"));
-  const unset = all.filter(c=>!c.forecast && !c.expectedMonth).length;
-  const fcSel = c => '<select class="fc-sel rank-sel" data-yf="'+c.id+'">'+[["","—"],["hi","◎"],["mid","○"],["lo","△"]]
-    .map(o=>'<option value="'+o[0]+'"'+((c.forecast||"")===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select>';
-  const stSel = c => '<select class="rank-sel" data-ys="'+c.id+'" style="font-family:var(--sans)">'+STAGES
-    .map(s=>'<option value="'+s.id+'"'+(c.stage===s.id?" selected":"")+'>'+esc(s.name)+'</option>').join("")+'</select>';
-  let h = '<div class="filters" style="padding-top:0">'+
-    '<label class="check"><input type="checkbox" id="yomiAll"'+(ui.yomiAll?" checked":"")+'>商談中のお客様をすべて出す</label>'+
-    '<span class="tiny faint">ヨミ未設定の商談中 '+unset+' 件</span></div>';
-  if(!list.length){
-    h += '<div class="panel"><div class="empty">ヨミ（確度・契約予定月）が入っているお客様はまだいません。<br>'+
-      '上のチェックを入れると商談中のお客様がすべて出るので、その場で確度と予定月を入れられます。</div></div>';
-  }else{
-    h += '<div class="tablewrap"><table><thead><tr><th>確度</th><th>顧客名</th>'+(scopeCompanies().length>1?'<th>会社</th>':'')+
-      '<th>担当</th><th>契約予定月</th><th>工程</th><th class="num">見込み金額</th><th>次回アポ</th><th>直近の面談メモ</th></tr></thead><tbody>'+
-      list.map(c=>{
-        const ld = lastDoneMeeting(c), late = c.expectedMonth && c.expectedMonth < thisMonth();
-        return '<tr class="r'+esc(c.rank||"")+'"><td class="stripe">'+fcSel(c)+'</td>'+
-          '<td><a class="cname linkish" data-cust="'+c.id+'">'+esc(c.name||"（無名）")+'</a></td>'+
-          (scopeCompanies().length>1?'<td class="small nowrap">'+esc(companyShort(c.companyId))+'</td>':'')+
-          '<td class="small nowrap">'+esc(staffName(c.ownerId))+'</td>'+
-          '<td><input type="month" class="ym-in" data-ym="'+c.id+'" value="'+esc(c.expectedMonth||"")+'"'+(late?' style="border-color:var(--danger)" title="予定月を過ぎています"':'')+'></td>'+
-          '<td>'+stSel(c)+'</td>'+
-          '<td class="num nowrap">'+(expAmt(c)? man(expAmt(c)) : '<span class="faint">—</span>')+'</td>'+
-          '<td class="nowrap">'+whenPill(c)+'</td>'+
-          '<td class="notecell">'+(ld && (ld.note||"").trim()? esc(ld.note) : '<span class="faint">記録なし</span>')+'</td></tr>';
-      }).join("")+'</tbody></table></div>'+
-      '<p class="tiny faint" style="margin-top:8px">確度・契約予定月・工程はこの表で直接変えられます（変えた瞬間に保存）。見込み金額はカルテの「基本情報」で入れます。空欄なら総予算を使います。</p>';
-  }
-  box.innerHTML = h;
-  $("#yomiAll").addEventListener("change",e=>{ ui.yomiAll=e.target.checked; mtgYomi(box,d,per); });
-  box.querySelectorAll("[data-cust]").forEach(a=>a.addEventListener("click",()=>openCustomer(a.dataset.cust)));
-  box.querySelectorAll("[data-yf]").forEach(s=>s.addEventListener("change",()=>quickUpdate(s.dataset.yf,{forecast:s.value})));
-  box.querySelectorAll("[data-ys]").forEach(s=>s.addEventListener("change",()=>quickUpdate(s.dataset.ys,{stage:s.value})));
-  box.querySelectorAll("[data-ym]").forEach(s=>s.addEventListener("change",()=>quickUpdate(s.dataset.ym,{expectedMonth:s.value})));
-}
 /* 一覧から直接1項目だけ書き換える（他の人の編集を上書きしない） */
 async function quickUpdate(cid, patch){
   const c = customers.find(x=>x.id===cid); if(!c) return;
@@ -2862,7 +2968,7 @@ async function quickUpdate(cid, patch){
   catch(e){ toast("保存できませんでした"); }
 }
 
-/* ④ 今週の動き */
+/* ③ 今週の動き */
 function mtgMoves(box, d, per){
   const all = scoped();
   const rowC = (c, right) => '<div class="li click" data-cust="'+c.id+'"><span class="rank '+(c.rank||"X")+'">'+(c.rank||"–")+'</span>'+
@@ -2891,7 +2997,7 @@ function mtgMoves(box, d, per){
   box.querySelectorAll("[data-cust]").forEach(el=>el.addEventListener("click",()=>openCustomer(el.dataset.cust)));
 }
 
-/* ⑤ 議事録・宿題 */
+/* ④ 議事録・宿題 */
 function mtgNotes(box, d, per){
   const reps = scopeStaff();
   const prevActs = per.prev ? arr(per.prev.actions) : [];
@@ -3282,13 +3388,13 @@ function openHelp(){
       '<div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px"><span class="st todo">情報未入力</span><span class="small muted">ランクも面談も未登録</span></div>'+
       '<div class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px"><span class="when over">超過</span><span class="when today">本日</span>'+
       '<span class="when week">あと◯日</span><span class="when none">アポ未設定</span></div></div>'+
-    '<div class="fset"><h4>毎週の営業会議</h4><p class="small muted">左メニューの <b>営業会議</b> を開き、上のタブを順に進めます。</p><ol class="steps" style="margin-top:11px">'+
-      '<li><b>① 数字</b><br>月の契約目標に対して、契約済と◎（予定月に契約できる見込み）を足した<b>着地予想</b>と、担当者ごとの差を見ます。目標は右上の「目標を設定」から。</li>'+
-      '<li><b>② 工程</b><br>担当者 × 工程（反響〜土地決定）の件数と、この1週間で進んだ件数を見ます。</li>'+
-      '<li><b>③ ヨミ表</b><br>契約見込みのお客様を予定月順に並べます。確度・予定月・工程はその場で書き換えられます。</li>'+
-      '<li><b>④ 今週の動き</b><br>前回の会議からの契約・工程の前進・新しい反響・面談・没と、次の7日の面談予定。</li>'+
-      '<li><b>⑤ 議事録・宿題</b><br>決まったことと宿題を書き、「TODOに登録」で各担当のTODOに配ります。文字起こしを貼ると、Claude が議事録にまとめます（Claude版のみ）。</li>'+
-    '</ol><p class="tiny faint" style="margin-top:10px">最後に「この会議を保存」を押すと、その時点の数字も控えられ、次回の会議で先週からの増減が出ます。</p></div>'+
+    '<div class="fset"><h4>毎週の営業会議</h4><p class="small muted">左メニューの <b>営業会議</b> を開きます。いつもの打合わせシートと同じ並びです。</p><ol class="steps" style="margin-top:11px">'+
+      '<li><b>① 打合わせシート</b><br>担当者ごとに、お客様が工程（見込み → ヒアリング → プラン → 見積 → 契約予定）の列に並びます。'+
+      'お客様ごとに<b>契約目標日（ゴール）</b>と<b>今週やること</b>を決めます。翌週は「前回やること」ができたかをチェックします。</li>'+
+      '<li><b>② 数字</b><br>月の契約目標に対して、契約済と◎の見込みを足した<b>着地予想</b>を担当者ごとに見ます。目標は右上の「目標を設定」から。</li>'+
+      '<li><b>③ 今週の動き</b><br>前回の会議からの契約・工程の前進・新しい反響・面談・没と、次の7日の面談予定。</li>'+
+      '<li><b>④ 議事録・宿題</b><br>決まったことと宿題を書き、「TODOに登録」で各担当に配ります。文字起こしを貼ると Claude が議事録にまとめます（Claude版のみ）。</li>'+
+    '</ol><p class="tiny faint" style="margin-top:10px">最後に「この会議を保存」を押すと、その時点の数字も控えられ、次回に前回からの増減が出ます。</p></div>'+
     '<div class="fset"><h4>編集できる範囲</h4><p class="small muted">見えている会社のお客様は、担当者を問わず誰でも編集できます。'+
     '同じ会社の中で役職による制限はありません。会社をまたいだ閲覧だけが、ログイン時のパスワードで分かれています。</p></div>';
   openOverlay('<div class="drawer"><div class="dhead"><b>使い方ガイド</b><div class="grow"></div>'+
