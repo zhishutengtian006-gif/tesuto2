@@ -420,6 +420,33 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .sc-plan{min-height:44px;font-size:12.5px;padding:6px 7px}
 .zipnote{margin-top:4px;min-height:1em}
 
+/* ---------- 契約までの道のり ---------- */
+.rbar{display:inline-flex;gap:2px;flex:none}
+.rbar i{width:9px;height:9px;border-radius:2px;background:var(--surface3);border:1px solid var(--border-strong)}
+.rbar i.d{background:var(--ok);border-color:var(--ok)}
+.sc-road{display:flex;align-items:center;gap:6px;flex-wrap:wrap;width:100%;text-align:left;border:1px solid var(--border);
+  background:var(--surface2);border-radius:4px;padding:5px 7px;cursor:pointer;font:inherit;color:inherit}
+.sc-road:hover{border-color:var(--accent)}
+.sc-nx{flex:1 1 100%;order:3;min-width:0;font-weight:500}
+.scard.late{border-color:color-mix(in srgb,var(--danger) 45%,var(--border))}
+.road-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.road{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.rrow{display:grid;grid-template-columns:22px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--border);background:var(--surface)}
+.rrow:last-child{border-bottom:0}
+.rrow input{width:auto;margin:0}
+.rname{font-weight:500;font-size:13px}
+.rrow.done .rname{color:var(--faint);text-decoration:line-through}
+.rrow.skip{opacity:.5}
+.rrow.late{background:var(--danger-bg)} .rrow.late .rwhen b{color:var(--danger)}
+.rrow.now{background:var(--accent-soft)} .rrow.now .rwhen b{color:var(--accent)}
+.rwhen{font-family:var(--mono);white-space:nowrap;color:var(--muted)}
+.howto{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:14px}
+.howto summary{cursor:pointer;padding:10px 14px;font-weight:700;font-size:13px}
+.howto-b{padding:2px 16px 16px}
+.howto-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-top:14px}
+.howto-cols div{background:var(--surface2);border-radius:4px;padding:8px 10px;font-size:12px;color:var(--muted);line-height:1.6}
+.howto-cols b{display:block;color:var(--text);font-size:12.5px}
+
 /* ---------- login: 会社えらび ---------- */
 .pickgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 @media(max-width:520px){.pickgrid{grid-template-columns:1fr}}
@@ -1660,8 +1687,8 @@ function paintCustomer(){
   const c = drawerCust, isNew = !c.id;
   const ed = isNew ? canCreateCustomer() : canEditCustomer(c);
   const st = statusOf(c);
-  const tabs = [["info","基本情報"],["meet","面談記録"],["money","資金・土地"],["product","提案商品"],["todo","予定・TODO"]];
-  const body = ({info:custInfo, meet:custMeet, money:custMoney, product:custProduct, todo:custTodo}[drawerTab]||custInfo)(c, ed);
+  const tabs = [["info","基本情報"],["road","契約までの道のり"],["meet","面談記録"],["money","資金・土地"],["product","提案商品"],["todo","予定・TODO"]];
+  const body = ({info:custInfo, road:custRoad, meet:custMeet, money:custMoney, product:custProduct, todo:custTodo}[drawerTab]||custInfo)(c, ed);
   const head = '<div class="dhead">'+
     (isNew? '<b>新規顧客の登録</b>'
       : '<span class="rank '+(c.rank||"X")+'">'+(c.rank||"–")+'</span>'+
@@ -1708,7 +1735,7 @@ function custInfo(c, ed){
   h += '<div class="fset"><h4>ランク・担当</h4><div class="grid2">'+
     fld("ランク", ed?sel("rank",c.rank,[["A","A：土地あり・興味あり"],["B","B：土地なし・興味あり"],["C","C：土地なし・興味なし"],["","未設定"]])
       :ro(c.rank? c.rank+"："+RANKS[c.rank].desc : ""))+
-    fld("商談ステージ", ed?sel("stage",c.stage,STAGES.map(s=>[s.id,s.name])):ro(STAGE_NAME[c.stage]))+
+    fld("工程（道のりのチェックで自動で進みます）", ed?sel("stage",c.stage,STAGES.map(s=>[s.id,s.name])):ro(STAGE_NAME[c.stage]))+
     fld("会社", ed?sel("companyId",c.companyId,compOpts):ro(companyName(c.companyId)))+
     fld("営業担当", (ed&&canManageFor(c))?sel("ownerId",c.ownerId,ownerOpts):ro(staffName(c.ownerId)))+
     '</div></div>';
@@ -1878,6 +1905,8 @@ function collectCustomer(){
   }
 }
 function bindCustExtras(c, ed){
+  const rb = $(".drawer #roadBody");
+  if(rb && c.id){ const paint=()=>{ const cc=customers.find(x=>x.id===c.id); const b=$(".drawer #roadBody"); if(!cc||!b) return; b.innerHTML=roadListHTML(cc, ed); bindRoad(b, c.id, paint); }; bindRoad(rb, c.id, paint); }
   bindZip($(".drawer [data-f='postal']"), $(".drawer [data-f='address']"), true);
   bindZip($(".drawer [data-f='siteZip']"), $(".drawer [data-f='buildSite']"), false);
   document.querySelectorAll(".drawer [data-prod]").forEach(b=>b.addEventListener("change",()=>{
@@ -2772,8 +2801,6 @@ function renderMtg(root){
   ({sheet:mtgSheet, nums:mtgNums, moves:mtgMoves, notes:mtgNotes}[ui.mtgTab] || mtgSheet)(box, d, per);
 }
 
-/* ① 打合わせシート：担当者ごとに、工程の列にお客様を並べる（紙のシートと同じ並び）
-   お客様ごとに「契約目標日（ゴール）」と「今週やること」を決め、翌週に結果を確かめる */
 const weekKey = s => { const d=parseD(s)||new Date(); const w=(d.getDay()+6)%7; return isoDate(new Date(d.getFullYear(), d.getMonth(), d.getDate()-w)); };
 function lastWeekPlan(c, wk){
   const keys = Object.keys(c.weekly||{}).filter(k=>k<wk).sort();
@@ -2790,19 +2817,126 @@ function goalLeft(c){
 }
 let mtgStale = false;
 const isEditingIn = el => { const a=document.activeElement; return !!(a && el && el.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)); };
+
+/* ---------- 契約までの道のり ----------
+   注文住宅の、初回接客から契約までにやること。契約目標日から逆算して「何週前にやるか」を割り付ける。
+   チェックを入れると、打合わせシートの列（工程）が自動で進む。 */
+const ROAD = [
+  {id:"hear",  stage:"reach",    w:10, name:"ヒアリング",           tip:"家族構成・今の住まいの不満・希望の時期・予算・土地の有無を聞く"},
+  {id:"fp",    stage:"hearing",  w:9,  name:"資金計画を出す",       tip:"年収・自己資金から総予算と月々の返済額を示す"},
+  {id:"loan",  stage:"hearing",  w:8,  name:"ローン事前審査OK",     tip:"金融機関の事前審査を出し、借入可能額を確定させる"},
+  {id:"land",  stage:"hearing",  w:7,  name:"土地を決める",         tip:"土地なしの方のみ。候補を案内し、買付・申込まで", landOnly:true},
+  {id:"apply", stage:"hearing",  w:6,  name:"申込（申込金）",       tip:"プラン作成に進む前に申込をいただく"},
+  {id:"site",  stage:"plan",     w:5,  name:"敷地調査",             tip:"現地調査・法規・インフラを確認し、設計担当に渡す"},
+  {id:"plan1", stage:"plan",     w:4,  name:"初回プランを出す",     tip:"要望をまとめた間取りを提案する"},
+  {id:"plan2", stage:"plan",     w:3,  name:"プラン・仕様を決める", tip:"修正プランと設備・仕様を固める"},
+  {id:"est",   stage:"estimate", w:2,  name:"見積を出す",           tip:"本体・付帯・諸費用込みの総額で提示する"},
+  {id:"close", stage:"estimate", w:1,  name:"契約条件の合意",       tip:"最終見積・値引き・支払い条件・契約日を決める"},
+];
+const hasLand = c => c.landStatus==="own" || c.landStatus==="contracted";
+const roadItems = c => ROAD.filter(m=>!(m.landOnly && hasLand(c)));
+const roadState = (c, id) => ((c.road||{})[id]) || {};
+const roadActive = c => roadItems(c).filter(m=>!roadState(c,m.id).skip);
+function roadPlanned(c, m){
+  const g = parseD(c.goalDate); if(!g) return "";
+  return isoDate(new Date(g.getFullYear(), g.getMonth(), g.getDate()-m.w*7));
+}
+const roadNext = c => roadActive(c).find(m=>!roadState(c,m.id).done) || null;
+/* 道のりにチェックがあれば、最初の未完了の工程で列を決める（全部済めば「契約予定」） */
+function stageFromRoad(c){
+  if(!Object.keys(c.road||{}).length) return c.stage;
+  const n = roadNext(c);
+  return n ? n.stage : "closing";
+}
+/* 今週より前の予定なのに終わっていない工程 */
+function roadLate(c, wk){
+  if(!c.goalDate) return [];
+  return roadActive(c).filter(m=>!roadState(c,m.id).done && weekKey(roadPlanned(c,m)) < wk);
+}
+async function saveRoad(cid, road){
+  const c = customers.find(x=>x.id===cid); if(!c) return;
+  const stage = stageFromRoad({...c, road});
+  const patch = {road};
+  if(stage && stage!==c.stage) patch.stage = stage;
+  if(drawerCust && drawerCust.id===cid){ drawerCust.road = road; if(patch.stage) drawerCust.stage = patch.stage; }
+  await quickUpdate(cid, patch);
+}
+function roadListHTML(c, ed){
+  const wk = weekKey(TODAY());
+  const act = roadActive(c), done = act.filter(m=>roadState(c,m.id).done).length;
+  let h = '<div class="road-head"><span class="rbar">'+act.map(m=>'<i class="'+(roadState(c,m.id).done?"d":"")+'"></i>').join("")+'</span>'+
+    '<b class="num">'+done+' / '+act.length+'</b>'+
+    (c.goalDate? '<span class="tiny muted">契約目標日 '+esc(fmtDY(c.goalDate))+' から逆算</span>' : '<span class="tiny" style="color:var(--danger)">契約目標日を決めると、各工程の予定週が出ます</span>')+'</div>';
+  h += '<div class="road">'+roadItems(c).map(m=>{
+    const st = roadState(c,m.id), p = roadPlanned(c,m);
+    const late = !st.done && !st.skip && p && weekKey(p) < wk, now = !st.done && !st.skip && p && weekKey(p)===wk;
+    return '<div class="rrow'+(st.done?" done":"")+(st.skip?" skip":"")+(late?" late":"")+(now?" now":"")+'">'+
+      '<input type="checkbox" data-rd="'+m.id+'"'+(st.done?" checked":"")+(ed&&!st.skip?"":" disabled")+'>'+
+      '<div class="rmain"><div class="rname">'+esc(m.name)+'<span class="tiny faint">（'+esc(STAGE_NAME[m.stage])+'）</span></div>'+
+        '<div class="tiny faint">'+esc(m.tip)+'</div></div>'+
+      '<div class="rwhen tiny">'+(st.skip? '不要' : st.done? '済 '+esc(fmtD(st.date)) : p? (late?'<b>遅れ</b> ':now?'<b>今週</b> ':'')+esc(fmtD(weekKey(p)))+'週' : '—')+'</div>'+
+      (ed? '<button type="button" class="linkbtn tiny" data-rskip="'+m.id+'">'+(st.skip?"戻す":"不要")+'</button>' : '')+
+    '</div>';
+  }).join("")+'</div>';
+  return h;
+}
+function bindRoad(root, cid, repaint){
+  root.querySelectorAll("[data-rd]").forEach(el=>el.addEventListener("change", async ()=>{
+    const c = customers.find(x=>x.id===cid); if(!c) return;
+    const road = {...(c.road||{})};
+    road[el.dataset.rd] = el.checked ? {done:true, date:TODAY()} : {};
+    await saveRoad(cid, road); setTimeout(repaint, 350);
+  }));
+  root.querySelectorAll("[data-rskip]").forEach(b=>b.addEventListener("click", async ()=>{
+    const c = customers.find(x=>x.id===cid); if(!c) return;
+    const road = {...(c.road||{})}, cur = road[b.dataset.rskip]||{};
+    road[b.dataset.rskip] = cur.skip ? {} : {skip:true};
+    await saveRoad(cid, road); setTimeout(repaint, 350);
+  }));
+}
+function openRoad(cid){
+  const c = customers.find(x=>x.id===cid); if(!c) return;
+  const ed = canEditCustomer(c);
+  openOverlay('<div class="modal" style="width:min(620px,calc(100% - 32px))"><div class="dhead"><b>'+esc(c.name||"")+' 様　契約までの道のり</b><div class="grow"></div>'+
+    '<button class="x" id="dClose">'+I.x+'</button></div><div class="dbody" id="roadBody"></div>'+
+    '<div class="dfoot"><button class="btn" id="dCancel">閉じる</button><div class="grow"></div>'+
+    '<span class="tiny faint">チェックを入れると、その場で保存されます</span></div></div>');
+  const paint = () => { const b=$("#roadBody"); if(!b) return; const cc=customers.find(x=>x.id===cid)||c; b.innerHTML=roadListHTML(cc, ed); bindRoad(b, cid, paint); };
+  paint();
+  $("#dClose").addEventListener("click",closeOverlay);
+  $("#dCancel").addEventListener("click",closeOverlay);
+}
+function custRoad(c, ed){
+  if(!c.id) return '<div class="empty">先に保存すると、契約までの道のりを管理できます。</div>';
+  return '<div class="fset"><h4>契約までの道のり</h4>'+
+    '<p class="small muted" style="margin-bottom:12px">契約目標日（基本情報タブ）から逆算して、各工程を何週目にやるかを出します。'+
+    '終わったらチェックを入れてください。営業会議の打合わせシートで、このお客様が自動で次の列に進みます。</p>'+
+    '<div id="roadBody">'+roadListHTML(c, ed)+'</div></div>';
+}
+
+/* ① 打合わせシート：担当者ごとに、工程の列にお客様を並べる（紙のシートと同じ並び）
+   お客様ごとに「契約目標日」を決めると道のりが割り付き、会議では「今週の工程が終わったか」を確かめる */
 function mtgSheet(box, d, per){
   const wk = weekKey(d.date);
   const list = scopedActive();
   const reps = mtgReps();
   const noGoal = list.filter(c=>!c.goalDate).length;
+  const lateN = list.filter(c=>roadLate(c, wk).length).length;
   const noPlan = list.filter(c=>!((c.weekly||{})[wk]||{}).plan).length;
-  const overdue = list.filter(c=>c.goalDate && daysFrom(c.goalDate)<0).length;
   const card = c => {
     const w = (c.weekly||{})[wk] || {}, lw = lastWeekPlan(c, wk);
     const info = [c.age? c.age+"歳":"", c.familySize? c.familySize+"人":"", c.buildType||""].filter(Boolean).join("・");
     const money = [c.budgetTotal!==""&&c.budgetTotal!=null? "総額 "+man(c.budgetTotal)+"万" : "", c.tsubo? c.tsubo+"坪":""].filter(Boolean).join(" ／ ");
     const app = c.applied? '<span class="chip" style="background:var(--ok-bg);color:var(--ok)">申込有</span>' : '<span class="chip">申込無</span>';
-    return '<div class="scard r'+esc(c.rank||"")+'">'+
+    const act = roadActive(c), done = act.filter(m=>roadState(c,m.id).done).length;
+    const nx = roadNext(c), late = roadLate(c, wk);
+    const nxWhen = nx && c.goalDate ? weekKey(roadPlanned(c,nx)) : "";
+    const nxTag = !nx ? '<span class="gl" style="color:var(--ok)">全工程 済</span>'
+      : late.length ? '<span class="gl over">遅れ '+late.length+'</span>'
+      : nxWhen===wk ? '<span class="gl soon">今週</span>'
+      : nxWhen ? '<span class="gl">'+esc(fmtD(nxWhen))+'週</span>' : '';
+    const suggest = nx ? nx.name+(late.length>1? "（ほか遅れ"+(late.length-1)+"件）":"") : "";
+    return '<div class="scard r'+esc(c.rank||"")+(late.length?' late':'')+'">'+
       '<div class="sc-top"><a class="cname linkish" data-cust="'+c.id+'">'+esc(c.name||"（無名）")+'</a>'+
         '<span class="tiny faint">'+esc(c.source||"")+'</span></div>'+
       ((info||c.buildSite)? '<div class="tiny muted">'+esc([info, c.buildSite].filter(Boolean).join("　"))+'</div>':'')+
@@ -2810,17 +2944,35 @@ function mtgSheet(box, d, per){
       '<div class="sc-goal"><label class="tiny">契約目標日</label><input type="date" data-gd="'+c.id+'" value="'+esc(c.goalDate||"")+'">'+goalLeft(c)+
         '<select class="rank-sel fc-sel" data-yf="'+c.id+'" title="確度">'+[["","確度"],["hi","◎"],["mid","○"],["lo","△"]]
           .map(o=>'<option value="'+o[0]+'"'+((c.forecast||"")===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div>'+
-      '<div class="tiny sc-next">次回 '+whenPill(c)+'</div>'+
+      '<button type="button" class="sc-road" data-road="'+c.id+'" title="契約までの道のりを開く">'+
+        '<span class="rbar">'+act.map(m=>'<i class="'+(roadState(c,m.id).done?"d":"")+'"></i>').join("")+'</span>'+
+        '<span class="tiny num">'+done+'/'+act.length+'</span>'+
+        '<span class="tiny sc-nx">'+(nx? '次：'+esc(nx.name) : '契約へ')+'</span>'+nxTag+'</button>'+
       (lw && lw.plan? '<label class="sc-last'+(lw.done?' done':'')+'"><input type="checkbox" data-lwd="'+c.id+'|'+lw.wk+'"'+(lw.done?" checked":"")+'>'+
         '<span><b>前回やること</b> '+esc(lw.plan)+'</span></label>' : '')+
-      '<textarea class="sc-plan" data-plan="'+c.id+'" rows="2" placeholder="今週やること（例：資金計画書を出す）">'+esc(w.plan||"")+'</textarea>'+
+      '<textarea class="sc-plan" data-plan="'+c.id+'" rows="2" placeholder="今週やること'+(suggest? "（例："+esc(suggest)+"）" : "")+'">'+esc(w.plan||"")+'</textarea>'+
+      (!w.plan && suggest? '<button type="button" class="linkbtn tiny" data-sug="'+c.id+'" data-text="'+esc(suggest)+'" style="align-self:flex-start">↑ 道のりの予定を入れる</button>' : '')+
+      '<div class="tiny sc-next">次回アポ '+whenPill(c)+'</div>'+
       (c.issues? '<div class="tiny" style="color:var(--danger)">課題：'+esc(c.issues)+'</div>':'')+
     '</div>';
   };
-  let h = '<div class="sheetsum">'+
+  let h = '<details class="howto"'+(list.some(c=>Object.keys(c.road||{}).length)? '' : ' open')+'><summary>この表の見方・進め方</summary><div class="howto-b">'+
+    '<ol class="steps">'+
+      '<li><b>契約目標日を決める</b><br>お客様ごとに「いつ契約するか」のゴールを入れます。入れると、ヒアリングから契約条件の合意までの<b>10工程を何週目にやるか</b>を自動で割り付けます。</li>'+
+      '<li><b>毎週、工程が終わったかを確かめる</b><br>カードの帯（■■□□）を押すと道のりが開きます。終わった工程にチェックを入れると、<b>カードが自動で次の列へ進みます</b>。列を手で動かす必要はありません。</li>'+
+      '<li><b>今週やることを決める</b><br>道のりの次の工程が候補として出ます。「遅れ」が出ているお客様は、手を打つか、目標日を見直します。</li>'+
+    '</ol>'+
+    '<div class="howto-cols">'+
+      '<div><b>見込み</b>初回接客が済み、ヒアリングの場を作る段階</div>'+
+      '<div><b>ヒアリング</b>資金計画・事前審査・（土地）・申込まで</div>'+
+      '<div><b>プラン</b>敷地調査からプラン・仕様を決めるまで</div>'+
+      '<div><b>見積</b>見積を出し、契約条件を合意するまで</div>'+
+      '<div><b>契約予定</b>全工程が済み、契約日を待つだけ</div>'+
+    '</div></div></details>';
+  h += '<div class="sheetsum">'+
     '<span><b class="num">'+list.length+'</b> 件が商談中</span>'+
     '<span class="'+(noGoal?"warn":"")+'">契約目標日なし <b class="num">'+noGoal+'</b></span>'+
-    '<span class="'+(overdue?"bad":"")+'">目標日を過ぎた <b class="num">'+overdue+'</b></span>'+
+    '<span class="'+(lateN?"bad":"")+'">工程が遅れている <b class="num">'+lateN+'</b></span>'+
     '<span class="'+(noPlan?"warn":"")+'">今週やることが未記入 <b class="num">'+noPlan+'</b></span>'+
     '<span class="faint">今週＝'+esc(fmtD(wk))+'〜</span></div>';
   if(!reps.length) h += '<div class="panel"><div class="empty">名簿にメンバーがいません。</div></div>';
@@ -2838,18 +2990,19 @@ function mtgSheet(box, d, per){
       }).join("")+'</div></div></section>';
   });
   if(idle.length) h += '<p class="small muted">商談中のお客様がいない担当：'+esc(idle.map(s=>s.name).join("、"))+'</p>';
-  h += '<p class="tiny faint" style="margin-top:10px">「今週やること」は書いて枠の外を押すと保存されます。翌週の会議では「前回やること」として出るので、できたらチェックを入れます。'+
-    '工程を動かすときはお名前を押してカルテで変えます。</p>';
   box.innerHTML = h;
+  const planSave = (cid, text) => {
+    const c = customers.find(x=>x.id===cid); if(!c) return;
+    const weekly = {...(c.weekly||{})}; weekly[wk] = {...(weekly[wk]||{}), plan:text, done:!!(weekly[wk]||{}).done};
+    return quickUpdate(cid, {weekly});
+  };
   box.querySelectorAll("[data-cust]").forEach(a=>a.addEventListener("click",()=>openCustomer(a.dataset.cust)));
+  box.querySelectorAll("[data-road]").forEach(a=>a.addEventListener("click",()=>openRoad(a.dataset.road)));
   box.querySelectorAll("[data-gd]").forEach(el=>el.addEventListener("change",()=>
     quickUpdate(el.dataset.gd, {goalDate:el.value, expectedMonth:el.value? el.value.slice(0,7) : ""})));
   box.querySelectorAll("[data-yf]").forEach(el=>el.addEventListener("change",()=>quickUpdate(el.dataset.yf,{forecast:el.value})));
-  box.querySelectorAll("[data-plan]").forEach(el=>el.addEventListener("change",()=>{
-    const c = customers.find(x=>x.id===el.dataset.plan); if(!c) return;
-    const weekly = {...(c.weekly||{})}; weekly[wk] = {...(weekly[wk]||{}), plan:el.value.trim(), done:!!(weekly[wk]||{}).done};
-    quickUpdate(c.id, {weekly});
-  }));
+  box.querySelectorAll("[data-plan]").forEach(el=>el.addEventListener("change",()=>planSave(el.dataset.plan, el.value.trim())));
+  box.querySelectorAll("[data-sug]").forEach(b=>b.addEventListener("click",()=>planSave(b.dataset.sug, b.dataset.text)));
   box.querySelectorAll("[data-lwd]").forEach(el=>el.addEventListener("change",()=>{
     const [cid, k] = el.dataset.lwd.split("|"); const c = customers.find(x=>x.id===cid); if(!c) return;
     const weekly = {...(c.weekly||{})}; weekly[k] = {...(weekly[k]||{}), done:el.checked};
@@ -3390,7 +3543,8 @@ function openHelp(){
       '<span class="when week">あと◯日</span><span class="when none">アポ未設定</span></div></div>'+
     '<div class="fset"><h4>毎週の営業会議</h4><p class="small muted">左メニューの <b>営業会議</b> を開きます。いつもの打合わせシートと同じ並びです。</p><ol class="steps" style="margin-top:11px">'+
       '<li><b>① 打合わせシート</b><br>担当者ごとに、お客様が工程（見込み → ヒアリング → プラン → 見積 → 契約予定）の列に並びます。'+
-      'お客様ごとに<b>契約目標日（ゴール）</b>と<b>今週やること</b>を決めます。翌週は「前回やること」ができたかをチェックします。</li>'+
+      'お客様ごとに<b>契約目標日（ゴール）</b>を決めると、ヒアリングから契約条件の合意までの10工程が<b>何週目にやるか</b>逆算で割り付きます。'+
+      '会議では、終わった工程にチェック（カードが自動で次の列へ）→ 遅れを確認 → <b>今週やること</b>を決めます。</li>'+
       '<li><b>② 数字</b><br>月の契約目標に対して、契約済と◎の見込みを足した<b>着地予想</b>を担当者ごとに見ます。目標は右上の「目標を設定」から。</li>'+
       '<li><b>③ 今週の動き</b><br>前回の会議からの契約・工程の前進・新しい反響・面談・没と、次の7日の面談予定。</li>'+
       '<li><b>④ 議事録・宿題</b><br>決まったことと宿題を書き、「TODOに登録」で各担当に配ります。文字起こしを貼ると Claude が議事録にまとめます（Claude版のみ）。</li>'+
