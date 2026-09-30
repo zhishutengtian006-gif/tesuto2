@@ -184,7 +184,7 @@ label.lb{display:block;font-size:11px;letter-spacing:.09em;text-transform:upperc
 .bars{display:flex;flex-direction:column;gap:9px;padding:14px 15px}
 .bar{display:grid;grid-template-columns:104px 1fr 58px;gap:10px;align-items:center;font-size:12.5px}
 .bar .track{height:16px;background:var(--surface3);border-radius:3px;overflow:hidden}
-.bar .fill{height:100%;background:var(--accent);border-radius:3px}
+.bar .fill{display:block;height:100%;background:var(--accent);border-radius:3px}
 .bar .val{text-align:right;font-family:var(--mono);font-size:12px}
 .sechead{display:flex;align-items:baseline;gap:10px;margin:26px 0 12px}
 .sechead:first-child{margin-top:2px}
@@ -580,7 +580,7 @@ let loaded = { auth:false, staff:false, customers:false, events:false, todos:fal
 let me = null, view = "dash", unsubs = [];
 const ui = {
   scope:"all", scopeRep:"",
-  rankTab:"all", fStage:"", fProduct:"", fStatus:"", fQuery:"", fAlert:false,
+  rankTab:"all", fStage:"", fProduct:"", fStatus:"", fQuery:"", fAlert:false, fApply:"", fy:"",
   calYM:null, todoTab:"open", reportBy:"owner", adminTab:"pw", sort:{key:"next",dir:1},
   mtgMonth:"", mtgTab:"sheet",
 };
@@ -762,7 +762,7 @@ async function boot(){
   try{
     DB.doc("meta/config").onSnapshot(s=>{
       const d = s.exists? s.data():null;
-      if(d && Array.isArray(d.companies) && d.companies.length) CFG = {companies:d.companies};
+      if(d && Array.isArray(d.companies) && d.companies.length) CFG = {companies:d.companies, fyStart:num(d.fyStart)||4};
       renderAll();
     }, ()=>{});
     /* パスワード（会社ごとの共通パスワード） */
@@ -1557,6 +1557,7 @@ function filteredCustomers(){
   if(ui.fStage) list = list.filter(c=>c.stage===ui.fStage);
   if(ui.fProduct) list = list.filter(c=>(c.products||[]).includes(ui.fProduct));
   if(ui.fStatus) list = list.filter(c=>statusOf(c).key===ui.fStatus);
+  if(ui.fApply) list = list.filter(c=>ui.fApply==="yes"? !!c.applied : !c.applied);
   if(ui.fAlert) list = list.filter(needsFollow);
   const q = ui.fQuery.trim().toLowerCase();
   if(q) list = list.filter(c=>[c.name,c.kana,c.tel,c.email,c.address,c.memo,c.wishArea,c.showroom]
@@ -1590,6 +1591,8 @@ function renderCustomers(root){
     '<select id="fStatus"><option value="">全ステータス</option>'+
       [["active","商談中"],["follow","次回アポ未設定"],["todo","情報未入力"]].map(o=>
       '<option value="'+o[0]+'"'+(ui.fStatus===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select>'+
+    '<select id="fApply"><option value="">申込：すべて</option><option value="yes"'+(ui.fApply==="yes"?" selected":"")+'>申込済</option>'+
+      '<option value="no"'+(ui.fApply==="no"?" selected":"")+'>未申込</option></select>'+
     '<select id="fStage"><option value="">全ステージ</option>'+STAGES.map(s=>
       '<option value="'+s.id+'"'+(ui.fStage===s.id?" selected":"")+'>'+esc(s.name)+'</option>').join("")+'</select>'+
     '<select id="fProduct"><option value="">全ての商品</option>'+prods.map(p=>
@@ -1603,7 +1606,7 @@ function renderCustomers(root){
   root.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{ ui.rankTab=b.dataset.tab; renderCustomers(root); }));
   const bind=(id,key,ev)=>{ const el=$("#"+id); el.addEventListener(ev||"change",()=>{
     ui[key] = el.type==="checkbox"? el.checked : el.value; renderCustomerTable(); refreshTabCounts(); }); };
-  bind("fq","fQuery","input"); bind("fStatus","fStatus"); bind("fStage","fStage"); bind("fProduct","fProduct"); bind("fAlert","fAlert");
+  bind("fq","fQuery","input"); bind("fStatus","fStatus"); bind("fStage","fStage"); bind("fProduct","fProduct"); bind("fAlert","fAlert"); bind("fApply","fApply");
   renderCustomerTable();
 }
 function refreshTabCounts(){
@@ -1633,6 +1636,7 @@ function renderCustomerTable(){
       '<td class="small nowrap">'+((c.meetings||[]).length? (c.meetings||[]).length+' 回':'<span class="faint">—</span>')+'</td>'+
       '<td class="nowrap">'+nd+'</td>'+
       '<td><span class="st '+st.key+'">'+esc(st.label)+'</span></td>'+
+      '<td class="nowrap">'+(c.applied? '<span class="ap on">申込済'+(c.appliedDate? ' '+esc(md(c.appliedDate)):'')+'</span>' : '<span class="ap">未申込</span>')+'</td>'+
       '<td class="small">'+(prods.length? prods.map(p=>'<span class="chip">'+esc(p)+'</span>').join(" ") : '<span class="faint">—</span>')+'</td>'+
       '<td class="notecell">'+(ld && (ld.note||"").trim()? esc(ld.note) : '<span class="faint">記録なし</span>')+'</td>'+
       '</tr>';
@@ -1640,7 +1644,7 @@ function renderCustomerTable(){
   box.innerHTML = '<div class="tablewrap"><table><thead><tr>'+
     sortHead("rank","ランク")+sortHead("name","顧客名")+
     (scopeCompanies().length>1?'<th>会社</th>':'')+
-    sortHead("owner","担当")+'<th>面談</th>'+sortHead("next","次回アポ")+'<th>状況</th><th>提案商品</th><th>直近の面談メモ</th>'+
+    sortHead("owner","担当")+'<th>面談</th>'+sortHead("next","次回アポ")+'<th>状況</th><th>申込</th><th>提案商品</th><th>直近の面談メモ</th>'+
     '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
     '<p class="tiny faint" style="margin-top:8px">'+list.length+' 件を表示　／　ランクは一覧上で直接変更できます。</p>';
   box.querySelectorAll("[data-cust]").forEach(tr=>tr.addEventListener("click",e=>{
@@ -2388,12 +2392,34 @@ function renderLost(root){
 /* ============================================================
    VIEW: 集計
    ============================================================ */
+/* ---------- 年度 ---------- */
+const fyStart = () => { const m = num(CFG.fyStart); return m>=1 && m<=12 ? m : 4; };
+function fyOf(dateStr){
+  const d = parseD(String(dateStr||"").slice(0,10)); if(!d) return null;
+  return (d.getMonth()+1) >= fyStart() ? d.getFullYear() : d.getFullYear()-1;
+}
+function fyMonths(fy){ const out=[]; for(let i=0;i<12;i++){ const d=new Date(fy, fyStart()-1+i, 1); out.push(d.getFullYear()+"-"+pad(d.getMonth()+1)); } return out; }
+function fyLabel(fy){ const m=fyMonths(fy); return fy+"年度（"+m[0].replace("-","/")+"〜"+m[11].replace("-","/")+"）"; }
+const inqDate = c => c.inquiryDate || String(c.createdAt||"").slice(0,10);
+
 function renderReport(root){
-  const all = scoped();
-  const act = scopedActive(), won = scopedWon(), lost = scopedLost();
+  const curFY = fyOf(TODAY());
+  if(!ui.fy) ui.fy = String(curFY);
+  const allFY = ui.fy==="all", fy = allFY ? null : Number(ui.fy);
+  const base = scoped();
+  const inFY = d => allFY ? !!d : fyOf(d)===fy;
+  /* その年度に起きたこと：反響（問合せ日）・申込（申込日）・契約（契約日）・没（没日） */
+  const fresh = base.filter(c=> allFY ? true : inFY(inqDate(c)));
+  const aps   = base.filter(c=>c.applied && (allFY || inFY(c.appliedDate)));
+  const won   = base.filter(c=>c.contracted && (allFY || inFY(c.contractDate)));
+  const lost  = base.filter(c=>c.lost && (allFY || inFY(c.lostDate)));
+  const act   = scopedActive();
   const amt = won.reduce((s,c)=>s+num(c.contractAmount),0);
   const gp  = won.reduce((s,c)=>s+num(c.grossProfit),0);
   const rate = (won.length+lost.length)? Math.round(won.length/(won.length+lost.length)*100) : 0;
+  const apRate = aps.length? Math.round(won.filter(c=>c.applied).length/aps.length*100) : 0;
+  const years = new Set([curFY]);
+  base.forEach(c=>[inqDate(c), c.appliedDate, c.contractDate, c.lostDate].forEach(d=>{ const y=fyOf(d); if(y) years.add(y); }));
   const groupers = {
     owner:{name:"担当者別", key:c=>c.ownerId, label:staffName},
     company:{name:"会社別", key:c=>c.companyId, label:companyName},
@@ -2403,59 +2429,75 @@ function renderReport(root){
     showroom:{name:"展示場・反響元別", key:c=>c.showroom||"", label:k=>k||"未設定"},
     stage:{name:"ステージ別", key:c=>c.stage||"", label:k=>STAGE_NAME[k]||"未設定"},
   };
-  let h = topbar("集計・分析", '<button class="btn sm" id="csvBtn2">CSV書き出し</button>');
-  h += '<div class="content"><div class="kpis">'+
-    kpi("", "登録顧客", all.length, "件", "稼働中 "+act.length+"件")+
+  let h = topbar("集計・分析",
+    '<select id="fySel" style="width:auto">'+[...years].sort((a,b)=>b-a).map(y=>'<option value="'+y+'"'+(ui.fy===String(y)?" selected":"")+'>'+esc(fyLabel(y))+'</option>').join("")+
+      '<option value="all"'+(allFY?" selected":"")+'>全期間</option></select>'+
+    '<select id="fyStartSel" style="width:auto" title="年度の始まりの月">'+[...Array(12)].map((_,i)=>'<option value="'+(i+1)+'"'+(fyStart()===i+1?" selected":"")+'>'+(i+1)+'月始まり</option>').join("")+'</select>'+
+    '<button class="btn sm" id="csvBtn2">CSV書き出し</button>');
+  h += '<div class="content">'+
+    '<p class="small muted" style="margin-bottom:12px">'+(allFY? '全期間の集計です。' : esc(fyLabel(fy))+' に起きたことを数えています（反響＝問合せ日、申込＝申込日、契約＝契約日、没＝没日）。')+'</p>'+
+    '<div class="kpis">'+
+    kpi("", "反響（新規）", fresh.length, "件", allFY? "登録顧客すべて" : "問合せ日がこの年度")+
+    kpi("", "申込", aps.length, "件", "うち契約済 "+won.filter(c=>c.applied).length+"件（"+apRate+"%）")+
     kpi("ok", "契約", won.length, "棟", man(amt)+" 万円")+
     kpi("", "平均契約単価", won.length? Math.round(amt/won.length):0, "万円", "粗利計 "+man(gp)+" 万円")+
     kpi("", "成約率", rate, "%", "契約 "+won.length+" / 没 "+lost.length)+
-    kpi("warn", "要フォロー", act.filter(needsFollow).length, "件", "次回アポ未設定")+
+    kpi("warn", "要フォロー", act.filter(needsFollow).length, "件", "いま・次回アポ未設定")+
     '</div>';
   h += '<div class="tabs" style="margin-top:18px">'+Object.entries(groupers).map(([k,g])=>
     '<button data-rb="'+k+'" class="'+(ui.reportBy===k?"on":"")+'">'+esc(g.name)+'</button>').join("")+'</div>';
-  let rows=[];
-  if(ui.reportBy==="product"){
-    const t={};
-    all.forEach(c=>(c.products||[]).forEach(p=>{
-      const k=c.companyId+"|"+p;
-      t[k]=t[k]||{label:productName(c.companyId,p)+(scopeCompanies().length>1?"（"+companyShort(c.companyId)+"）":""), n:0, won:0, amt:0};
-      t[k].n++; if(c.contracted){ t[k].won++; t[k].amt+=num(c.contractAmount); }
-    }));
-    rows=Object.values(t);
-  }else{
-    const g=groupers[ui.reportBy], t={};
-    all.forEach(c=>{
-      const k=g.key(c)||"";
-      t[k]=t[k]||{label:g.label(k)||"未設定", n:0, won:0, amt:0};
-      t[k].n++; if(c.contracted){ t[k].won++; t[k].amt+=num(c.contractAmount); }
-    });
-    rows=Object.values(t);
-  }
-  rows.sort((a,b)=>b.n-a.n);
+  /* 区分ごとに 反響・申込・契約・受注額 */
+  const t = {};
+  const bump = (keys, f) => keys.forEach(([k,label])=>{ t[k]=t[k]||{label, n:0, ap:0, won:0, amt:0}; f(t[k]); });
+  const keysOf = c => {
+    if(ui.reportBy==="product") return (c.products||[]).map(p=>[c.companyId+"|"+p, productName(c.companyId,p)+(scopeCompanies().length>1?"（"+companyShort(c.companyId)+"）":"")]);
+    const g = groupers[ui.reportBy], k = g.key(c)||""; return [[k, g.label(k)||"未設定"]];
+  };
+  fresh.forEach(c=>bump(keysOf(c), r=>r.n++));
+  aps.forEach(c=>bump(keysOf(c), r=>r.ap++));
+  won.forEach(c=>bump(keysOf(c), r=>{ r.won++; r.amt+=num(c.contractAmount); }));
+  const rows = Object.values(t).sort((a,b)=>(b.won-a.won)||(b.ap-a.ap)||(b.n-a.n));
+  const R = 'style="text-align:right"';
   h += '<div class="panels" style="grid-template-columns:repeat(auto-fit,minmax(400px,1fr));margin-top:14px">';
-  h += '<div class="panel"><header><h3>'+esc(groupers[ui.reportBy].name)+' 件数</h3></header><div class="bars">'+
-    (rows.length? barRows(rows.map(r=>[r.label,r.n,null])) : '<div class="lane-empty">データがありません</div>')+'</div></div>';
+  h += '<div class="panel"><header><h3>'+esc(groupers[ui.reportBy].name)+' 契約棟数</h3><div class="grow"></div><span class="tiny muted">申込・反響は右の内訳</span></header><div class="bars">'+
+    (rows.length? barRows(rows.map(r=>[r.label, r.won, "var(--ok)"])) : '<div class="lane-empty">データがありません</div>')+'</div></div>';
   h += '<div class="panel"><header><h3>'+esc(groupers[ui.reportBy].name)+' 内訳</h3></header>'+
-    '<div class="tablewrap" style="border:0"><table><thead><tr><th>区分</th><th style="text-align:right">顧客数</th>'+
-    '<th style="text-align:right">契約</th><th style="text-align:right">受注額（万円）</th></tr></thead><tbody>'+
-    (rows.length? rows.map(r=>'<tr><td>'+esc(r.label)+'</td><td class="num" style="text-align:right">'+r.n+'</td>'+
-      '<td class="num" style="text-align:right">'+r.won+'</td><td class="num" style="text-align:right">'+man(r.amt)+'</td></tr>').join("")
-      : '<tr><td colspan="4" class="empty">データがありません</td></tr>')+'</tbody></table></div></div>';
-  const months=[], now=new Date();
-  for(let i=11;i>=0;i--){ const d=new Date(now.getFullYear(),now.getMonth()-i,1); months.push(d.getFullYear()+"-"+pad(d.getMonth()+1)); }
-  const mrows = months.map(ym=>{ const cs=won.filter(c=>(c.contractDate||"").startsWith(ym));
-    return {ym, n:cs.length, amt:cs.reduce((s,c)=>s+num(c.contractAmount),0)}; });
-  const mmax = Math.max(1,...mrows.map(r=>r.n));
-  h += '<div class="panel" style="grid-column:1/-1"><header><h3>月別 契約棟数（直近12ヶ月）</h3><div class="grow"></div>'+
-    '<span class="chip">合計 '+mrows.reduce((s,r)=>s+r.n,0)+' 棟 / '+man(mrows.reduce((s,r)=>s+r.amt,0))+' 万円</span></header>'+
-    '<div style="display:flex;align-items:flex-end;gap:6px;padding:18px 16px;height:184px">'+
-    mrows.map(r=>'<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;height:100%;justify-content:flex-end">'+
-      '<span class="mono tiny" style="color:var(--muted)">'+(r.n||"")+'</span>'+
-      '<div style="width:100%;background:'+(r.n?"var(--accent)":"var(--surface3)")+';border-radius:3px 3px 0 0;height:'+Math.max(3,r.n/mmax*100)+'%"></div>'+
-      '<span class="mono tiny faint">'+r.ym.slice(5)+'</span></div>').join("")+'</div></div>';
+    '<div class="tablewrap" style="border:0"><table><thead><tr><th>区分</th><th '+R+'>反響</th><th '+R+'>申込</th>'+
+    '<th '+R+'>契約</th><th '+R+'>受注額（万円）</th></tr></thead><tbody>'+
+    (rows.length? rows.map(r=>'<tr><td>'+esc(r.label)+'</td><td class="num" '+R+'>'+r.n+'</td><td class="num" '+R+'>'+r.ap+'</td>'+
+      '<td class="num" '+R+'>'+r.won+'</td><td class="num" '+R+'>'+man(r.amt)+'</td></tr>').join("")+
+      '<tr style="border-top:2px solid var(--border-strong)"><td><b>合計</b></td><td class="num" '+R+'>'+fresh.length+'</td><td class="num" '+R+'>'+aps.length+'</td>'+
+      '<td class="num" '+R+'>'+won.length+'</td><td class="num" '+R+'>'+man(amt)+'</td></tr>'
+      : '<tr><td colspan="5" class="empty">データがありません</td></tr>')+'</tbody></table></div></div>';
+  /* 月別：年度の12か月（全期間なら直近12か月） */
+  let months;
+  if(allFY){ months=[]; const now=new Date(); for(let i=11;i>=0;i--){ const d=new Date(now.getFullYear(),now.getMonth()-i,1); months.push(d.getFullYear()+"-"+pad(d.getMonth()+1)); } }
+  else months = fyMonths(fy);
+  const mrows = months.map(ym=>({ym,
+    ap: base.filter(c=>c.applied && String(c.appliedDate||"").startsWith(ym)).length,
+    n: base.filter(c=>c.contracted && String(c.contractDate||"").startsWith(ym)).length,
+    amt: base.filter(c=>c.contracted && String(c.contractDate||"").startsWith(ym)).reduce((s,c)=>s+num(c.contractAmount),0)}));
+  const mmax = Math.max(1,...mrows.map(r=>Math.max(r.n, r.ap)));
+  h += '<div class="panel" style="grid-column:1/-1"><header><h3>月別 申込・契約（'+esc(allFY? "直近12か月" : fyLabel(fy))+'）</h3><div class="grow"></div>'+
+    '<span class="tiny muted row" style="gap:10px"><span class="row" style="gap:4px"><i style="width:10px;height:10px;border-radius:2px;background:color-mix(in srgb,var(--ok) 35%,var(--surface3));display:inline-block"></i>申込</span>'+
+    '<span class="row" style="gap:4px"><i style="width:10px;height:10px;border-radius:2px;background:var(--ok);display:inline-block"></i>契約</span></span>'+
+    '<span class="chip">申込 '+mrows.reduce((s,r)=>s+r.ap,0)+' 件 ／ 契約 '+mrows.reduce((s,r)=>s+r.n,0)+' 棟・'+man(mrows.reduce((s,r)=>s+r.amt,0))+' 万円</span></header>'+
+    '<div style="display:flex;align-items:flex-end;gap:6px;padding:18px 16px;height:200px">'+
+    mrows.map(r=>'<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end">'+
+      '<span class="mono tiny" style="color:var(--muted)">'+(r.ap||r.n? r.ap+"/"+r.n : "")+'</span>'+
+      '<div style="width:100%;display:flex;gap:2px;align-items:flex-end;height:100%">'+
+        '<div style="flex:1;background:'+(r.ap?"color-mix(in srgb,var(--ok) 35%,var(--surface3))":"var(--surface3)")+';border-radius:3px 3px 0 0;height:'+Math.max(3,r.ap/mmax*100)+'%" title="申込 '+r.ap+'件"></div>'+
+        '<div style="flex:1;background:'+(r.n?"var(--ok)":"var(--surface3)")+';border-radius:3px 3px 0 0;height:'+Math.max(3,r.n/mmax*100)+'%" title="契約 '+r.n+'棟"></div></div>'+
+      '<span class="mono tiny faint">'+r.ym.slice(5)+'月</span></div>').join("")+'</div></div>';
   h += '</div></div>';
   root.innerHTML=h;
   root.querySelectorAll("[data-rb]").forEach(b=>b.addEventListener("click",()=>{ ui.reportBy=b.dataset.rb; renderReport(root); }));
+  $("#fySel").addEventListener("change",e=>{ ui.fy=e.target.value; renderReport(root); });
+  $("#fyStartSel").addEventListener("change", async e=>{
+    const m = Number(e.target.value);
+    CFG = {...CFG, fyStart:m}; ui.fy = String(fyOf(TODAY())); renderReport(root);
+    try{ await DB.doc("meta/config").set({companies:companies(), fyStart:m, updatedAt:new Date().toISOString()}); toast("年度の始まりを"+m+"月にしました（全員に反映）"); }catch(err){ toast("保存できませんでした"); }
+  });
   $("#csvBtn2").addEventListener("click", exportCSV);
 }
 async function exportCSV(){
@@ -2726,14 +2768,14 @@ function renderMaster(box){
     const cid=b.dataset.addprod, el=box.querySelector('[data-newprod="'+cid+'"]');
     const name=(el.value||"").trim(); if(!name) return;
     const next=companies().map(c=> c.id!==cid? c : {...c, products:[...(c.products||[]),{id:"p"+uid().slice(-6),name}]});
-    try{ await DB.doc("meta/config").set({companies:next, updatedAt:new Date().toISOString()}); toast("商品を追加しました"); }
+    try{ await DB.doc("meta/config").set({companies:next, fyStart:fyStart(), updatedAt:new Date().toISOString()}); toast("商品を追加しました"); }
     catch(e){ toast("保存できませんでした"); }
   }));
   box.querySelectorAll("[data-rmprod]").forEach(b=>b.addEventListener("click", async ()=>{
     const [cid,pid]=b.dataset.rmprod.split("|");
     if(!await askConfirm("商品を削除","この商品をマスタから削除します。登録済みのお客様の提案履歴は残ります。","削除する",true)) return;
     const next=companies().map(c=> c.id!==cid? c : {...c, products:(c.products||[]).filter(p=>p.id!==pid)});
-    try{ await DB.doc("meta/config").set({companies:next, updatedAt:new Date().toISOString()}); toast("削除しました"); }
+    try{ await DB.doc("meta/config").set({companies:next, fyStart:fyStart(), updatedAt:new Date().toISOString()}); toast("削除しました"); }
     catch(e){ toast("保存できませんでした"); }
   }));
 }
@@ -2933,9 +2975,10 @@ function detailHTML(c, wk){
       '<label class="tiny">契約目標日</label><input type="date" data-gd="'+c.id+'" value="'+esc(c.goalDate||"")+'">'+goalLeft(c)+
       '<select class="rank-sel fc-sel" data-yf="'+c.id+'" title="確度">'+[["","確度"],["hi","◎ 確度高"],["mid","○ 確度中"],["lo","△ 確度低"]]
         .map(o=>'<option value="'+o[0]+'"'+((c.forecast||"")===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div>'+
-      '<div class="ap-row"><label class="check'+(c.applied?' ap-on':'')+'"><input type="checkbox" data-ap="'+c.id+'"'+(c.applied?" checked":"")+'>申込をもらった</label>'+
-        (c.applied? '<label class="tiny muted">申込日</label><input type="date" data-apd="'+c.id+'" value="'+esc(c.appliedDate||"")+'">' :
-          '<span class="tiny faint">契約の前に申込（申込金）をもらったらチェック</span>')+'</div></div>'+
+      '<div class="ap-row"><label class="tiny muted" for="apd_'+c.id+'">申込日</label>'+
+        '<input type="date" id="apd_'+c.id+'" data-apd="'+c.id+'" value="'+esc(c.appliedDate||"")+'">'+
+        (c.applied? '<span class="ap on">申込済</span><button type="button" class="linkbtn tiny" data-apclr="'+c.id+'">取り消す</button>'
+                  : '<span class="tiny faint">申込（申込金）をもらった日を選ぶと「申込済」になります</span>')+'</div></div>'+
     '<div class="fset">'+weekHTML(c, wk)+'</div>'+
     '<div class="fset">'+cmtHTML(c)+'</div>';
 }
@@ -2945,11 +2988,10 @@ function bindDetail(root, wk, repaint){
   root.querySelectorAll("[data-gd]").forEach(el=>el.addEventListener("change",()=>
     quickUpdate(el.dataset.gd, {goalDate:el.value, expectedMonth:el.value? el.value.slice(0,7) : ""}).then(later)));
   root.querySelectorAll("[data-yf]").forEach(el=>el.addEventListener("change",()=>quickUpdate(el.dataset.yf,{forecast:el.value}).then(later)));
-  root.querySelectorAll("[data-ap]").forEach(el=>el.addEventListener("change",()=>{
-    const c = customers.find(x=>x.id===el.dataset.ap);
-    quickUpdate(el.dataset.ap, el.checked? {applied:true, appliedDate:(c&&c.appliedDate)||TODAY()} : {applied:false, appliedDate:""}).then(later);
-  }));
-  root.querySelectorAll("[data-apd]").forEach(el=>el.addEventListener("change",()=>quickUpdate(el.dataset.apd,{appliedDate:el.value}).then(later)));
+  root.querySelectorAll("[data-apd]").forEach(el=>el.addEventListener("change",()=>
+    quickUpdate(el.dataset.apd, el.value? {applied:true, appliedDate:el.value} : {applied:false, appliedDate:""}).then(later)));
+  root.querySelectorAll("[data-apclr]").forEach(b=>b.addEventListener("click",()=>
+    quickUpdate(b.dataset.apclr, {applied:false, appliedDate:""}).then(later)));
   const saveWeek = (key, patch) => {
     const [cid, k] = key.split("|"); const c = customers.find(x=>x.id===cid); if(!c) return Promise.resolve();
     const weekly = {...(c.weekly||{})}; weekly[k] = {...(weekly[k]||{}), ...patch};
