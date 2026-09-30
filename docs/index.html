@@ -504,13 +504,28 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .sc-plan{min-height:44px;font-size:12.5px;padding:6px 7px}
 .zipnote{margin-top:4px;min-height:1em}
 
+/* ---------- シート：週タブ ---------- */
+.wk-tabs{display:flex;gap:3px;flex-wrap:wrap}
+.wk-tab{flex:none;border:1px solid var(--border);background:var(--surface);border-radius:4px;padding:2px 6px;cursor:pointer;
+  font-family:var(--mono);font-size:10.5px;color:var(--muted);white-space:nowrap;line-height:1.5}
+.wk-tab b{font-family:var(--sans);font-weight:700;margin-right:3px}
+.wk-tab.ok{background:var(--ok-bg);color:var(--ok);border-color:transparent}
+.wk-tab.ng{background:var(--danger-bg);color:var(--danger);border-color:transparent}
+.wk-tab.wip{border-color:var(--border-strong);color:var(--text)}
+.wk-tab.on{outline:2px solid var(--accent);outline-offset:-1px;color:var(--accent)}
+.wk-body{display:flex;flex-direction:column;gap:3px;background:var(--surface2);border-radius:4px;padding:6px 7px}
+.wk-title{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;flex-wrap:wrap}
+.wk-now{font-size:10.5px;background:var(--accent);color:var(--on-accent);border-radius:100px;padding:0 7px}
+.wk-done{margin-left:auto;display:flex;align-items:center;gap:4px;font-size:11.5px;font-weight:500;cursor:pointer}
+.wk-done input{width:auto;margin:0}
+.sc-res{background:var(--surface)}
+
 /* ---------- シート：道筋・経過・コメント ---------- */
 .sc-sec{display:flex;flex-direction:column;gap:4px;padding-top:6px;border-top:1px dashed var(--border)}
 .sc-lbl{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.02em}
 .sc-lbl .faint{font-weight:400;margin-left:4px}
-.sc-path,.sc-plan{overflow-y:auto;resize:none;line-height:19px}
-.sc-path.clip:not(:focus),.sc-plan.clip:not(:focus){overflow:hidden;-webkit-mask-image:linear-gradient(#000 70%,transparent);mask-image:linear-gradient(#000 70%,transparent)}
-.sc-path{min-height:40px;font-size:12.5px;padding:6px 7px;background:var(--surface2)}
+.sc-plan{overflow-y:auto;resize:none;line-height:19px}
+.sc-plan.clip:not(:focus){overflow:hidden;-webkit-mask-image:linear-gradient(#000 70%,transparent);mask-image:linear-gradient(#000 70%,transparent)}
 .hrow{display:grid;grid-template-columns:15px auto 1fr;gap:6px;align-items:start;font-size:12px;cursor:pointer;padding:2px 0}
 .hrow input{width:auto;margin:2px 0 0}
 .hwk{font-family:var(--mono);font-size:11px;color:var(--faint);white-space:nowrap;padding-top:1px}
@@ -2909,16 +2924,38 @@ function goalLeft(c){
 let mtgStale = false;
 const isEditingIn = el => { const a=document.activeElement; return !!(a && el && el.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)); };
 
-/* これまでやったこと：毎週の「今週やること」がそのまま履歴になる（新しい順） */
-function histHTML(c, wk){
-  const past = Object.keys(c.weekly||{}).filter(k=>k<wk && (c.weekly[k]||{}).plan).sort().reverse();
-  if(!past.length) return '';
-  const row = k => { const x=c.weekly[k];
-    return '<label class="hrow'+(x.done?' done':'')+'"><input type="checkbox" data-lwd="'+c.id+'|'+k+'"'+(x.done?" checked":"")+' title="できたらチェック">'+
-      '<span class="hwk">'+esc(fmtD(k).replace(/\(.\)$/,""))+'週</span><span class="htx">'+esc(x.plan)+'</span></label>'; };
-  return '<div class="sc-sec"><div class="sc-lbl">これまでやったこと<span class="faint">（できたらチェック）</span></div>'+
-    past.slice(0,2).map(row).join("")+
-    (past.length>2? '<details class="more"><summary>さらに前を見る（'+(past.length-2)+'件）</summary>'+past.slice(2).map(row).join("")+'</details>' : '')+'</div>';
+/* 週ごとの記録：タブで週を切り替え、その週の「やること」「結果・進捗」「できた」を書く */
+const cardWeek = {};   /* カードごとに選んでいる週（画面を開いている間だけ覚える） */
+const addDays = (s,n) => { const d=parseD(s); return isoDate(new Date(d.getFullYear(), d.getMonth(), d.getDate()+n)); };
+const md = s => { const d=parseD(s); return d? (d.getMonth()+1)+"/"+d.getDate() : ""; };
+function weekRange(k){ return fmtD(k)+"〜"+fmtD(addDays(k,6)); }
+function weekState(c, k, cur){
+  const x = (c.weekly||{})[k] || {};
+  if(x.done) return "ok";
+  if(k < cur && (x.plan||x.result)) return "ng";
+  return x.plan||x.result ? "wip" : "";
+}
+function weekHTML(c, cur){
+  const next = addDays(cur, 7);
+  const keys = [...new Set(Object.keys(c.weekly||{}).filter(k=>{ const x=c.weekly[k]||{}; return k<cur && (x.plan||x.result); }))].sort().slice(-5);
+  const tabs = keys.concat([cur, next]);
+  const sel = tabs.includes(cardWeek[c.id]) ? cardWeek[c.id] : cur;
+  const x = (c.weekly||{})[sel] || {};
+  const past = tabs.filter(k=>k<cur), okN = past.filter(k=>((c.weekly||{})[k]||{}).done).length;
+  const tag = k => k===cur ? "今週" : k===next ? "来週" : "";
+  return '<div class="sc-sec wk"><div class="sc-lbl">毎週の記録'+(past.length? '<span class="faint">（これまで '+past.length+'週中 '+okN+'週できた）</span>':'')+'</div>'+
+    '<div class="wk-tabs">'+tabs.map(k=>{ const st=weekState(c,k,cur);
+      return '<button type="button" class="wk-tab'+(k===sel?" on":"")+(st?" "+st:"")+'" data-wtab="'+c.id+'|'+k+'" title="'+esc(weekRange(k))+'">'+
+        (tag(k)? '<b>'+tag(k)+'</b>':'')+esc(md(k))+(st==="ok"?' ✓':st==="ng"?' ×':'')+'</button>'; }).join("")+'</div>'+
+    '<div class="wk-body">'+
+      '<div class="wk-title"><span>'+esc(weekRange(sel))+'</span>'+(tag(sel)? '<span class="wk-now">'+tag(sel)+'</span>':'')+
+        '<label class="wk-done"><input type="checkbox" data-wdone="'+c.id+'|'+sel+'"'+(x.done?" checked":"")+'>できた</label></div>'+
+      '<label class="sc-lbl">やること</label>'+
+      '<textarea class="sc-plan" data-wplan="'+c.id+'|'+sel+'" rows="2" placeholder="例：資金計画書を持って訪問し、事前審査の書類をもらう">'+esc(x.plan||"")+'</textarea>'+
+      '<label class="sc-lbl">結果・進捗</label>'+
+      '<textarea class="sc-plan sc-res" data-wres="'+c.id+'|'+sel+'" rows="2" placeholder="例：審査書類を回収。10/10に銀行へ提出予定">'+esc(x.result||"")+'</textarea>'+
+      (c.path? '<details class="more"><summary>以前の「契約までの道筋」メモ</summary><div class="htx tiny">'+esc(c.path)+'</div></details>':'')+
+    '</div></div>';
 }
 /* アドバイス・コメント：書いた人と日付が自動で付く */
 function cmtHTML(c){
@@ -2946,10 +2983,10 @@ function mtgSheet(box, d, per){
   const reps = mtgReps();
   const noGoal = list.filter(c=>!c.goalDate).length;
   const overdue = list.filter(c=>c.goalDate && daysFrom(c.goalDate)<0).length;
-  const noPlan = list.filter(c=>!((c.weekly||{})[wk]||{}).plan).length;
+  const noPlan = list.filter(c=>{ const x=(c.weekly||{})[wk]||{}; return !x.plan && !x.result; }).length;
   const sIdx = id => STAGES.findIndex(x=>x.id===id);
   const card = c => {
-    const w = (c.weekly||{})[wk] || {}, i = sIdx(c.stage);
+    const i = sIdx(c.stage);
     const info = [c.age? c.age+"歳":"", c.familySize? c.familySize+"人":"", c.buildType||""].filter(Boolean).join("・");
     const money = [c.budgetTotal!==""&&c.budgetTotal!=null? "総額 "+man(c.budgetTotal)+"万" : "", c.tsubo? c.tsubo+"坪":""].filter(Boolean).join(" ／ ");
     const app = c.applied? '<span class="chip" style="background:var(--ok-bg);color:var(--ok)">申込有</span>' : '';
@@ -2962,11 +2999,7 @@ function mtgSheet(box, d, per){
       '<div class="sc-goal"><label class="tiny">契約目標日</label><input type="date" data-gd="'+c.id+'" value="'+esc(c.goalDate||"")+'">'+goalLeft(c)+
         '<select class="rank-sel fc-sel" data-yf="'+c.id+'" title="確度">'+[["","確度"],["hi","◎"],["mid","○"],["lo","△"]]
           .map(o=>'<option value="'+o[0]+'"'+((c.forecast||"")===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div>'+
-      '<div class="sc-sec"><div class="sc-lbl">契約までの道筋</div>'+
-        '<textarea class="sc-path" data-path="'+c.id+'" rows="2" placeholder="例：10/5 資金計画 → 10/12 初回プラン → 10/26 見積 → 11/2 契約">'+esc(c.path||"")+'</textarea></div>'+
-      histHTML(c, wk)+
-      '<div class="sc-sec"><div class="sc-lbl">今週やること</div>'+
-        '<textarea class="sc-plan" data-plan="'+c.id+'" rows="2" placeholder="例：資金計画書を持って訪問し、事前審査の書類をもらう">'+esc(w.plan||"")+'</textarea></div>'+
+      weekHTML(c, wk)+
       cmtHTML(c)+
       '<div class="tiny sc-next">次回アポ '+whenPill(c)+'</div>'+
       (c.issues? '<div class="tiny" style="color:var(--danger)">課題：'+esc(c.issues)+'</div>':'')+
@@ -2978,8 +3011,8 @@ function mtgSheet(box, d, per){
     '<ol class="steps">'+
       '<li><b>工程を進める</b><br>カードの名前のあたりをつかんで、隣の列へドラッグします。スマホはカード右下の ◀ ▶ で動かせます。</li>'+
       '<li><b>契約目標日を入れる</b><br>「いつ契約するか」のゴールです。残りの週数が出て、過ぎると赤くなります。</li>'+
-      '<li><b>道筋と今週やることを書く</b><br>「契約までの道筋」に契約までの段取りを、「今週やること」にその週の動きを書きます。枠の外を押せば保存。'+
-      '書いた「今週やること」は翌週から<b>これまでやったこと</b>に並ぶので、できたらチェックします。</li>'+
+      '<li><b>週ごとに書く</b><br>カードの「毎週の記録」は週ごとのタブです。<b>今週</b>のタブに「やること」を書き、終わったら「結果・進捗」と「できた」を入れます。'+
+      '先週のタブを押せばすぐ振り返れ、できた週は緑の✓、できなかった週は赤く出ます。来週のタブで先の予定も書けます。枠の外を押せば保存されます。</li>'+
       '<li><b>アドバイスを残す</b><br>上司や先輩はカード下の欄に書いて「送る」（Enterでも可）。<b>書いた人の名前と日付</b>が自動で付きます。</li>'+
     '</ol>'+
     '<div class="howto-cols">'+
@@ -3015,10 +3048,17 @@ function mtgSheet(box, d, per){
   box.querySelectorAll("[data-gd]").forEach(el=>el.addEventListener("change",()=>
     quickUpdate(el.dataset.gd, {goalDate:el.value, expectedMonth:el.value? el.value.slice(0,7) : ""})));
   box.querySelectorAll("[data-yf]").forEach(el=>el.addEventListener("change",()=>quickUpdate(el.dataset.yf,{forecast:el.value})));
-  box.querySelectorAll("[data-plan]").forEach(el=>el.addEventListener("change",()=>{
-    const c = customers.find(x=>x.id===el.dataset.plan); if(!c) return;
-    const weekly = {...(c.weekly||{})}; weekly[wk] = {...(weekly[wk]||{}), plan:el.value.trim(), done:!!(weekly[wk]||{}).done};
-    quickUpdate(c.id, {weekly});
+  const saveWeek = (key, patch) => {
+    const [cid, k] = key.split("|"); const c = customers.find(x=>x.id===cid); if(!c) return;
+    const weekly = {...(c.weekly||{})}; weekly[k] = {...(weekly[k]||{}), ...patch};
+    return quickUpdate(cid, {weekly});
+  };
+  box.querySelectorAll("[data-wplan]").forEach(el=>el.addEventListener("change",()=>saveWeek(el.dataset.wplan, {plan:el.value.trim()})));
+  box.querySelectorAll("[data-wres]").forEach(el=>el.addEventListener("change",()=>saveWeek(el.dataset.wres, {result:el.value.trim()})));
+  box.querySelectorAll("[data-wdone]").forEach(el=>el.addEventListener("change",()=>saveWeek(el.dataset.wdone, {done:el.checked})));
+  box.querySelectorAll("[data-wtab]").forEach(b=>b.addEventListener("click",()=>{
+    const [cid, k] = b.dataset.wtab.split("|"); cardWeek[cid] = k;
+    setTimeout(()=>mtgSheet(box, d, per), 0);   /* 書きかけの欄の保存（change）を先に済ませる */
   }));
   /* 道筋・今週やることの欄：書いた量に合わせて伸ばすが、上限を超えたら欄の中でスクロール。
      触っていない間は3行までに縮める */
@@ -3030,13 +3070,12 @@ function mtgSheet(box, d, per){
     el.style.height = h + "px";
     el.classList.toggle("clip", el.scrollHeight + 2 > max);
   };
-  box.querySelectorAll(".sc-path,.sc-plan").forEach(el=>{
+  box.querySelectorAll(".sc-plan").forEach(el=>{
     fit(el);
     el.addEventListener("input",()=>fit(el));
     el.addEventListener("focus",()=>fit(el));
     el.addEventListener("blur",()=>{ fit(el); el.scrollTop = 0; });
   });
-  box.querySelectorAll("[data-path]").forEach(el=>el.addEventListener("change",()=>quickUpdate(el.dataset.path, {path:el.value.trim()})));
   box.querySelectorAll("[data-cmsend]").forEach(b=>b.addEventListener("click",()=>{
     const inp = box.querySelector('[data-cm="'+b.dataset.cmsend+'"]'); if(!inp || !inp.value.trim()) return;
     const t = inp.value; inp.value = ""; inp.blur(); addComment(b.dataset.cmsend, t);
@@ -3048,11 +3087,6 @@ function mtgSheet(box, d, per){
     const [cid, id] = b.dataset.cmdel.split("|"); const c = customers.find(x=>x.id===cid); if(!c) return;
     if(!await askConfirm("コメントを消す","このコメントを消します。","消す",true)) return;
     quickUpdate(cid, {comments: arr(c.comments).filter(m=>m.id!==id)});
-  }));
-  box.querySelectorAll("[data-lwd]").forEach(el=>el.addEventListener("change",()=>{
-    const [cid, k] = el.dataset.lwd.split("|"); const c = customers.find(x=>x.id===cid); if(!c) return;
-    const weekly = {...(c.weekly||{})}; weekly[k] = {...(weekly[k]||{}), done:el.checked};
-    quickUpdate(cid, {weekly});
   }));
   box.querySelectorAll("[data-mv]").forEach(b=>b.addEventListener("click",()=>{
     const [cid, dir] = b.dataset.mv.split("|"); const c = customers.find(x=>x.id===cid); if(!c) return;
