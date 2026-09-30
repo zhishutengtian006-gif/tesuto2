@@ -533,14 +533,28 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 /* ============================================================
    住宅営業カルテ — グループ3社の営業顧客管理
    ============================================================ */
-const DEFAULT_COMPANIES = [
-  { id:"noark",  name:"ノークホームズ", short:"ノーク", products:[
-      {id:"noark",name:"ノークホームズ"},{id:"folk",name:"フォルク"},{id:"gp",name:"GP"},{id:"pg",name:"PG"}]},
-  { id:"fujita", name:"フジタ", short:"フジタ", products:[
-      {id:"fujita",name:"フジタ"},{id:"gp",name:"GP"},{id:"pg",name:"PG"}]},
-  { id:"ash",    name:"アッシュホーム", short:"アッシュ", products:[
-      {id:"ash",name:"アッシュホーム"}]},
+/* 商品はグループ共通の一覧。各社はそこから取り扱う商品を選ぶ（会社・商品の画面で入れ替え） */
+const DEFAULT_CATALOG = [
+  {id:"norqg3",name:"NORQG3"},{id:"norqg2",name:"NORQG2"},{id:"alviag3",name:"ALVIAG3"},{id:"pg",name:"PG"},{id:"gp",name:"GP"},
 ];
+/* 以前の商品（登録済みのお客様の提案履歴で名前を出すため） */
+const LEGACY_PRODUCTS = {noark:"ノークホームズ", folk:"フォルク", fujita:"フジタ", ash:"アッシュホーム"};
+const DEFAULT_COMPANIES = [
+  { id:"noark",  name:"ノークホームズ", short:"ノーク" },
+  { id:"fujita", name:"フジタ",         short:"フジタ" },
+  { id:"ash",    name:"アッシュホーム", short:"アッシュ" },
+];
+/* 保存された設定から、会社ごとの商品一覧（products）を組み立てる */
+function buildCFG(d){
+  d = d || {};
+  const catalog = (Array.isArray(d.catalog) && d.catalog.length ? d.catalog : DEFAULT_CATALOG).map(p=>({id:String(p.id), name:String(p.name||p.id), retired:!!p.retired}));
+  const live = catalog.filter(p=>!p.retired);
+  const comps = (Array.isArray(d.companies) && d.companies.length ? d.companies : DEFAULT_COMPANIES).map(c=>{
+    const ids = Array.isArray(c.productIds) ? c.productIds : live.map(p=>p.id);
+    return {id:c.id, name:c.name, short:c.short||c.name, productIds:ids, products: live.filter(p=>ids.includes(p.id))};
+  });
+  return {companies:comps, catalog, fyStart:num(d.fyStart)||4};
+}
 const RANKS = {
   A:{label:"最優先", desc:"土地あり・興味あり"},
   B:{label:"商談中心", desc:"土地なし・興味あり"},
@@ -573,7 +587,7 @@ const WD = ["日","月","火","水","木","金","土"];
 
 /* ---------- state ---------- */
 let DB = null, dbState = "loading";
-let CFG = { companies: DEFAULT_COMPANIES };
+let CFG = buildCFG({});
 let AUTH = null;
 let staff = [], customers = [], events = [], todos = [], goals = [], mtgs = [];
 let loaded = { auth:false, staff:false, customers:false, events:false, todos:false, goals:false, mtgs:false };
@@ -618,11 +632,20 @@ async function pwMatches(a, input){
 const newSalt = ()=> [...crypto.getRandomValues(new Uint8Array(12))].map(x=>x.toString(16).padStart(2,"0")).join("");
 
 /* ---------- master ---------- */
-const companies = () => CFG.companies || DEFAULT_COMPANIES;
+const companies = () => CFG.companies;
+const catalog = () => CFG.catalog || [];
+/* 会社・商品の設定を保存（全員に反映） */
+function saveConfig(){
+  return DB.doc("meta/config").set({
+    companies: companies().map(c=>({id:c.id, name:c.name, short:c.short, productIds:c.productIds||[]})),
+    catalog: catalog().map(p=>({id:p.id, name:p.name, retired:!!p.retired})),
+    fyStart: fyStart(), updatedAt: new Date().toISOString() });
+}
 const companyById = id => companies().find(c=>c.id===id) || null;
 const companyName = id => (companyById(id)||{}).name || "—";
 const companyShort = id => (companyById(id)||{}).short || companyName(id);
-function productName(cid,pid){ const c=companyById(cid); if(!c) return pid||"—"; const p=(c.products||[]).find(p=>p.id===pid); return p?p.name:(pid||"—"); }
+function productName(cid,pid){ const p=catalog().find(x=>x.id===pid); return p? p.name : (LEGACY_PRODUCTS[pid] || pid || "—"); }
+const productLive = (cid,pid) => { const c=companyById(cid); return !!(c && (c.products||[]).some(p=>p.id===pid)); };
 const staffById = id => staff.find(s=>s.id===id) || null;
 const staffName = id => (staffById(id)||{}).name || (id? "（削除済）" : "未割当");
 
@@ -762,7 +785,7 @@ async function boot(){
   try{
     DB.doc("meta/config").onSnapshot(s=>{
       const d = s.exists? s.data():null;
-      if(d && Array.isArray(d.companies) && d.companies.length) CFG = {companies:d.companies, fyStart:num(d.fyStart)||4};
+      if(d && Array.isArray(d.companies) && d.companies.length) CFG = buildCFG(d);
       renderAll();
     }, ()=>{});
     /* パスワード（会社ごとの共通パスワード） */
@@ -1118,7 +1141,7 @@ function bindSetup(){
     }
     try{
       await DB.doc("meta/auth").set({scopes, updatedAt:new Date().toISOString()});
-      await DB.doc("meta/config").set({companies:companies(), updatedAt:new Date().toISOString()});
+      await saveConfig();
       showPwList(rows, "パスワードを設定しました", "この内容を各社の営業さんに伝えてください。会社ごとに、伝える相手を分けてください。");
     }catch(e){ err.innerHTML='<div class="err">保存できませんでした。時間をおいて再度お試しください。</div>'; }
   });
@@ -1917,8 +1940,8 @@ function custMoney(c, ed){
   return h;
 }
 function custProduct(c, ed){
-  const comp = companyById(c.companyId), prods = comp? (comp.products||[]) : [];
-  const chosen = c.products||[];
+  const comp = companyById(c.companyId), chosen = c.products||[];
+  const prods = (comp? (comp.products||[]) : []).concat(chosen.filter(id=>!productLive(c.companyId,id)).map(id=>({id, name:productName(c.companyId,id)+"（取扱終了）"})));
   let h = '<div class="fset"><h4>'+esc(companyName(c.companyId))+' の商品</h4>'+
     '<p class="small muted" style="margin-bottom:11px">このお客様に提案している商品を選びます（複数可）。会社を変えると商品も切り替わります。</p>'+
     '<div class="checks">'+prods.map(p=>'<label class="check"><input type="checkbox" data-prod="'+esc(p.id)+'"'+
@@ -2515,7 +2538,7 @@ function renderReport(root){
   $("#fyStartSel").addEventListener("change", async e=>{
     const m = Number(e.target.value);
     CFG = {...CFG, fyStart:m}; ui.fy = String(fyOf(TODAY())); renderReport(root);
-    try{ await DB.doc("meta/config").set({companies:companies(), fyStart:m, updatedAt:new Date().toISOString()}); toast("年度の始まりを"+m+"月にしました（全員に反映）"); }catch(err){ toast("保存できませんでした"); }
+    try{ await saveConfig(); toast("年度の始まりを"+m+"月にしました（全員に反映）"); }catch(err){ toast("保存できませんでした"); }
   });
   $("#csvBtn2").addEventListener("click", exportCSV);
 }
@@ -2773,30 +2796,60 @@ function openStaff(id){
   });
 }
 function renderMaster(box){
-  box.innerHTML = companies().map(c=>'<div class="panel" style="margin-bottom:12px"><header><h3>'+esc(c.name)+'</h3>'+
-    '<span class="chip">'+(c.products||[]).length+' 商品</span><div class="grow"></div>'+
-    '<span class="mono tiny faint">'+esc(c.id)+'</span></header><div class="pad">'+
-    '<div class="checks">'+(c.products||[]).map(p=>'<span class="chip">'+esc(p.name)+'</span>').join("")+'</div>'+
-    '<div class="row" style="gap:8px;margin-top:13px"><input type="text" data-newprod="'+esc(c.id)+'" placeholder="商品名を追加">'+
-    '<button class="btn" data-addprod="'+esc(c.id)+'">追加</button></div>'+
-    '<div class="row" style="margin-top:11px;gap:6px;flex-wrap:wrap">'+(c.products||[]).map(p=>
-      '<button class="btn sm ghost" data-rmprod="'+esc(c.id)+'|'+esc(p.id)+'">'+esc(p.name)+' を削除</button>').join(" ")+'</div>'+
-    '</div></div>').join("")+
-    '<div class="note">商品を削除しても、登録済みのお客様の提案履歴は残ります。会社そのものの追加が必要な場合はご相談ください。</div>';
-  box.querySelectorAll("[data-addprod]").forEach(b=>b.addEventListener("click", async ()=>{
-    const cid=b.dataset.addprod, el=box.querySelector('[data-newprod="'+cid+'"]');
-    const name=(el.value||"").trim(); if(!name) return;
-    const next=companies().map(c=> c.id!==cid? c : {...c, products:[...(c.products||[]),{id:"p"+uid().slice(-6),name}]});
-    try{ await DB.doc("meta/config").set({companies:next, fyStart:fyStart(), updatedAt:new Date().toISOString()}); toast("商品を追加しました"); }
-    catch(e){ toast("保存できませんでした"); }
+  const cs = companies(), live = catalog().filter(p=>!p.retired), gone = catalog().filter(p=>p.retired);
+  const used = pid => customers.filter(c=>(c.products||[]).includes(pid)).length;
+  box.innerHTML =
+    '<p class="small muted" style="margin-bottom:12px">商品はグループ共通の一覧です。<b>チェックを入れた会社</b>で、その商品を提案・集計できます。チェックはその場で保存され、全員に反映されます。</p>'+
+    '<div class="tablewrap"><table class="pmx"><thead><tr><th>並び</th><th>商品名</th>'+cs.map(c=>'<th style="text-align:center">'+esc(c.short||c.name)+'</th>').join("")+
+    '<th class="num">提案中</th><th></th></tr></thead><tbody>'+
+    (live.length? live.map((p,i)=>'<tr><td class="nowrap"><button class="btn sm ghost" data-pup="'+esc(p.id)+'"'+(i===0?" disabled":"")+' title="上へ">↑</button>'+
+      '<button class="btn sm ghost" data-pdn="'+esc(p.id)+'"'+(i===live.length-1?" disabled":"")+' title="下へ">↓</button></td>'+
+      '<td><input type="text" data-pname="'+esc(p.id)+'" value="'+esc(p.name)+'" style="min-width:120px"></td>'+
+      cs.map(c=>'<td style="text-align:center"><input type="checkbox" data-pco="'+esc(c.id)+'|'+esc(p.id)+'"'+((c.productIds||[]).includes(p.id)?" checked":"")+' style="width:18px;height:18px"></td>').join("")+
+      '<td class="num">'+used(p.id)+'</td>'+
+      '<td style="text-align:right"><button class="btn sm danger" data-pret="'+esc(p.id)+'">取扱終了</button></td></tr>').join("")
+      : '<tr><td colspan="'+(cs.length+4)+'" class="empty">商品がありません</td></tr>')+
+    '</tbody></table></div>'+
+    '<div class="row" style="gap:8px;margin-top:12px;flex-wrap:wrap"><input type="text" id="pNew" placeholder="新しい商品名（例：NORQG4）" style="max-width:260px">'+
+      '<button class="btn primary" id="pAdd">商品を追加</button><span class="tiny faint">追加した商品は、全社にチェックが入った状態で始まります</span></div>'+
+    (gone.length? '<div class="panel" style="margin-top:16px"><header><h3>取扱終了の商品</h3></header><div class="pad"><div class="row" style="gap:8px;flex-wrap:wrap">'+
+      gone.map(p=>'<span class="chip">'+esc(p.name)+'（提案履歴 '+used(p.id)+'件）<button class="linkbtn tiny" data-prev="'+esc(p.id)+'" style="margin-left:6px">戻す</button></span>').join("")+
+      '</div></div></div>' : '')+
+    '<div class="note" style="margin-top:14px">取扱終了にしても、これまでのお客様の提案履歴と集計には名前が残ります。会社そのものの追加が必要な場合はご相談ください。</div>';
+  const save = async (msg) => { CFG = buildCFG({companies:companies(), catalog:catalog(), fyStart:fyStart()}); renderMaster(box);
+    try{ await saveConfig(); if(msg) toast(msg); }catch(e){ toast("保存できませんでした"); } };
+  const move = (pid, dir) => { const all = catalog().slice(), i = all.findIndex(p=>p.id===pid);
+    let j = i+dir; while(all[j] && all[j].retired) j += dir; if(!all[j]) return;
+    [all[i], all[j]] = [all[j], all[i]]; CFG.catalog = all; save(); };
+  box.querySelectorAll("[data-pco]").forEach(el=>el.addEventListener("change",()=>{
+    const [cid,pid] = el.dataset.pco.split("|");
+    CFG.companies = companies().map(c=> c.id!==cid ? c : {...c, productIds: el.checked ? [...new Set((c.productIds||[]).concat([pid]))] : (c.productIds||[]).filter(x=>x!==pid)});
+    save((el.checked? "取り扱いに追加：" : "取り扱いから外しました：")+companyName(cid)+" ／ "+productName(cid,pid));
   }));
-  box.querySelectorAll("[data-rmprod]").forEach(b=>b.addEventListener("click", async ()=>{
-    const [cid,pid]=b.dataset.rmprod.split("|");
-    if(!await askConfirm("商品を削除","この商品をマスタから削除します。登録済みのお客様の提案履歴は残ります。","削除する",true)) return;
-    const next=companies().map(c=> c.id!==cid? c : {...c, products:(c.products||[]).filter(p=>p.id!==pid)});
-    try{ await DB.doc("meta/config").set({companies:next, fyStart:fyStart(), updatedAt:new Date().toISOString()}); toast("削除しました"); }
-    catch(e){ toast("保存できませんでした"); }
+  box.querySelectorAll("[data-pname]").forEach(el=>el.addEventListener("change",()=>{
+    const v = el.value.trim(); if(!v){ el.value = productName("", el.dataset.pname); return; }
+    CFG.catalog = catalog().map(p=> p.id===el.dataset.pname ? {...p, name:v} : p); save("商品名を変えました");
   }));
+  box.querySelectorAll("[data-pup]").forEach(b=>b.addEventListener("click",()=>move(b.dataset.pup,-1)));
+  box.querySelectorAll("[data-pdn]").forEach(b=>b.addEventListener("click",()=>move(b.dataset.pdn,1)));
+  box.querySelectorAll("[data-pret]").forEach(b=>b.addEventListener("click", async ()=>{
+    const pid = b.dataset.pret;
+    if(!await askConfirm("取扱終了", "「"+productName("",pid)+"」を全社の取り扱いから外します。これまでの提案履歴は残ります。", "取扱終了にする", true)) return;
+    CFG.catalog = catalog().map(p=> p.id===pid ? {...p, retired:true} : p);
+    CFG.companies = companies().map(c=>({...c, productIds:(c.productIds||[]).filter(x=>x!==pid)}));
+    save("取扱終了にしました");
+  }));
+  box.querySelectorAll("[data-prev]").forEach(b=>b.addEventListener("click",()=>{
+    CFG.catalog = catalog().map(p=> p.id===b.dataset.prev ? {...p, retired:false} : p); save("一覧に戻しました（各社のチェックを入れてください）");
+  }));
+  const add = () => { const el=$("#pNew"), name=(el.value||"").trim(); if(!name) return;
+    if(catalog().some(p=>p.name===name && !p.retired)) return toast("同じ名前の商品があります");
+    const id = "p"+uid().slice(-6);
+    CFG.catalog = catalog().concat([{id, name}]);
+    CFG.companies = companies().map(c=>({...c, productIds:(c.productIds||[]).concat([id])}));
+    save("「"+name+"」を追加しました"); };
+  $("#pAdd").addEventListener("click", add);
+  $("#pNew").addEventListener("keydown", e=>{ if(e.key==="Enter" && !e.isComposing) add(); });
 }
 
 /* ============================================================
