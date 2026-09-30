@@ -435,6 +435,13 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .sd .cm-list{max-height:280px}
 .sd .fset .sc-sec{border-top:0;padding-top:0}
 
+.sc-badges{display:flex;gap:5px;align-items:center;flex:none}
+.ap{font-size:10.5px;padding:0 6px;border-radius:100px;border:1px dashed var(--border-strong);color:var(--faint);white-space:nowrap}
+.ap.on{border:1px solid var(--ok);background:var(--ok-bg);color:var(--ok);font-weight:700}
+.ap-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}
+.ap-row input[type=date]{width:auto;padding:3px 6px;font-size:12.5px}
+.check.ap-on{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
+
 /* ---------- シート：週タブ ---------- */
 .wk-tabs{display:flex;gap:3px;flex-wrap:wrap}
 .wk-tab{flex:none;border:1px solid var(--border);background:var(--surface);border-radius:4px;padding:2px 6px;cursor:pointer;
@@ -1802,6 +1809,7 @@ function custInfo(c, ed){
     fld("建物金額・税抜（万円）", ed?inp("buildingPrice",c.buildingPrice,"number",'min="0"'):ro(man(c.buildingPrice)))+
     fld("設計担当", ed?inp("designer",c.designer):ro(c.designer))+
     fld("申込", ed?sel("applied",c.applied?"1":"",[["","申込無"],["1","申込有"]]):ro(c.applied?"申込有":"申込無"))+
+    fld("申込日", ed?inp("appliedDate",c.appliedDate,"date"):ro(fmtDY(c.appliedDate)))+
     fld("問題点・課題", ed?inp("issues",c.issues,"text",'placeholder="例：リフォームも検討中"'):ro(c.issues), "span2")+
     '</div><p class="tiny faint" style="margin-top:9px">総額・建物の大きさ（坪）・競合は「ご家族・ご希望」と「資金・土地」の欄を使います。</p></div>';
   h += '<div class="fset"><h4>反響</h4><div class="grid3">'+
@@ -2028,6 +2036,7 @@ async function saveCustomer(silent){
     ...(m.gcalId?{gcalId:m.gcalId,gcalLink:m.gcalLink||""}:{})}));
   doc.lost = !!c.lost; doc.contracted = !!c.contracted;
   doc.applied = c.applied===true || c.applied==="1";
+  if(!doc.applied) doc.appliedDate = "";
   if(doc.goalDate) doc.expectedMonth = String(doc.goalDate).slice(0,7);   /* 着地予想は目標日の月で数える */
   /* 工程が変わったら記録する（営業会議の「工程が進んだ」に使う） */
   const orig = c.id ? customers.find(x=>x.id===c.id) : null;
@@ -2463,7 +2472,7 @@ async function exportCSV(){
       (c.products||[]).map(p=>productName(c.companyId,p)).join(" / "),
       c.mainProductId? productName(c.companyId,c.mainProductId):"", c.buildTiming,
       c.forecast&&FORECAST[c.forecast]? FORECAST[c.forecast].mark : "", c.goalDate||c.expectedMonth||"", c.expectedAmount,
-      c.age, c.buildSite, c.buildType, c.applied?"有":"無", c.designer, c.issues,
+      c.age, c.buildSite, c.buildType, c.applied?"有"+(c.appliedDate? " "+c.appliedDate:""):"無", c.designer, c.issues,
       (c.meetings||[]).length, nextDate(c)||"", lastContact(c)||"", ld?ld.note:"",
       c.contractDate, c.contractAmount, c.grossProfit, c.lostDate, c.lostReason, c.memo].map(q).join(",");
   }));
@@ -2914,7 +2923,7 @@ async function addComment(cid, text){
 function detailHTML(c, wk){
   const info = [c.age? c.age+"歳":"", c.familySize? c.familySize+"人":"", c.buildType||"", c.buildSite||""].filter(Boolean).join("　");
   const money = [c.budgetTotal!==""&&c.budgetTotal!=null? "総額 "+man(c.budgetTotal)+"万円" : "", c.tsubo? c.tsubo+"坪":"",
-    c.applied? "申込有" : "申込無", c.designer? "設計 "+c.designer : ""].filter(Boolean).join("　／　");
+    c.applied? "申込済"+(c.appliedDate? "（"+fmtDY(c.appliedDate)+"）":"") : "未申込", c.designer? "設計 "+c.designer : ""].filter(Boolean).join("　／　");
   return '<div class="fset"><h4>お客様</h4>'+
       (info? '<div class="small">'+esc(info)+'</div>':'')+
       '<div class="small muted" style="margin-top:3px">'+esc(money)+'</div>'+
@@ -2923,7 +2932,10 @@ function detailHTML(c, wk){
     '<div class="fset"><h4>契約のゴール</h4><div class="sc-goal" style="border:0;padding:0">'+
       '<label class="tiny">契約目標日</label><input type="date" data-gd="'+c.id+'" value="'+esc(c.goalDate||"")+'">'+goalLeft(c)+
       '<select class="rank-sel fc-sel" data-yf="'+c.id+'" title="確度">'+[["","確度"],["hi","◎ 確度高"],["mid","○ 確度中"],["lo","△ 確度低"]]
-        .map(o=>'<option value="'+o[0]+'"'+((c.forecast||"")===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div></div>'+
+        .map(o=>'<option value="'+o[0]+'"'+((c.forecast||"")===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div>'+
+      '<div class="ap-row"><label class="check'+(c.applied?' ap-on':'')+'"><input type="checkbox" data-ap="'+c.id+'"'+(c.applied?" checked":"")+'>申込をもらった</label>'+
+        (c.applied? '<label class="tiny muted">申込日</label><input type="date" data-apd="'+c.id+'" value="'+esc(c.appliedDate||"")+'">' :
+          '<span class="tiny faint">契約の前に申込（申込金）をもらったらチェック</span>')+'</div></div>'+
     '<div class="fset">'+weekHTML(c, wk)+'</div>'+
     '<div class="fset">'+cmtHTML(c)+'</div>';
 }
@@ -2933,6 +2945,11 @@ function bindDetail(root, wk, repaint){
   root.querySelectorAll("[data-gd]").forEach(el=>el.addEventListener("change",()=>
     quickUpdate(el.dataset.gd, {goalDate:el.value, expectedMonth:el.value? el.value.slice(0,7) : ""}).then(later)));
   root.querySelectorAll("[data-yf]").forEach(el=>el.addEventListener("change",()=>quickUpdate(el.dataset.yf,{forecast:el.value}).then(later)));
+  root.querySelectorAll("[data-ap]").forEach(el=>el.addEventListener("change",()=>{
+    const c = customers.find(x=>x.id===el.dataset.ap);
+    quickUpdate(el.dataset.ap, el.checked? {applied:true, appliedDate:(c&&c.appliedDate)||TODAY()} : {applied:false, appliedDate:""}).then(later);
+  }));
+  root.querySelectorAll("[data-apd]").forEach(el=>el.addEventListener("change",()=>quickUpdate(el.dataset.apd,{appliedDate:el.value}).then(later)));
   const saveWeek = (key, patch) => {
     const [cid, k] = key.split("|"); const c = customers.find(x=>x.id===cid); if(!c) return Promise.resolve();
     const weekly = {...(c.weekly||{})}; weekly[k] = {...(weekly[k]||{}), ...patch};
@@ -2992,6 +3009,7 @@ function mtgSheet(box, d, per){
   const noGoal = list.filter(c=>!c.goalDate).length;
   const overdue = list.filter(c=>c.goalDate && daysFrom(c.goalDate)<0).length;
   const noPlan = list.filter(c=>{ const x=(c.weekly||{})[wk]||{}; return !x.plan && !x.result; }).length;
+  const apN = list.filter(c=>c.applied).length;
   const sIdx = id => STAGES.findIndex(x=>x.id===id);
   const card = c => {
     const i = sIdx(c.stage), x = (c.weekly||{})[wk] || {};
@@ -3002,7 +3020,9 @@ function mtgSheet(box, d, per){
     const nc = arr(c.comments).length;
     return '<div class="scard r'+esc(c.rank||"")+(late?' late':'')+'" data-card="'+c.id+'">'+
       '<div class="sc-top" title="名前を押すと全体が開きます。ドラッグで別の工程へ"><a class="cname linkish" data-sd="'+c.id+'">'+esc(c.name||"（無名）")+'</a>'+
-        (c.forecast&&FORECAST[c.forecast]? '<span class="fc '+c.forecast+'">'+FORECAST[c.forecast].mark+'</span>':'')+'</div>'+
+        '<span class="sc-badges">'+(c.forecast&&FORECAST[c.forecast]? '<span class="fc '+c.forecast+'">'+FORECAST[c.forecast].mark+'</span>':'')+
+        (c.applied? '<span class="ap on" title="申込済'+(c.appliedDate? "（"+esc(fmtDY(c.appliedDate))+"）":"")+'">申込'+(c.appliedDate? " "+esc(md(c.appliedDate)):"")+'</span>'
+                  : '<span class="ap">未申込</span>')+'</span></div>'+
       (info? '<div class="tiny muted sc-1">'+esc(info)+'</div>':'')+
       '<div class="tiny sc-row">'+(c.goalDate? '<span class="muted">目標 '+esc(md(c.goalDate))+'</span>'+goalLeft(c) : goalLeft(c))+'</div>'+
       '<div class="sc-now'+(x.plan||x.result?'':' empty')+(x.done?' done':'')+'" data-sd="'+c.id+'">'+
@@ -3029,6 +3049,7 @@ function mtgSheet(box, d, per){
     '</div><p class="tiny faint" style="margin-top:10px">カードの小さな四角はこれまでの週（緑＝できた、赤＝できなかった）。お客様を足すときは列の見出しの「＋」。</p></div></details>';
   h += '<div class="sheetsum">'+
     '<span><b class="num">'+list.length+'</b> 件が商談中</span>'+
+    '<span>うち申込済 <b class="num" style="color:var(--ok)">'+apN+'</b></span>'+
     '<span class="'+(noGoal?"warn":"")+'">契約目標日なし <b class="num">'+noGoal+'</b></span>'+
     '<span class="'+(overdue?"bad":"")+'">目標日を過ぎた <b class="num">'+overdue+'</b></span>'+
     '<span class="'+(noPlan?"warn":"")+'">今週やることが未記入 <b class="num">'+noPlan+'</b></span>'+
@@ -3039,7 +3060,7 @@ function mtgSheet(box, d, per){
     const won = scopedWon().filter(c=>c.ownerId===s.id && String(c.contractDate||"").startsWith(ui.mtgMonth));
     const g = goalSum(ui.mtgMonth, s.id).units;
     h += '<section class="srep"><header><h3>'+esc(s.name)+'</h3>'+
-      '<span class="tiny muted">商談中 '+mine.length+'件'+(g? '　／　'+esc(monthLabel(ui.mtgMonth))+'目標 '+g+'棟・契約済 '+won.length+'棟':'')+'</span></header>'+
+      '<span class="tiny muted">商談中 '+mine.length+'件（申込済 '+mine.filter(c=>c.applied).length+'）'+(g? '　／　'+esc(monthLabel(ui.mtgMonth))+'目標 '+g+'棟・契約済 '+won.length+'棟':'')+'</span></header>'+
       '<div class="sgrid-wrap"><div class="sgrid">'+STAGES.map(st=>{
         const cs = sortBy(mine.filter(c=>c.stage===st.id), c=>c.goalDate||"9999", "asc");
         return '<div class="scol" data-drop="'+st.id+'"><div class="scol-h">'+esc(st.name)+'<span class="num">'+cs.length+'</span>'+
