@@ -1812,8 +1812,8 @@ function custInfo(c, ed){
     fld("土地代（万円）", ed?inp("landPrice",c.landPrice,"number",'min="0"'):ro(man(c.landPrice)))+
     fld("建物金額・税抜（万円）", ed?inp("buildingPrice",c.buildingPrice,"number",'min="0"'):ro(man(c.buildingPrice)))+
     fld("設計担当", ed?inp("designer",c.designer):ro(c.designer))+
-    fld("申込", ed?sel("applied",c.applied?"1":"",[["","申込無"],["1","申込有"]]):ro(c.applied?"申込有":"申込無"))+
-    fld("申込日", ed?inp("appliedDate",c.appliedDate,"date"):ro(fmtDY(c.appliedDate)))+
+    fld("申込", '<div style="padding:7px 0">'+(c.applied? '<span class="ap on">申込済'+(c.appliedDate? ' '+esc(fmtDY(c.appliedDate)):'')+'</span>' : '<span class="ap">未申込</span>')+
+      '<span class="tiny faint" style="margin-left:6px">「面談記録」タブで付けます</span></div>')+
     fld("問題点・課題", ed?inp("issues",c.issues,"text",'placeholder="例：リフォームも検討中"'):ro(c.issues), "span2")+
     '</div><p class="tiny faint" style="margin-top:9px">総額・建物の大きさ（坪）・競合は「ご家族・ご希望」と「資金・土地」の欄を使います。</p></div>';
   h += '<div class="fset"><h4>反響</h4><div class="grid3">'+
@@ -1833,9 +1833,19 @@ function custInfo(c, ed){
     :'<div class="small" style="white-space:pre-wrap">'+(c.memo?esc(c.memo):'<span class="faint">—</span>')+'</div>')+'</div>';
   return h;
 }
+/* カルテの申込欄（面談記録タブの先頭と、基本情報タブに出す） */
+function custApplyHTML(c, ed){
+  return '<div class="fset"><h4>申込</h4><div class="ap-row" style="margin-top:0">'+
+    '<label class="tiny muted" for="cApd">申込日</label>'+
+    (ed? '<input type="date" id="cApd" data-apdd="1" value="'+esc(c.appliedDate||"")+'">' : '<span>'+esc(c.appliedDate? fmtDY(c.appliedDate) : "—")+'</span>')+
+    (c.applied? '<span class="ap on">申込済</span>'+(ed? '<button type="button" class="linkbtn tiny" data-apclrd="1">取り消す</button>':'')+
+      (!c.appliedDate? '<span class="tiny" style="color:var(--warn)">申込日が未入力です</span>':'')
+      : '<span class="tiny faint">申込（申込金）をもらった日を選ぶと「申込済」になります</span>')+
+  '</div></div>';
+}
 function custMeet(c, ed){
   const ms = meetingsOf(c);
-  let h = '';
+  let h = custApplyHTML(c, ed);
   if(ms.length){
     h += '<div class="fset"><h4>これまでの流れ</h4><div class="tl">'+ms.map(m=>{
       const done = meetingDone(m), hasNote = !!(m.note||"").trim();
@@ -1963,6 +1973,15 @@ function collectCustomer(){
   }
 }
 function bindCustExtras(c, ed){
+  const apd = $(".drawer [data-apdd]");
+  const setApply = async (date) => {
+    collectCustomer();
+    drawerCust.appliedDate = date; drawerCust.applied = !!date;
+    if(c.id) await quickUpdate(c.id, {applied:!!date, appliedDate:date});
+    paintCustomer();
+  };
+  if(apd) apd.addEventListener("change",()=>setApply(apd.value));
+  const apc = $(".drawer [data-apclrd]"); if(apc) apc.addEventListener("click",()=>setApply(""));
   bindZip($(".drawer [data-f='postal']"), $(".drawer [data-f='address']"), true);
   bindZip($(".drawer [data-f='siteZip']"), $(".drawer [data-f='buildSite']"), false);
   document.querySelectorAll(".drawer [data-prod]").forEach(b=>b.addEventListener("change",()=>{
@@ -2039,7 +2058,7 @@ async function saveCustomer(silent){
   doc.meetings = (c.meetings||[]).map(m=>({date:m.date||"",time:m.time||"",place:m.place||"",note:m.note||"",
     ...(m.gcalId?{gcalId:m.gcalId,gcalLink:m.gcalLink||""}:{})}));
   doc.lost = !!c.lost; doc.contracted = !!c.contracted;
-  doc.applied = c.applied===true || c.applied==="1";
+  doc.applied = !!doc.appliedDate || c.applied===true;
   if(!doc.applied) doc.appliedDate = "";
   if(doc.goalDate) doc.expectedMonth = String(doc.goalDate).slice(0,7);   /* 着地予想は目標日の月で数える */
   /* 工程が変わったら記録する（営業会議の「工程が進んだ」に使う） */
