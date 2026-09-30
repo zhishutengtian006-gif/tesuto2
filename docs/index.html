@@ -501,12 +501,30 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .gl{font-family:var(--mono);font-size:11px;color:var(--muted)}
 .gl.soon{color:var(--warn);font-weight:500} .gl.over{color:var(--danger);font-weight:500} .gl.none{color:var(--danger)}
 .sc-next{color:var(--muted)}
-.sc-last{display:flex;gap:6px;align-items:flex-start;font-size:12px;color:var(--text);background:var(--surface2);border-radius:4px;padding:5px 6px;cursor:pointer}
-.sc-last input{width:auto;margin:2px 0 0}
-.sc-last b{font-weight:500;color:var(--muted)}
-.sc-last.done span{text-decoration:line-through;color:var(--faint)}
 .sc-plan{min-height:44px;font-size:12.5px;padding:6px 7px}
 .zipnote{margin-top:4px;min-height:1em}
+
+/* ---------- シート：道筋・経過・コメント ---------- */
+.sc-sec{display:flex;flex-direction:column;gap:4px;padding-top:6px;border-top:1px dashed var(--border)}
+.sc-lbl{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.02em}
+.sc-lbl .faint{font-weight:400;margin-left:4px}
+.sc-path,.sc-plan{overflow:hidden;resize:none}
+.sc-path{min-height:40px;font-size:12.5px;padding:6px 7px;background:var(--surface2)}
+.hrow{display:grid;grid-template-columns:15px auto 1fr;gap:6px;align-items:start;font-size:12px;cursor:pointer;padding:2px 0}
+.hrow input{width:auto;margin:2px 0 0}
+.hwk{font-family:var(--mono);font-size:11px;color:var(--faint);white-space:nowrap;padding-top:1px}
+.htx{white-space:pre-wrap;word-break:break-word}
+.hrow.done .htx{color:var(--faint);text-decoration:line-through}
+.more summary{cursor:pointer;font-size:11.5px;color:var(--accent);padding:2px 0}
+.more[open] summary{margin-bottom:4px}
+.cm{background:var(--accent-soft);border-radius:4px;padding:5px 7px;font-size:12px}
+.cm-h{display:flex;align-items:baseline;gap:6px}
+.cm-h b{font-size:11.5px;color:var(--accent)}
+.cm-t{white-space:pre-wrap;word-break:break-word;margin-top:1px}
+.cm-del{margin-left:auto;border:0;background:none;color:var(--faint);cursor:pointer;font-size:13px;line-height:1;padding:0 2px}
+.cm-del:hover{color:var(--danger)}
+.cm-in{display:flex;gap:5px}
+.cm-in input{flex:1;min-width:0;padding:4px 7px;font-size:12px}
 
 /* ---------- シート：さわり方 ---------- */
 .scard .sc-top{cursor:grab}
@@ -2879,11 +2897,6 @@ function renderMtg(root){
 }
 
 const weekKey = s => { const d=parseD(s)||new Date(); const w=(d.getDay()+6)%7; return isoDate(new Date(d.getFullYear(), d.getMonth(), d.getDate()-w)); };
-function lastWeekPlan(c, wk){
-  const keys = Object.keys(c.weekly||{}).filter(k=>k<wk).sort();
-  const k = keys[keys.length-1];
-  return k ? {wk:k, ...c.weekly[k]} : null;
-}
 function goalLeft(c){
   if(!c.goalDate) return '<span class="gl none">目標日を決める</span>';
   const d = daysFrom(c.goalDate);
@@ -2894,6 +2907,35 @@ function goalLeft(c){
 }
 let mtgStale = false;
 const isEditingIn = el => { const a=document.activeElement; return !!(a && el && el.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)); };
+
+/* これまでやったこと：毎週の「今週やること」がそのまま履歴になる（新しい順） */
+function histHTML(c, wk){
+  const past = Object.keys(c.weekly||{}).filter(k=>k<wk && (c.weekly[k]||{}).plan).sort().reverse();
+  if(!past.length) return '';
+  const row = k => { const x=c.weekly[k];
+    return '<label class="hrow'+(x.done?' done':'')+'"><input type="checkbox" data-lwd="'+c.id+'|'+k+'"'+(x.done?" checked":"")+' title="できたらチェック">'+
+      '<span class="hwk">'+esc(fmtD(k).replace(/\(.\)$/,""))+'週</span><span class="htx">'+esc(x.plan)+'</span></label>'; };
+  return '<div class="sc-sec"><div class="sc-lbl">これまでやったこと<span class="faint">（できたらチェック）</span></div>'+
+    past.slice(0,2).map(row).join("")+
+    (past.length>2? '<details class="more"><summary>さらに前を見る（'+(past.length-2)+'件）</summary>'+past.slice(2).map(row).join("")+'</details>' : '')+'</div>';
+}
+/* アドバイス・コメント：書いた人と日付が自動で付く */
+function cmtHTML(c){
+  const list = arr(c.comments).slice().reverse();
+  const row = (m) => '<div class="cm"><div class="cm-h"><b>'+esc(m.by||"（名前なし）")+'</b><span class="tiny faint">'+esc(fmtD(m.date))+'</span>'+
+    (m.by===me.name? '<button type="button" class="cm-del" data-cmdel="'+c.id+'|'+esc(m.id)+'" title="このコメントを消す">×</button>':'')+'</div>'+
+    '<div class="cm-t">'+esc(m.text)+'</div></div>';
+  return '<div class="sc-sec"><div class="sc-lbl">アドバイス・コメント'+(list.length? '<span class="faint">（'+list.length+'）</span>':'')+'</div>'+
+    list.slice(0,2).map(row).join("")+
+    (list.length>2? '<details class="more"><summary>前のコメントを見る（'+(list.length-2)+'件）</summary>'+list.slice(2).map(row).join("")+'</details>' : '')+
+    '<div class="cm-in"><input type="text" data-cm="'+c.id+'" placeholder="アドバイスを書く" title="'+esc((me.name||"")+" の名前で残ります")+'">'+
+    '<button type="button" class="btn sm" data-cmsend="'+c.id+'">送る</button></div></div>';
+}
+async function addComment(cid, text){
+  const c = customers.find(x=>x.id===cid); if(!c || !text.trim()) return;
+  const comments = arr(c.comments).concat([{id:uid(), by:me.name||"", date:TODAY(), at:new Date().toISOString(), text:text.trim()}]);
+  await quickUpdate(cid, {comments});
+}
 
 /* ① 打合わせシート：担当者ごとに、工程の列にお客様を並べる（紙のシートと同じ並び）
    さわり方は3つだけ：カードをドラッグ（または ◀ ▶）で工程を動かす／契約目標日を入れる／今週やることを書く */
@@ -2906,7 +2948,7 @@ function mtgSheet(box, d, per){
   const noPlan = list.filter(c=>!((c.weekly||{})[wk]||{}).plan).length;
   const sIdx = id => STAGES.findIndex(x=>x.id===id);
   const card = c => {
-    const w = (c.weekly||{})[wk] || {}, lw = lastWeekPlan(c, wk), i = sIdx(c.stage);
+    const w = (c.weekly||{})[wk] || {}, i = sIdx(c.stage);
     const info = [c.age? c.age+"歳":"", c.familySize? c.familySize+"人":"", c.buildType||""].filter(Boolean).join("・");
     const money = [c.budgetTotal!==""&&c.budgetTotal!=null? "総額 "+man(c.budgetTotal)+"万" : "", c.tsubo? c.tsubo+"坪":""].filter(Boolean).join(" ／ ");
     const app = c.applied? '<span class="chip" style="background:var(--ok-bg);color:var(--ok)">申込有</span>' : '';
@@ -2919,9 +2961,12 @@ function mtgSheet(box, d, per){
       '<div class="sc-goal"><label class="tiny">契約目標日</label><input type="date" data-gd="'+c.id+'" value="'+esc(c.goalDate||"")+'">'+goalLeft(c)+
         '<select class="rank-sel fc-sel" data-yf="'+c.id+'" title="確度">'+[["","確度"],["hi","◎"],["mid","○"],["lo","△"]]
           .map(o=>'<option value="'+o[0]+'"'+((c.forecast||"")===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div>'+
-      (lw && lw.plan? '<label class="sc-last'+(lw.done?' done':'')+'"><input type="checkbox" data-lwd="'+c.id+'|'+lw.wk+'"'+(lw.done?" checked":"")+'>'+
-        '<span><b>前回やること</b> '+esc(lw.plan)+'</span></label>' : '')+
-      '<textarea class="sc-plan" data-plan="'+c.id+'" rows="2" placeholder="今週やること">'+esc(w.plan||"")+'</textarea>'+
+      '<div class="sc-sec"><div class="sc-lbl">契約までの道筋</div>'+
+        '<textarea class="sc-path" data-path="'+c.id+'" rows="2" placeholder="例：10/5 資金計画 → 10/12 初回プラン → 10/26 見積 → 11/2 契約">'+esc(c.path||"")+'</textarea></div>'+
+      histHTML(c, wk)+
+      '<div class="sc-sec"><div class="sc-lbl">今週やること</div>'+
+        '<textarea class="sc-plan" data-plan="'+c.id+'" rows="2" placeholder="例：資金計画書を持って訪問し、事前審査の書類をもらう">'+esc(w.plan||"")+'</textarea></div>'+
+      cmtHTML(c)+
       '<div class="tiny sc-next">次回アポ '+whenPill(c)+'</div>'+
       (c.issues? '<div class="tiny" style="color:var(--danger)">課題：'+esc(c.issues)+'</div>':'')+
       '<div class="sc-move"><button type="button" data-mv="'+c.id+'|-1"'+(i<=0?" disabled":"")+' title="前の工程へ">◀</button>'+
@@ -2932,7 +2977,9 @@ function mtgSheet(box, d, per){
     '<ol class="steps">'+
       '<li><b>工程を進める</b><br>カードの名前のあたりをつかんで、隣の列へドラッグします。スマホはカード右下の ◀ ▶ で動かせます。</li>'+
       '<li><b>契約目標日を入れる</b><br>「いつ契約するか」のゴールです。残りの週数が出て、過ぎると赤くなります。</li>'+
-      '<li><b>今週やることを書く</b><br>書いて枠の外を押せば保存されます。翌週は「前回やること」として出るので、できたらチェックします。</li>'+
+      '<li><b>道筋と今週やることを書く</b><br>「契約までの道筋」に契約までの段取りを、「今週やること」にその週の動きを書きます。枠の外を押せば保存。'+
+      '書いた「今週やること」は翌週から<b>これまでやったこと</b>に並ぶので、できたらチェックします。</li>'+
+      '<li><b>アドバイスを残す</b><br>上司や先輩はカード下の欄に書いて「送る」（Enterでも可）。<b>書いた人の名前と日付</b>が自動で付きます。</li>'+
     '</ol>'+
     '<div class="howto-cols">'+
       '<div><b>見込み</b>初回接客が済み、次の打合せを取りに行く</div>'+
@@ -2971,6 +3018,22 @@ function mtgSheet(box, d, per){
     const c = customers.find(x=>x.id===el.dataset.plan); if(!c) return;
     const weekly = {...(c.weekly||{})}; weekly[wk] = {...(weekly[wk]||{}), plan:el.value.trim(), done:!!(weekly[wk]||{}).done};
     quickUpdate(c.id, {weekly});
+  }));
+  /* 道筋・今週やることの欄は、書いた量に合わせて伸ばす */
+  const fit = el => { el.style.height = "auto"; el.style.height = (el.scrollHeight+2)+"px"; };
+  box.querySelectorAll(".sc-path,.sc-plan").forEach(el=>{ fit(el); el.addEventListener("input",()=>fit(el)); });
+  box.querySelectorAll("[data-path]").forEach(el=>el.addEventListener("change",()=>quickUpdate(el.dataset.path, {path:el.value.trim()})));
+  box.querySelectorAll("[data-cmsend]").forEach(b=>b.addEventListener("click",()=>{
+    const inp = box.querySelector('[data-cm="'+b.dataset.cmsend+'"]'); if(!inp || !inp.value.trim()) return;
+    const t = inp.value; inp.value = ""; inp.blur(); addComment(b.dataset.cmsend, t);
+  }));
+  box.querySelectorAll("[data-cm]").forEach(el=>el.addEventListener("keydown",e=>{
+    if(e.key==="Enter" && !e.isComposing){ e.preventDefault(); const t=el.value; if(!t.trim()) return; el.value=""; el.blur(); addComment(el.dataset.cm, t); }
+  }));
+  box.querySelectorAll("[data-cmdel]").forEach(b=>b.addEventListener("click", async ()=>{
+    const [cid, id] = b.dataset.cmdel.split("|"); const c = customers.find(x=>x.id===cid); if(!c) return;
+    if(!await askConfirm("コメントを消す","このコメントを消します。","消す",true)) return;
+    quickUpdate(cid, {comments: arr(c.comments).filter(m=>m.id!==id)});
   }));
   box.querySelectorAll("[data-lwd]").forEach(el=>el.addEventListener("change",()=>{
     const [cid, k] = el.dataset.lwd.split("|"); const c = customers.find(x=>x.id===cid); if(!c) return;
