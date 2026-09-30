@@ -416,6 +416,25 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .sc-plan{min-height:44px;font-size:12.5px;padding:6px 7px}
 .zipnote{margin-top:4px;min-height:1em}
 
+/* ---------- シート：小さいカードと詳細パネル ---------- */
+.sc-1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sc-now{font-size:12px;background:var(--surface2);border-radius:4px;padding:5px 7px;cursor:pointer;line-height:1.5;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.sc-now:hover{background:var(--accent-soft)}
+.sc-now-l{font-size:10.5px;font-weight:700;color:var(--accent);margin-right:5px}
+.sc-now.empty{color:var(--warn)} .sc-now.empty .sc-now-l{color:var(--warn)}
+.sc-now.done{color:var(--faint);text-decoration:line-through}
+.sc-foot{display:flex;align-items:center;gap:8px}
+.sc-foot .sc-move{margin-left:auto}
+.wds{display:inline-flex;gap:2px}
+.wd{width:8px;height:8px;border-radius:2px;background:var(--surface3);border:1px solid var(--border-strong)}
+.wd.ok{background:var(--ok);border-color:var(--ok)} .wd.ng{background:var(--danger);border-color:var(--danger)}
+.drawer.sd{width:min(560px,100%)}
+.sd .wk-body{padding:10px 12px;gap:5px}
+.sd .sc-plan{height:88px;resize:vertical}
+.sd .cm-list{max-height:280px}
+.sd .fset .sc-sec{border-top:0;padding-top:0}
+
 /* ---------- シート：週タブ ---------- */
 .wk-tabs{display:flex;gap:3px;flex-wrap:wrap}
 .wk-tab{flex:none;border:1px solid var(--border);background:var(--surface);border-radius:4px;padding:2px 6px;cursor:pointer;
@@ -2891,8 +2910,81 @@ async function addComment(cid, text){
   await quickUpdate(cid, {comments});
 }
 
+/* カードの詳細（名前を押すと横から開く）：ゴール・毎週の記録・アドバイスをまとめて見て書く */
+function detailHTML(c, wk){
+  const info = [c.age? c.age+"歳":"", c.familySize? c.familySize+"人":"", c.buildType||"", c.buildSite||""].filter(Boolean).join("　");
+  const money = [c.budgetTotal!==""&&c.budgetTotal!=null? "総額 "+man(c.budgetTotal)+"万円" : "", c.tsubo? c.tsubo+"坪":"",
+    c.applied? "申込有" : "申込無", c.designer? "設計 "+c.designer : ""].filter(Boolean).join("　／　");
+  return '<div class="fset"><h4>お客様</h4>'+
+      (info? '<div class="small">'+esc(info)+'</div>':'')+
+      '<div class="small muted" style="margin-top:3px">'+esc(money)+'</div>'+
+      '<div class="small" style="margin-top:6px">次回アポ '+whenPill(c)+'</div>'+
+      (c.issues? '<div class="small" style="color:var(--danger);margin-top:5px">課題：'+esc(c.issues)+'</div>':'')+'</div>'+
+    '<div class="fset"><h4>契約のゴール</h4><div class="sc-goal" style="border:0;padding:0">'+
+      '<label class="tiny">契約目標日</label><input type="date" data-gd="'+c.id+'" value="'+esc(c.goalDate||"")+'">'+goalLeft(c)+
+      '<select class="rank-sel fc-sel" data-yf="'+c.id+'" title="確度">'+[["","確度"],["hi","◎ 確度高"],["mid","○ 確度中"],["lo","△ 確度低"]]
+        .map(o=>'<option value="'+o[0]+'"'+((c.forecast||"")===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div></div>'+
+    '<div class="fset">'+weekHTML(c, wk)+'</div>'+
+    '<div class="fset">'+cmtHTML(c)+'</div>';
+}
+/* 詳細パネルの中の入力を保存する（保存したら repaint で描き直す） */
+function bindDetail(root, wk, repaint){
+  const later = () => setTimeout(repaint, 350);
+  root.querySelectorAll("[data-gd]").forEach(el=>el.addEventListener("change",()=>
+    quickUpdate(el.dataset.gd, {goalDate:el.value, expectedMonth:el.value? el.value.slice(0,7) : ""}).then(later)));
+  root.querySelectorAll("[data-yf]").forEach(el=>el.addEventListener("change",()=>quickUpdate(el.dataset.yf,{forecast:el.value}).then(later)));
+  const saveWeek = (key, patch) => {
+    const [cid, k] = key.split("|"); const c = customers.find(x=>x.id===cid); if(!c) return Promise.resolve();
+    const weekly = {...(c.weekly||{})}; weekly[k] = {...(weekly[k]||{}), ...patch};
+    return quickUpdate(cid, {weekly});
+  };
+  root.querySelectorAll("[data-wplan]").forEach(el=>el.addEventListener("change",()=>saveWeek(el.dataset.wplan, {plan:el.value.trim()})));
+  root.querySelectorAll("[data-wres]").forEach(el=>el.addEventListener("change",()=>saveWeek(el.dataset.wres, {result:el.value.trim()})));
+  root.querySelectorAll("[data-wdone]").forEach(el=>el.addEventListener("change",()=>saveWeek(el.dataset.wdone, {done:el.checked}).then(later)));
+  root.querySelectorAll("[data-wadd]").forEach(b=>b.addEventListener("click",()=>{
+    const [cid, k] = b.dataset.wadd.split("|");
+    cardExtra[cid] = (cardExtra[cid]||[]).concat([k]); cardWeek[cid] = k; setTimeout(repaint, 0);
+  }));
+  root.querySelectorAll("[data-wtab]").forEach(b=>b.addEventListener("click",()=>{
+    const [cid, k] = b.dataset.wtab.split("|"); cardWeek[cid] = k;
+    setTimeout(repaint, 250);   /* 書きかけの欄の保存（change）を先に済ませる */
+  }));
+  root.querySelectorAll("[data-cmsend]").forEach(b=>b.addEventListener("click",()=>{
+    const inp = root.querySelector('[data-cm="'+b.dataset.cmsend+'"]'); if(!inp || !inp.value.trim()) return;
+    const t = inp.value; inp.value = ""; addComment(b.dataset.cmsend, t).then(later);
+  }));
+  root.querySelectorAll("[data-cm]").forEach(el=>el.addEventListener("keydown",e=>{
+    if(e.key==="Enter" && !e.isComposing){ e.preventDefault(); const t=el.value; if(!t.trim()) return; el.value=""; addComment(el.dataset.cm, t).then(later); }
+  }));
+  root.querySelectorAll("[data-cmdel]").forEach(b=>b.addEventListener("click", async ()=>{
+    const [cid, id] = b.dataset.cmdel.split("|"); const c = customers.find(x=>x.id===cid); if(!c) return;
+    if(!await askConfirm("コメントを消す","このコメントを消します。","消す",true)) return;
+    quickUpdate(cid, {comments: arr(c.comments).filter(m=>m.id!==id)}).then(later);
+  }));
+}
+function openSheetDetail(cid, wk){
+  const c0 = customers.find(x=>x.id===cid); if(!c0) return;
+  openOverlay('<div class="drawer sd"><div class="dhead"><span class="rank '+(c0.rank||"X")+'">'+(c0.rank||"–")+'</span>'+
+    '<div style="min-width:0"><b style="display:block">'+esc(c0.name||"（無名）")+'</b>'+
+    '<span class="tiny faint">'+esc(STAGE_NAME[c0.stage]||"")+' ／ 担当 '+esc(staffName(c0.ownerId))+'</span></div><div class="grow"></div>'+
+    '<button class="x" id="dClose">'+I.x+'</button></div><div class="dbody" id="sdBody"></div>'+
+    '<div class="dfoot"><button class="btn" id="dCancel">閉じる</button><div class="grow"></div>'+
+    '<button class="btn" id="sdKarte">カルテを開く（連絡先・資金など）</button></div></div>');
+  const paint = () => {
+    const body = $("#sdBody"), c = customers.find(x=>x.id===cid); if(!body || !c) return;
+    const st = body.scrollTop;
+    body.innerHTML = detailHTML(c, wk);
+    bindDetail(body, wk, paint);
+    body.scrollTop = st;
+  };
+  paint();
+  $("#dClose").addEventListener("click",closeOverlay);
+  $("#dCancel").addEventListener("click",closeOverlay);
+  $("#sdKarte").addEventListener("click",()=>openCustomer(cid));
+}
+
 /* ① 打合わせシート：担当者ごとに、工程の列にお客様を並べる（紙のシートと同じ並び）
-   さわり方は3つだけ：カードをドラッグ（または ◀ ▶）で工程を動かす／契約目標日を入れる／今週やることを書く */
+   カードは要点だけ。名前を押すと、ゴール・毎週の記録・アドバイスの全体が横から開く */
 function mtgSheet(box, d, per){
   const wk = weekKey(d.date);
   const list = scopedActive();
@@ -2902,34 +2994,31 @@ function mtgSheet(box, d, per){
   const noPlan = list.filter(c=>{ const x=(c.weekly||{})[wk]||{}; return !x.plan && !x.result; }).length;
   const sIdx = id => STAGES.findIndex(x=>x.id===id);
   const card = c => {
-    const i = sIdx(c.stage);
-    const info = [c.age? c.age+"歳":"", c.familySize? c.familySize+"人":"", c.buildType||""].filter(Boolean).join("・");
-    const money = [c.budgetTotal!==""&&c.budgetTotal!=null? "総額 "+man(c.budgetTotal)+"万" : "", c.tsubo? c.tsubo+"坪":""].filter(Boolean).join(" ／ ");
-    const app = c.applied? '<span class="chip" style="background:var(--ok-bg);color:var(--ok)">申込有</span>' : '';
+    const i = sIdx(c.stage), x = (c.weekly||{})[wk] || {};
+    const info = [c.age? c.age+"歳":"", c.buildType||"", c.buildSite||""].filter(Boolean).join("・");
     const late = c.goalDate && daysFrom(c.goalDate)<0;
+    const past = Object.keys(c.weekly||{}).filter(k=>k<wk && ((c.weekly[k]||{}).plan||(c.weekly[k]||{}).result||(c.weekly[k]||{}).done)).sort().slice(-4);
+    const dots = past.map(k=>{ const st=weekState(c,k,wk); return '<i class="wd '+st+'" title="'+esc(weekRange(k))+(st==="ok"?" できた":st==="ng"?" できなかった":"")+'"></i>'; }).join("");
+    const nc = arr(c.comments).length;
     return '<div class="scard r'+esc(c.rank||"")+(late?' late':'')+'" data-card="'+c.id+'">'+
-      '<div class="sc-top" title="ドラッグして別の工程へ"><a class="cname linkish" data-cust="'+c.id+'">'+esc(c.name||"（無名）")+'</a>'+
-        '<span class="tiny faint">'+esc(c.source||"")+'</span></div>'+
-      ((info||c.buildSite)? '<div class="tiny muted">'+esc([info, c.buildSite].filter(Boolean).join("　"))+'</div>':'')+
-      ((money||app||c.designer)? '<div class="tiny muted sc-row">'+(money? esc(money)+'　':'')+app+(c.designer? '<span class="tiny faint">設計 '+esc(c.designer)+'</span>':'')+'</div>':'')+
-      '<div class="sc-goal"><label class="tiny">契約目標日</label><input type="date" data-gd="'+c.id+'" value="'+esc(c.goalDate||"")+'">'+goalLeft(c)+
-        '<select class="rank-sel fc-sel" data-yf="'+c.id+'" title="確度">'+[["","確度"],["hi","◎"],["mid","○"],["lo","△"]]
-          .map(o=>'<option value="'+o[0]+'"'+((c.forecast||"")===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div>'+
-      weekHTML(c, wk)+
-      cmtHTML(c)+
-      '<div class="tiny sc-next">次回アポ '+whenPill(c)+'</div>'+
-      (c.issues? '<div class="tiny" style="color:var(--danger)">課題：'+esc(c.issues)+'</div>':'')+
-      '<div class="sc-move"><button type="button" data-mv="'+c.id+'|-1"'+(i<=0?" disabled":"")+' title="前の工程へ">◀</button>'+
-        '<button type="button" data-mv="'+c.id+'|1"'+(i>=STAGES.length-1?" disabled":"")+' title="次の工程へ">▶</button></div>'+
+      '<div class="sc-top" title="名前を押すと全体が開きます。ドラッグで別の工程へ"><a class="cname linkish" data-sd="'+c.id+'">'+esc(c.name||"（無名）")+'</a>'+
+        (c.forecast&&FORECAST[c.forecast]? '<span class="fc '+c.forecast+'">'+FORECAST[c.forecast].mark+'</span>':'')+'</div>'+
+      (info? '<div class="tiny muted sc-1">'+esc(info)+'</div>':'')+
+      '<div class="tiny sc-row">'+(c.goalDate? '<span class="muted">目標 '+esc(md(c.goalDate))+'</span>'+goalLeft(c) : goalLeft(c))+'</div>'+
+      '<div class="sc-now'+(x.plan||x.result?'':' empty')+(x.done?' done':'')+'" data-sd="'+c.id+'">'+
+        '<span class="sc-now-l">今週</span>'+(x.plan? esc(x.plan) : x.result? esc(x.result) : 'やることが未記入')+'</div>'+
+      '<div class="sc-foot">'+(dots? '<span class="wds" title="これまでの週">'+dots+'</span>':'')+
+        (nc? '<span class="tiny muted">コメント '+nc+'</span>':'')+
+        '<span class="sc-move"><button type="button" data-mv="'+c.id+'|-1"'+(i<=0?" disabled":"")+' title="前の工程へ">◀</button>'+
+        '<button type="button" data-mv="'+c.id+'|1"'+(i>=STAGES.length-1?" disabled":"")+' title="次の工程へ">▶</button></span></div>'+
     '</div>';
   };
   let h = '<details class="howto"'+(list.some(c=>c.goalDate)? '' : ' open')+'><summary>この表のさわり方</summary><div class="howto-b">'+
     '<ol class="steps">'+
-      '<li><b>工程を進める</b><br>カードの名前のあたりをつかんで、隣の列へドラッグします。スマホはカード右下の ◀ ▶ で動かせます。</li>'+
-      '<li><b>契約目標日を入れる</b><br>「いつ契約するか」のゴールです。残りの週数が出て、過ぎると赤くなります。</li>'+
-      '<li><b>週ごとに書く</b><br>カードの「毎週の記録」は週ごとのタブです。<b>今週</b>のタブに「やること」を書き、終わったら「結果・進捗」と「できた」を入れます。'+
-      '先週のタブを押せばすぐ振り返れ、できた週は緑の✓、できなかった週は赤く出ます。来週のタブや「＋」で足した先の週に、何週も先までの予定（KPI）を書いておけます。枠の外を押せば保存されます。</li>'+
-      '<li><b>アドバイスを残す</b><br>上司や先輩はカード下の欄に書いて「送る」（Enterでも可）。<b>書いた人の名前と日付</b>が自動で付きます。</li>'+
+      '<li><b>名前を押す</b><br>そのお客様の全体（契約目標日・毎週の記録・アドバイス）が横に開きます。書き込みはそこで行います。</li>'+
+      '<li><b>毎週の記録を書く</b><br>週ごとのタブで、<b>今週</b>に「やること」を書き、終わったら「結果・進捗」と「できた」を入れます。先週のタブで振り返り、「＋」で何週も先の予定（KPI）も書けます。</li>'+
+      '<li><b>アドバイスを残す</b><br>上司や先輩はアドバイス欄に書いて「送る」。<b>書いた人の名前と日付</b>が自動で付きます。</li>'+
+      '<li><b>工程を進める</b><br>カードの名前のあたりをつかんで隣の列へドラッグ。スマホはカード右下の ◀ ▶ で動かせます。</li>'+
     '</ol>'+
     '<div class="howto-cols">'+
       '<div><b>見込み</b>初回接客が済み、次の打合せを取りに行く</div>'+
@@ -2937,13 +3026,13 @@ function mtgSheet(box, d, per){
       '<div><b>プラン</b>敷地調査からプランを出し、仕様を決めるまで</div>'+
       '<div><b>見積</b>見積を出し、契約条件を詰めるまで</div>'+
       '<div><b>契約予定</b>契約日が決まり、あとは契約するだけ</div>'+
-    '</div><p class="tiny faint" style="margin-top:10px">お客様を足すときは、列の見出しの「＋」を押します。</p></div></details>';
+    '</div><p class="tiny faint" style="margin-top:10px">カードの小さな四角はこれまでの週（緑＝できた、赤＝できなかった）。お客様を足すときは列の見出しの「＋」。</p></div></details>';
   h += '<div class="sheetsum">'+
     '<span><b class="num">'+list.length+'</b> 件が商談中</span>'+
     '<span class="'+(noGoal?"warn":"")+'">契約目標日なし <b class="num">'+noGoal+'</b></span>'+
     '<span class="'+(overdue?"bad":"")+'">目標日を過ぎた <b class="num">'+overdue+'</b></span>'+
     '<span class="'+(noPlan?"warn":"")+'">今週やることが未記入 <b class="num">'+noPlan+'</b></span>'+
-    '<span class="faint">今週＝'+esc(fmtD(wk))+'〜</span></div>';
+    '<span class="faint">今週＝'+esc(weekRange(wk))+'</span></div>';
   if(!reps.length) h += '<div class="panel"><div class="empty">名簿にメンバーがいません。</div></div>';
   reps.forEach(s=>{
     const mine = list.filter(c=>c.ownerId===s.id);
@@ -2960,60 +3049,12 @@ function mtgSheet(box, d, per){
   });
   box.innerHTML = h;
   const moveTo = (cid, stage) => { const c=customers.find(x=>x.id===cid); if(c && stage && c.stage!==stage) quickUpdate(cid, {stage}); };
-  box.querySelectorAll("[data-cust]").forEach(a=>a.addEventListener("click",()=>openCustomer(a.dataset.cust)));
-  box.querySelectorAll("[data-gd]").forEach(el=>el.addEventListener("change",()=>
-    quickUpdate(el.dataset.gd, {goalDate:el.value, expectedMonth:el.value? el.value.slice(0,7) : ""})));
-  box.querySelectorAll("[data-yf]").forEach(el=>el.addEventListener("change",()=>quickUpdate(el.dataset.yf,{forecast:el.value})));
-  const saveWeek = (key, patch) => {
-    const [cid, k] = key.split("|"); const c = customers.find(x=>x.id===cid); if(!c) return;
-    const weekly = {...(c.weekly||{})}; weekly[k] = {...(weekly[k]||{}), ...patch};
-    return quickUpdate(cid, {weekly});
-  };
-  box.querySelectorAll("[data-wplan]").forEach(el=>el.addEventListener("change",()=>saveWeek(el.dataset.wplan, {plan:el.value.trim()})));
-  box.querySelectorAll("[data-wres]").forEach(el=>el.addEventListener("change",()=>saveWeek(el.dataset.wres, {result:el.value.trim()})));
-  box.querySelectorAll("[data-wdone]").forEach(el=>el.addEventListener("change",()=>saveWeek(el.dataset.wdone, {done:el.checked})));
-  box.querySelectorAll("[data-wadd]").forEach(b=>b.addEventListener("click",()=>{
-    const [cid, k] = b.dataset.wadd.split("|");
-    cardExtra[cid] = (cardExtra[cid]||[]).concat([k]); cardWeek[cid] = k;
-    setTimeout(()=>mtgSheet(box, d, per), 0);
-  }));
-  box.querySelectorAll("[data-wtab]").forEach(b=>b.addEventListener("click",()=>{
-    const [cid, k] = b.dataset.wtab.split("|"); cardWeek[cid] = k;
-    setTimeout(()=>mtgSheet(box, d, per), 0);   /* 書きかけの欄の保存（change）を先に済ませる */
-  }));
-  /* 道筋・今週やることの欄：書いた量に合わせて伸ばすが、上限を超えたら欄の中でスクロール。
-     触っていない間は3行までに縮める */
-  const LINE = 19, IDLE = 3, EDIT = 6;
-  const fit = el => {
-    const max = (document.activeElement===el ? EDIT : IDLE) * LINE + 14;
-    el.style.height = "auto";
-    const h = Math.min(el.scrollHeight + 2, max);
-    el.style.height = h + "px";
-    el.classList.toggle("clip", el.scrollHeight + 2 > max);
-  };
-  box.querySelectorAll(".sc-plan").forEach(el=>{
-    fit(el);
-    el.addEventListener("input",()=>fit(el));
-    el.addEventListener("focus",()=>fit(el));
-    el.addEventListener("blur",()=>{ fit(el); el.scrollTop = 0; });
-  });
-  box.querySelectorAll("[data-cmsend]").forEach(b=>b.addEventListener("click",()=>{
-    const inp = box.querySelector('[data-cm="'+b.dataset.cmsend+'"]'); if(!inp || !inp.value.trim()) return;
-    const t = inp.value; inp.value = ""; inp.blur(); addComment(b.dataset.cmsend, t);
-  }));
-  box.querySelectorAll("[data-cm]").forEach(el=>el.addEventListener("keydown",e=>{
-    if(e.key==="Enter" && !e.isComposing){ e.preventDefault(); const t=el.value; if(!t.trim()) return; el.value=""; el.blur(); addComment(el.dataset.cm, t); }
-  }));
-  box.querySelectorAll("[data-cmdel]").forEach(b=>b.addEventListener("click", async ()=>{
-    const [cid, id] = b.dataset.cmdel.split("|"); const c = customers.find(x=>x.id===cid); if(!c) return;
-    if(!await askConfirm("コメントを消す","このコメントを消します。","消す",true)) return;
-    quickUpdate(cid, {comments: arr(c.comments).filter(m=>m.id!==id)});
-  }));
+  box.querySelectorAll("[data-sd]").forEach(a=>a.addEventListener("click",()=>openSheetDetail(a.dataset.sd, wk)));
   box.querySelectorAll("[data-mv]").forEach(b=>b.addEventListener("click",()=>{
     const [cid, dir] = b.dataset.mv.split("|"); const c = customers.find(x=>x.id===cid); if(!c) return;
     const nx = STAGES[sIdx(c.stage)+Number(dir)]; if(nx) moveTo(cid, nx.id);
   }));
-  /* ドラッグ：名前の行をつかんだときだけ動かす（文字入力のじゃまをしない） */
+  /* ドラッグ：名前の行をつかんだときだけ動かす */
   box.querySelectorAll(".scard").forEach(cd=>{
     const top = cd.querySelector(".sc-top");
     top.addEventListener("mousedown",()=>{ cd.draggable = true; });
@@ -3034,9 +3075,8 @@ function mtgSheet(box, d, per){
     const doc = {...blankCustomer(), name:name.trim(), ownerId:sid, companyId:cid, stage, meetings:[],
       stageLog:[{stage, date:TODAY(), by:me.name||""}], createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()};
     delete doc.id;
-    try{ await DB.collection("customers").add(doc); toast("追加しました。詳しい情報はお名前を押して入れます"); }catch(e){ toast("追加できませんでした"); }
+    try{ await DB.collection("customers").add(doc); toast("追加しました。名前を押すと記録を書けます"); }catch(e){ toast("追加できませんでした"); }
   }));
-  box.addEventListener("focusout",()=>setTimeout(()=>{ if(mtgStale && !isEditingIn(box)){ mtgStale=false; renderView(); } },0));
 }
 
 /* ---------- 郵便番号 → 住所 ---------- */
