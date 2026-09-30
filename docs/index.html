@@ -508,7 +508,8 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .sc-sec{display:flex;flex-direction:column;gap:4px;padding-top:6px;border-top:1px dashed var(--border)}
 .sc-lbl{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.02em}
 .sc-lbl .faint{font-weight:400;margin-left:4px}
-.sc-path,.sc-plan{overflow:hidden;resize:none}
+.sc-path,.sc-plan{overflow-y:auto;resize:none;line-height:19px}
+.sc-path.clip:not(:focus),.sc-plan.clip:not(:focus){overflow:hidden;-webkit-mask-image:linear-gradient(#000 70%,transparent);mask-image:linear-gradient(#000 70%,transparent)}
 .sc-path{min-height:40px;font-size:12.5px;padding:6px 7px;background:var(--surface2)}
 .hrow{display:grid;grid-template-columns:15px auto 1fr;gap:6px;align-items:start;font-size:12px;cursor:pointer;padding:2px 0}
 .hrow input{width:auto;margin:2px 0 0}
@@ -3019,9 +3020,22 @@ function mtgSheet(box, d, per){
     const weekly = {...(c.weekly||{})}; weekly[wk] = {...(weekly[wk]||{}), plan:el.value.trim(), done:!!(weekly[wk]||{}).done};
     quickUpdate(c.id, {weekly});
   }));
-  /* 道筋・今週やることの欄は、書いた量に合わせて伸ばす */
-  const fit = el => { el.style.height = "auto"; el.style.height = (el.scrollHeight+2)+"px"; };
-  box.querySelectorAll(".sc-path,.sc-plan").forEach(el=>{ fit(el); el.addEventListener("input",()=>fit(el)); });
+  /* 道筋・今週やることの欄：書いた量に合わせて伸ばすが、上限を超えたら欄の中でスクロール。
+     触っていない間は3行までに縮める */
+  const LINE = 19, IDLE = 3, EDIT = 6;
+  const fit = el => {
+    const max = (document.activeElement===el ? EDIT : IDLE) * LINE + 14;
+    el.style.height = "auto";
+    const h = Math.min(el.scrollHeight + 2, max);
+    el.style.height = h + "px";
+    el.classList.toggle("clip", el.scrollHeight + 2 > max);
+  };
+  box.querySelectorAll(".sc-path,.sc-plan").forEach(el=>{
+    fit(el);
+    el.addEventListener("input",()=>fit(el));
+    el.addEventListener("focus",()=>fit(el));
+    el.addEventListener("blur",()=>{ fit(el); el.scrollTop = 0; });
+  });
   box.querySelectorAll("[data-path]").forEach(el=>el.addEventListener("change",()=>quickUpdate(el.dataset.path, {path:el.value.trim()})));
   box.querySelectorAll("[data-cmsend]").forEach(b=>b.addEventListener("click",()=>{
     const inp = box.querySelector('[data-cm="'+b.dataset.cmsend+'"]'); if(!inp || !inp.value.trim()) return;
