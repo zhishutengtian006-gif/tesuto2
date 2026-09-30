@@ -442,6 +442,12 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .ap-row input[type=date]{width:auto;padding:3px 6px;font-size:12.5px}
 .check.ap-on{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
 
+.pchip{display:inline-flex;align-items:center}
+.pchip .check{border-top-right-radius:0;border-bottom-right-radius:0}
+.pchip-x{border:1px solid var(--border-strong);border-left:0;background:var(--surface);color:var(--faint);cursor:pointer;
+  border-radius:0 100px 100px 0;padding:6px 9px 6px 6px;font-size:12px;line-height:1.2}
+.pchip-x:hover{color:var(--danger);background:var(--danger-bg)}
+
 /* ---------- シート：週タブ ---------- */
 .wk-tabs{display:flex;gap:3px;flex-wrap:wrap}
 .wk-tab{flex:none;border:1px solid var(--border);background:var(--surface);border-radius:4px;padding:2px 6px;cursor:pointer;
@@ -1944,8 +1950,14 @@ function custProduct(c, ed){
   const prods = (comp? (comp.products||[]) : []).concat(chosen.filter(id=>!productLive(c.companyId,id)).map(id=>({id, name:productName(c.companyId,id)+"（取扱終了）"})));
   let h = '<div class="fset"><h4>'+esc(companyName(c.companyId))+' の商品</h4>'+
     '<p class="small muted" style="margin-bottom:11px">このお客様に提案している商品を選びます（複数可）。会社を変えると商品も切り替わります。</p>'+
-    '<div class="checks">'+prods.map(p=>'<label class="check"><input type="checkbox" data-prod="'+esc(p.id)+'"'+
-      (chosen.includes(p.id)?" checked":"")+(ed?"":" disabled")+'>'+esc(p.name)+'</label>').join("")+'</div>'+
+    '<div class="checks">'+prods.map(p=>'<span class="pchip"><label class="check"><input type="checkbox" data-prod="'+esc(p.id)+'"'+
+      (chosen.includes(p.id)?" checked":"")+(ed?"":" disabled")+'>'+esc(p.name)+'</label>'+
+      (ed && productLive(c.companyId,p.id)? '<button type="button" class="pchip-x" data-prm="'+esc(p.id)+'" title="'+esc(companyName(c.companyId))+'の商品から外す">×</button>':'')+'</span>').join("")+'</div>'+
+    (ed? '<div class="row" style="gap:6px;margin-top:10px;flex-wrap:wrap">'+
+      '<input type="text" id="pAddName" list="pAddList" placeholder="商品名を入れて追加（例：NORQG4）" style="max-width:260px">'+
+      '<datalist id="pAddList">'+catalog().filter(x=>!productLive(c.companyId,x.id)).map(x=>'<option value="'+esc(x.name)+'">').join("")+'</datalist>'+
+      '<button type="button" class="btn sm" id="pAddBtn">'+I.plus+'商品を追加</button>'+
+      '<span class="tiny faint">'+esc(companyName(c.companyId))+'の商品一覧に入ります。× で一覧から外せます</span></div>' : '')+
     '<div style="margin-top:14px">'+fld("本命商品", ed? sel("mainProductId",c.mainProductId,[["","（未定）"]].concat(prods.map(p=>[p.id,p.name])))
       : ro(c.mainProductId? productName(c.companyId,c.mainProductId):""))+'</div></div>';
   h += '<div class="fset"><h4>提案の記録</h4>'+(ed?'<textarea data-f="productNote" placeholder="提案したプラン、価格帯、お客様の反応">'+esc(c.productNote||"")+'</textarea>'
@@ -1996,6 +2008,28 @@ function collectCustomer(){
   }
 }
 function bindCustExtras(c, ed){
+  /* 提案商品：この会社の商品一覧に足す／外す（会社・商品の設定に保存） */
+  const cfgSave = async (msg) => { CFG = buildCFG({companies:companies(), catalog:catalog(), fyStart:fyStart()}); collectCustomer(); paintCustomer();
+    try{ await saveConfig(); toast(msg); }catch(e){ toast("保存できませんでした"); } };
+  const addBtn = $("#pAddBtn"), addIn = $("#pAddName");
+  const addProd = () => {
+    const name = (addIn.value||"").trim(); if(!name) return;
+    const cid = drawerCust.companyId;
+    let p = catalog().find(x=>x.name===name);
+    if(!p){ p = {id:"p"+uid().slice(-6), name}; CFG.catalog = catalog().concat([p]); }
+    else if(p.retired){ CFG.catalog = catalog().map(x=> x.id===p.id? {...x, retired:false} : x); }
+    CFG.companies = companies().map(x=> x.id!==cid? x : {...x, productIds:[...new Set((x.productIds||[]).concat([p.id]))]});
+    collectCustomer(); drawerCust.products = [...new Set((drawerCust.products||[]).concat([p.id]))];
+    cfgSave("「"+name+"」を"+companyName(cid)+"の商品に追加しました");
+  };
+  if(addBtn) addBtn.addEventListener("click", addProd);
+  if(addIn) addIn.addEventListener("keydown", e=>{ if(e.key==="Enter" && !e.isComposing){ e.preventDefault(); addProd(); } });
+  document.querySelectorAll(".drawer [data-prm]").forEach(b=>b.addEventListener("click", async ()=>{
+    const pid = b.dataset.prm, cid = drawerCust.companyId;
+    if(!await askConfirm("商品を外す", "「"+productName(cid,pid)+"」を"+companyName(cid)+"の商品一覧から外します。\n他の会社の取り扱いと、これまでの提案履歴はそのまま残ります。", "外す", true)) return;
+    CFG.companies = companies().map(x=> x.id!==cid? x : {...x, productIds:(x.productIds||[]).filter(y=>y!==pid)});
+    cfgSave("「"+productName(cid,pid)+"」を"+companyName(cid)+"の商品から外しました");
+  }));
   const apd = $(".drawer [data-apdd]");
   const setApply = async (date) => {
     collectCustomer();
