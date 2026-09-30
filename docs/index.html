@@ -512,6 +512,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .wk-tab.ok{background:var(--ok-bg);color:var(--ok);border-color:transparent}
 .wk-tab.ng{background:var(--danger-bg);color:var(--danger);border-color:transparent}
 .wk-tab.wip{border-color:var(--border-strong);color:var(--text)}
+.wk-add{font-family:var(--sans);font-size:12px;font-weight:700;color:var(--accent);border-style:dashed;padding:1px 8px}
 .wk-tab.on{outline:2px solid var(--accent);outline-offset:-1px;color:var(--accent)}
 .wk-body{display:flex;flex-direction:column;gap:3px;background:var(--surface2);border-radius:4px;padding:6px 7px}
 .wk-title{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;flex-wrap:wrap}
@@ -533,7 +534,8 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .hrow.done .htx{color:var(--faint);text-decoration:line-through}
 .more summary{cursor:pointer;font-size:11.5px;color:var(--accent);padding:2px 0}
 .more[open] summary{margin-bottom:4px}
-.cm{background:var(--accent-soft);border-radius:4px;padding:5px 7px;font-size:12px}
+.cm-list{display:flex;flex-direction:column;gap:4px;max-height:118px;overflow-y:auto;padding-right:2px}
+.cm{flex:none;background:var(--accent-soft);border-radius:4px;padding:5px 7px;font-size:12px}
 .cm-h{display:flex;align-items:baseline;gap:6px}
 .cm-h b{font-size:11.5px;color:var(--accent)}
 .cm-t{white-space:pre-wrap;word-break:break-word;margin-top:1px}
@@ -2925,7 +2927,8 @@ let mtgStale = false;
 const isEditingIn = el => { const a=document.activeElement; return !!(a && el && el.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)); };
 
 /* 週ごとの記録：タブで週を切り替え、その週の「やること」「結果・進捗」「できた」を書く */
-const cardWeek = {};   /* カードごとに選んでいる週（画面を開いている間だけ覚える） */
+const cardWeek = {};
+const cardExtra = {};  /* 「＋」で足した、まだ何も書いていない先の週 */   /* カードごとに選んでいる週（画面を開いている間だけ覚える） */
 const addDays = (s,n) => { const d=parseD(s); return isoDate(new Date(d.getFullYear(), d.getMonth(), d.getDate()+n)); };
 const md = s => { const d=parseD(s); return d? (d.getMonth()+1)+"/"+d.getDate() : ""; };
 function weekRange(k){ return fmtD(k)+"〜"+fmtD(addDays(k,6)); }
@@ -2938,7 +2941,8 @@ function weekState(c, k, cur){
 function weekHTML(c, cur){
   const next = addDays(cur, 7);
   const keys = [...new Set(Object.keys(c.weekly||{}).filter(k=>{ const x=c.weekly[k]||{}; return k<cur && (x.plan||x.result); }))].sort().slice(-5);
-  const tabs = keys.concat([cur, next]);
+  const future = Object.keys(c.weekly||{}).filter(k=>{ const x=c.weekly[k]||{}; return k>cur && (x.plan||x.result||x.done); });
+  const tabs = [...new Set(keys.concat([cur, next], future, cardExtra[c.id]||[]))].sort();
   const sel = tabs.includes(cardWeek[c.id]) ? cardWeek[c.id] : cur;
   const x = (c.weekly||{})[sel] || {};
   const past = tabs.filter(k=>k<cur), okN = past.filter(k=>((c.weekly||{})[k]||{}).done).length;
@@ -2946,7 +2950,8 @@ function weekHTML(c, cur){
   return '<div class="sc-sec wk"><div class="sc-lbl">毎週の記録'+(past.length? '<span class="faint">（これまで '+past.length+'週中 '+okN+'週できた）</span>':'')+'</div>'+
     '<div class="wk-tabs">'+tabs.map(k=>{ const st=weekState(c,k,cur);
       return '<button type="button" class="wk-tab'+(k===sel?" on":"")+(st?" "+st:"")+'" data-wtab="'+c.id+'|'+k+'" title="'+esc(weekRange(k))+'">'+
-        (tag(k)? '<b>'+tag(k)+'</b>':'')+esc(md(k))+(st==="ok"?' ✓':st==="ng"?' ×':'')+'</button>'; }).join("")+'</div>'+
+        (tag(k)? '<b>'+tag(k)+'</b>':'')+esc(md(k))+(st==="ok"?' ✓':st==="ng"?' ×':'')+'</button>'; }).join("")+
+      '<button type="button" class="wk-tab wk-add" data-wadd="'+c.id+'|'+addDays(tabs[tabs.length-1],7)+'" title="さらに先の週を足す">＋</button></div>'+
     '<div class="wk-body">'+
       '<div class="wk-title"><span>'+esc(weekRange(sel))+'</span>'+(tag(sel)? '<span class="wk-now">'+tag(sel)+'</span>':'')+
         '<label class="wk-done"><input type="checkbox" data-wdone="'+c.id+'|'+sel+'"'+(x.done?" checked":"")+'>できた</label></div>'+
@@ -2964,10 +2969,9 @@ function cmtHTML(c){
     (m.by===me.name? '<button type="button" class="cm-del" data-cmdel="'+c.id+'|'+esc(m.id)+'" title="このコメントを消す">×</button>':'')+'</div>'+
     '<div class="cm-t">'+esc(m.text)+'</div></div>';
   return '<div class="sc-sec"><div class="sc-lbl">アドバイス・コメント'+(list.length? '<span class="faint">（'+list.length+'）</span>':'')+'</div>'+
-    list.slice(0,2).map(row).join("")+
-    (list.length>2? '<details class="more"><summary>前のコメントを見る（'+(list.length-2)+'件）</summary>'+list.slice(2).map(row).join("")+'</details>' : '')+
     '<div class="cm-in"><input type="text" data-cm="'+c.id+'" placeholder="アドバイスを書く" title="'+esc((me.name||"")+" の名前で残ります")+'">'+
-    '<button type="button" class="btn sm" data-cmsend="'+c.id+'">送る</button></div></div>';
+    '<button type="button" class="btn sm" data-cmsend="'+c.id+'">送る</button></div>'+
+    (list.length? '<div class="cm-list">'+list.map(row).join("")+'</div>' : '')+'</div>';
 }
 async function addComment(cid, text){
   const c = customers.find(x=>x.id===cid); if(!c || !text.trim()) return;
@@ -3012,7 +3016,7 @@ function mtgSheet(box, d, per){
       '<li><b>工程を進める</b><br>カードの名前のあたりをつかんで、隣の列へドラッグします。スマホはカード右下の ◀ ▶ で動かせます。</li>'+
       '<li><b>契約目標日を入れる</b><br>「いつ契約するか」のゴールです。残りの週数が出て、過ぎると赤くなります。</li>'+
       '<li><b>週ごとに書く</b><br>カードの「毎週の記録」は週ごとのタブです。<b>今週</b>のタブに「やること」を書き、終わったら「結果・進捗」と「できた」を入れます。'+
-      '先週のタブを押せばすぐ振り返れ、できた週は緑の✓、できなかった週は赤く出ます。来週のタブで先の予定も書けます。枠の外を押せば保存されます。</li>'+
+      '先週のタブを押せばすぐ振り返れ、できた週は緑の✓、できなかった週は赤く出ます。来週のタブや「＋」で足した先の週に、何週も先までの予定（KPI）を書いておけます。枠の外を押せば保存されます。</li>'+
       '<li><b>アドバイスを残す</b><br>上司や先輩はカード下の欄に書いて「送る」（Enterでも可）。<b>書いた人の名前と日付</b>が自動で付きます。</li>'+
     '</ol>'+
     '<div class="howto-cols">'+
@@ -3056,6 +3060,11 @@ function mtgSheet(box, d, per){
   box.querySelectorAll("[data-wplan]").forEach(el=>el.addEventListener("change",()=>saveWeek(el.dataset.wplan, {plan:el.value.trim()})));
   box.querySelectorAll("[data-wres]").forEach(el=>el.addEventListener("change",()=>saveWeek(el.dataset.wres, {result:el.value.trim()})));
   box.querySelectorAll("[data-wdone]").forEach(el=>el.addEventListener("change",()=>saveWeek(el.dataset.wdone, {done:el.checked})));
+  box.querySelectorAll("[data-wadd]").forEach(b=>b.addEventListener("click",()=>{
+    const [cid, k] = b.dataset.wadd.split("|");
+    cardExtra[cid] = (cardExtra[cid]||[]).concat([k]); cardWeek[cid] = k;
+    setTimeout(()=>mtgSheet(box, d, per), 0);
+  }));
   box.querySelectorAll("[data-wtab]").forEach(b=>b.addEventListener("click",()=>{
     const [cid, k] = b.dataset.wtab.split("|"); cardWeek[cid] = k;
     setTimeout(()=>mtgSheet(box, d, per), 0);   /* 書きかけの欄の保存（change）を先に済ませる */
