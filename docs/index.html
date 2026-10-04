@@ -629,10 +629,16 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
    ============================================================ */
 /* 商品はグループ共通の一覧。各社はそこから取り扱う商品を選ぶ（会社・商品の画面で入れ替え） */
 const DEFAULT_CATALOG = [
-  {id:"norqg3",name:"NORQG3"},{id:"norqg2",name:"NORQG2"},{id:"alviag3",name:"ALVIAG3"},{id:"pg",name:"PG"},{id:"gp",name:"GP"},
+  {id:"norqg3",name:"NORQG3"},{id:"norqg2",name:"NORQG2"},{id:"alviag3",name:"ALVIAG3"},
+  {id:"fujita",name:"フジタ"},{id:"gp",name:"GP"},{id:"pg",name:"PG"},
 ];
+const DEFAULT_LINEUP = {
+  noark:["norqg3","norqg2","alviag3","gp","pg"],
+  fujita:["fujita","gp","pg"],
+  ash:["norqg3","norqg2","alviag3","gp","pg"],
+};
 /* 以前の商品（登録済みのお客様の提案履歴で名前を出すため） */
-const LEGACY_PRODUCTS = {noark:"ノークホームズ", folk:"フォルク", fujita:"フジタ", ash:"アッシュホーム"};
+const LEGACY_PRODUCTS = {noark:"ノークホームズ", folk:"フォルク", ash:"アッシュホーム"};
 const DEFAULT_COMPANIES = [
   { id:"noark",  name:"ノークホームズ", short:"ノーク" },
   { id:"fujita", name:"フジタ",         short:"フジタ" },
@@ -641,13 +647,16 @@ const DEFAULT_COMPANIES = [
 /* 保存された設定から、会社ごとの商品一覧（products）を組み立てる */
 function buildCFG(d){
   d = d || {};
-  const catalog = (Array.isArray(d.catalog) && d.catalog.length ? d.catalog : DEFAULT_CATALOG).map(p=>({id:String(p.id), name:String(p.name||p.id), retired:!!p.retired}));
+  let cat = (Array.isArray(d.catalog) && d.catalog.length ? d.catalog : DEFAULT_CATALOG).map(p=>({id:String(p.id), name:String(p.name||p.id), retired:!!p.retired}));
+  /* 標準の商品（フジタなど）が一覧に無ければ足す。商品は取扱終了にするだけで消えないので、足し直しても外した商品は戻らない */
+  DEFAULT_CATALOG.forEach(p=>{ if(!cat.some(x=>x.id===p.id)) cat.push({id:p.id, name:p.name, retired:false}); });
+  const catalog = cat;
   const live = catalog.filter(p=>!p.retired);
   const comps = (Array.isArray(d.companies) && d.companies.length ? d.companies : DEFAULT_COMPANIES).map(c=>{
-    const ids = Array.isArray(c.productIds) ? c.productIds : live.map(p=>p.id);
+    const ids = Array.isArray(c.productIds) ? c.productIds : (DEFAULT_LINEUP[c.id] || live.map(p=>p.id));
     return {id:c.id, name:c.name, short:c.short||c.name, productIds:ids, products: live.filter(p=>ids.includes(p.id))};
   });
-  return {companies:comps, catalog, fyStart:num(d.fyStart)||4};
+  return {companies:comps, catalog, fyStart:4};
 }
 const RANKS = {
   A:{label:"最優先", desc:"土地あり・興味あり"},
@@ -683,7 +692,7 @@ const WD = ["日","月","火","水","木","金","土"];
 let DB = null, dbState = "loading";
 let CFG = buildCFG({});
 let AUTH = null;
-let staff = [], customers = [], events = [], todos = [], goals = [], mtgs = [];
+let staff = [], customers = [], events = [], todos = [], todoTrash = [], goals = [], mtgs = [];
 let loaded = { auth:false, staff:false, customers:false, events:false, todos:false, goals:false, mtgs:false };
 let me = null, view = "dash", unsubs = [];
 const ui = {
@@ -914,7 +923,7 @@ function subscribeData(){
   }, ()=>{ loaded[name]=true; refreshCurrent(); });
   unsubs.push(sub("customers", v=>{ v.forEach(c=>{ if(STAGE_ALIAS[c.stage]) c.stage=STAGE_ALIAS[c.stage]; }); customers=v; }));
   unsubs.push(sub("events", v=>events=v));
-  unsubs.push(sub("todos", v=>todos=v));
+  unsubs.push(sub("todos", v=>{ todos=v.filter(t=>!t.deleted); todoTrash=v.filter(t=>t.deleted); }));
   unsubs.push(sub("goals", v=>goals=v));
   unsubs.push(sub("mtgs", v=>mtgs=v));
 }
@@ -956,7 +965,7 @@ function afterLogin(){
 function signOut(silent){
   clearSession();
   me=null; unsubs.forEach(u=>{try{u();}catch(e){}}); unsubs=[];
-  customers=[];events=[];todos=[];goals=[];mtgs=[]; mtgDraft=null; view="dash";
+  customers=[];events=[];todos=[];todoTrash=[];goals=[];mtgs=[]; mtgDraft=null; view="dash";
   login.scope=""; login.staffId=""; login.newName=""; login.err="";
   closeOverlay(); renderAll();
   if(!silent) toast("ログアウトしました");
@@ -2063,14 +2072,20 @@ function custProduct(c, ed){
 function custTodo(c, ed){
   const evs = sortBy(events.filter(e=>e.customerId===c.id), e=>e.date+(e.startTime||""),"desc");
   const tds = sortBy(todos.filter(t=>t.customerId===c.id), t=>(t.done?"1":"0")+(t.due||"9999"),"asc");
+  const gone = sortBy(todoTrash.filter(t=>t.customerId===c.id), t=>t.deletedAt||"","desc");
   let h = '<div class="fset"><h4>この顧客のTODO（'+tds.length+'件）</h4>'+
     (ed&&c.id? '<div class="row" style="gap:8px;margin-bottom:12px"><input type="text" id="td_quick" placeholder="やること（例：資金計画書を作成）">'+
       '<input type="date" id="td_due" style="width:auto"><button class="btn primary" id="td_add" type="button">追加</button></div>':'')+
     (tds.length? tds.map(t=>'<div class="li" style="padding-left:0;padding-right:0">'+
       '<input type="checkbox" data-todo="'+t.id+'" style="width:auto;margin:0"'+(t.done?" checked":"")+'>'+
       '<span class="grow small"'+(t.done?' style="text-decoration:line-through;color:var(--faint)"':'')+'>'+esc(t.title)+'</span>'+
-      (t.due? '<span class="tiny faint nowrap">'+fmtD(t.due)+'</span>':'')+'</div>').join("")
-      : '<div class="empty">TODOはありません</div>')+'</div>';
+      (t.due? '<span class="tiny faint nowrap">'+fmtD(t.due)+'</span>':'')+
+      (ed? '<button type="button" class="cm-del" data-ttrash="'+t.id+'" title="削除（あとから戻せます）">×</button>':'')+'</div>').join("")
+      : '<div class="empty">TODOはありません</div>')+
+    (gone.length? '<details class="more" style="margin-top:10px"><summary>削除したTODO（'+gone.length+'件）— 戻す</summary>'+
+      gone.map(t=>'<div class="li" style="padding-left:0;padding-right:0"><span class="grow small faint" style="text-decoration:line-through">'+esc(t.title)+'</span>'+
+        (t.due? '<span class="tiny faint nowrap">'+fmtD(t.due)+'</span>':'')+
+        (ed? '<button type="button" class="btn sm" data-tres="'+t.id+'">戻す</button>':'')+'</div>').join("")+'</details>' : '')+'</div>';
   h += '<div class="fset"><h4>面談以外の予定（'+evs.length+'件）</h4>'+
     (ed&&c.id? '<button class="btn" id="addEvForCust" type="button" style="margin-bottom:12px">'+I.plus+'予定を追加</button>':'')+
     (evs.length? evs.map(e=>'<div class="li click" style="padding-left:0;padding-right:0" data-ev="'+e.id+'">'+
@@ -2163,6 +2178,9 @@ function bindCustExtras(c, ed){
       setTimeout(()=>{ if(drawerCust&&drawerCust.id===c.id) paintCustomer(); },500);
     }catch(e){ toast("追加できませんでした"); }
   });
+  const tdAgain = () => setTimeout(()=>{ if(drawerCust&&drawerCust.id===c.id) paintCustomer(); },450);
+  document.querySelectorAll(".drawer [data-ttrash]").forEach(b=>b.addEventListener("click", async ()=>{ await trashTodo(b.dataset.ttrash); tdAgain(); }));
+  document.querySelectorAll(".drawer [data-tres]").forEach(b=>b.addEventListener("click", async ()=>{ await restoreTodo(b.dataset.tres); tdAgain(); }));
   const ae = $("#addEvForCust");
   if(ae) ae.addEventListener("click",()=>{ const id=c.id, cid=c.companyId, nm=c.name;
     closeOverlay(); openEvent(null,{customerId:id, companyId:cid, date:TODAY(), title:nm+" 様"}); });
@@ -2428,7 +2446,7 @@ function openEvent(id, preset){
 function renderTodo(root){
   let h = topbar("TODO", '<button class="btn primary" id="tdNew">'+I.plus+'TODOを追加</button>');
   h += '<div class="content"><div class="tabs">'+
-    [["open","自分の未完了"],["today","今日まで"],["done","完了済"],["team","チーム全体"]]
+    [["open","自分の未完了"],["today","今日まで"],["done","完了済"],["team","チーム全体"],["trash","削除したTODO"]]
       .map(t=>'<button data-ttab="'+t[0]+'" class="'+(ui.todoTab===t[0]?"on":"")+'">'+t[1]+'</button>').join("")+
     '</div><div id="todoBox" style="margin-top:14px"></div></div>';
   root.innerHTML=h;
@@ -2439,6 +2457,18 @@ function renderTodo(root){
 function renderTodoList(){
   const box=$("#todoBox"); if(!box) return;
   const t=TODAY();
+  if(ui.todoTab==="trash"){
+    const cs=scopeCompanies();
+    const gone=sortBy(todoTrash.filter(x=>x.staffId===me.id || !x.companyId || cs.includes(x.companyId)), x=>x.deletedAt||"","desc");
+    if(!gone.length) return void(box.innerHTML='<div class="tablewrap"><div class="empty">削除したTODOはありません</div></div>');
+    box.innerHTML='<div class="panel">'+gone.map(x=>{ const c=x.customerId? customers.find(k=>k.id===x.customerId):null;
+      return '<div class="li"><span class="grow" style="min-width:0"><div style="text-decoration:line-through;color:var(--faint)">'+esc(x.title)+'</div>'+
+        '<div class="tiny faint">'+esc(staffName(x.staffId))+(c?' ／ '+esc(c.name)+' 様':'')+(x.deletedBy?' ／ '+esc(x.deletedBy)+' が削除':'')+'</div></span>'+
+        '<button class="btn sm" data-tres="'+x.id+'">戻す</button><button class="btn sm ghost" data-tpurge="'+x.id+'">完全に消す</button></div>'; }).join("")+'</div>';
+    box.querySelectorAll("[data-tres]").forEach(b=>b.addEventListener("click",()=>restoreTodo(b.dataset.tres)));
+    box.querySelectorAll("[data-tpurge]").forEach(b=>b.addEventListener("click",()=>purgeTodo(b.dataset.tpurge)));
+    return;
+  }
   let list=visTodos();
   if(ui.todoTab==="open") list=list.filter(x=>!x.done&&x.staffId===me.id);
   else if(ui.todoTab==="today") list=list.filter(x=>!x.done&&x.staffId===me.id&&x.due&&x.due<=t);
@@ -2454,11 +2484,26 @@ function renderTodoList(){
       '<div class="tiny faint">'+esc(staffName(x.staffId))+(c?' ／ <span style="color:var(--accent)">'+esc(c.name)+' 様</span>':'')+'</div></span>'+
       (x.due? '<span class="tiny nowrap" style="color:'+(late?"var(--danger)":"var(--faint)")+'">'+fmtD(x.due)+'</span>':'')+
       (c? '<button class="btn sm ghost" data-cust="'+c.id+'">カルテ</button>':'')+
-      '<button class="btn sm ghost" data-edtodo="'+x.id+'">編集</button></div>';
+      '<button class="btn sm ghost" data-edtodo="'+x.id+'">編集</button>'+
+      '<button class="btn sm ghost" data-ttrash="'+x.id+'" title="削除（あとから戻せます）">削除</button></div>';
   }).join("")+'</div>';
+  box.querySelectorAll("[data-ttrash]").forEach(b=>b.addEventListener("click",()=>trashTodo(b.dataset.ttrash)));
   box.querySelectorAll("[data-todo]").forEach(b=>b.addEventListener("change",()=>toggleTodo(b.dataset.todo,b.checked)));
   box.querySelectorAll("[data-cust]").forEach(b=>b.addEventListener("click",()=>openCustomer(b.dataset.cust)));
   box.querySelectorAll("[data-edtodo]").forEach(b=>b.addEventListener("click",()=>openTodo(b.dataset.edtodo)));
+}
+/* 消す＝「削除したTODO」に移す。あとから戻せる */
+async function trashTodo(id){
+  try{ await DB.doc("todos/"+id).update({deleted:true, deletedAt:new Date().toISOString(), deletedBy:me.name||""}); toast("削除しました（「削除したTODO」から戻せます）"); }
+  catch(e){ toast("削除できませんでした"); }
+}
+async function restoreTodo(id){
+  try{ await DB.doc("todos/"+id).update({deleted:false, deletedAt:"", deletedBy:""}); toast("TODOを戻しました"); }
+  catch(e){ toast("戻せませんでした"); }
+}
+async function purgeTodo(id){
+  if(!await askConfirm("完全に消す","このTODOを完全に消します。もう戻せません。","完全に消す",true)) return;
+  try{ await DB.doc("todos/"+id).delete(); toast("完全に消しました"); }catch(e){ toast("消せませんでした"); }
 }
 async function toggleTodo(id,done){
   try{ await DB.doc("todos/"+id).update({done:!!done, doneAt: done? new Date().toISOString():""}); }
@@ -2494,8 +2539,7 @@ function openTodo(id){
   });
   const dl=$("#tdDel");
   if(dl) dl.addEventListener("click", async ()=>{
-    if(!await askConfirm("TODOを削除","このTODOを削除します。","削除する",true)) return;
-    try{ await DB.doc("todos/"+x.id).delete(); toast("削除しました"); closeOverlay(); }catch(e){ toast("削除できませんでした"); } });
+    await trashTodo(x.id); closeOverlay(); });
 }
 
 /* ============================================================
@@ -2557,7 +2601,7 @@ function renderLost(root){
    VIEW: 集計
    ============================================================ */
 /* ---------- 年度 ---------- */
-const fyStart = () => { const m = num(CFG.fyStart); return m>=1 && m<=12 ? m : 4; };
+const fyStart = () => 4;   /* 年度は全社4月始まりで固定 */
 function fyOf(dateStr){
   const d = parseD(String(dateStr||"").slice(0,10)); if(!d) return null;
   return (d.getMonth()+1) >= fyStart() ? d.getFullYear() : d.getFullYear()-1;
@@ -2596,7 +2640,6 @@ function renderReport(root){
   let h = topbar("集計・分析",
     '<select id="fySel" style="width:auto">'+[...years].sort((a,b)=>b-a).map(y=>'<option value="'+y+'"'+(ui.fy===String(y)?" selected":"")+'>'+esc(fyLabel(y))+'</option>').join("")+
       '<option value="all"'+(allFY?" selected":"")+'>全期間</option></select>'+
-    '<select id="fyStartSel" style="width:auto" title="年度の始まりの月">'+[...Array(12)].map((_,i)=>'<option value="'+(i+1)+'"'+(fyStart()===i+1?" selected":"")+'>'+(i+1)+'月始まり</option>').join("")+'</select>'+
     '<button class="btn sm" id="csvBtn2">CSV書き出し</button>');
   h += '<div class="content">'+
     '<p class="small muted" style="margin-bottom:12px">'+(allFY? '全期間の集計です。' : esc(fyLabel(fy))+' に起きたことを数えています（反響＝問合せ日、申込＝申込日、契約＝契約日、没＝没日）。')+'</p>'+
@@ -2657,11 +2700,6 @@ function renderReport(root){
   root.innerHTML=h;
   root.querySelectorAll("[data-rb]").forEach(b=>b.addEventListener("click",()=>{ ui.reportBy=b.dataset.rb; renderReport(root); }));
   $("#fySel").addEventListener("change",e=>{ ui.fy=e.target.value; renderReport(root); });
-  $("#fyStartSel").addEventListener("change", async e=>{
-    const m = Number(e.target.value);
-    CFG = {...CFG, fyStart:m}; ui.fy = String(fyOf(TODAY())); renderReport(root);
-    try{ await saveConfig(); toast("年度の始まりを"+m+"月にしました（全員に反映）"); }catch(err){ toast("保存できませんでした"); }
-  });
   $("#csvBtn2").addEventListener("click", exportCSV);
 }
 async function exportCSV(){
