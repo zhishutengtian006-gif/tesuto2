@@ -843,7 +843,10 @@ const rivalNames = c => rivalsOf(c).map(r=>r.name);
 function allRivalNames(){ const m=new Map(); const put=n=>{ const k=rvKey(n); if(k && !m.has(k)) m.set(k,n); };
   rivalNotes.forEach(x=>put(x.name)); customers.forEach(c=>rivalNames(c).forEach(put));
   return [...m.values()].sort((a,b)=>a.localeCompare(b,"ja")); }
-const LOAN = {none:"未実施",applied:"申込中",approved:"承認",rejected:"否決"};
+const LOAN = {none:"未実施",applied:"事前審査申込中",approved:"事前審査承認",main:"本申込承認"};
+/* 以前の「否決」は、選ばれているお客様にだけ選択肢として残す */
+const LOAN_OLD = {rejected:"否決"};
+const loanLabel = k => LOAN[k] || LOAN_OLD[k] || "";
 const EVT = {
   visit:"来場", meeting:"社内打合せ", event:"見学会・イベント", cere:"地鎮祭・上棟", hand:"引渡し", other:"その他",
 };
@@ -2617,7 +2620,7 @@ function custMoney(c, ed){
     fld("自己資金", ed?inp("savings",c.savings,"number",'min="0"'):ro(man(c.savings)))+
     fld("借入希望額", ed?inp("loanWish",c.loanWish,"number",'min="0"'):ro(man(c.loanWish)))+
     fld("総予算", ed?inp("budgetTotal",c.budgetTotal,"number",'min="0"'):ro(man(c.budgetTotal)))+
-    fld("ローン事前審査", ed?sel("loanScreen",c.loanScreen,Object.entries(LOAN)):ro(LOAN[c.loanScreen]),"span2")+
+    fld("ローン審査", ed?sel("loanScreen",c.loanScreen,Object.entries(LOAN).concat(LOAN_OLD[c.loanScreen]? [[c.loanScreen, LOAN_OLD[c.loanScreen]]] : [])):ro(loanLabel(c.loanScreen)),"span2")+
     '</div>'+(total? '<div class="note" style="margin-top:11px">自己資金＋借入希望＝<b class="num">'+man(total)+'</b> 万円'+
       (c.budgetTotal!==""&&c.budgetTotal!=null? '（総予算との差 <span class="num">'+man(total-num(c.budgetTotal))+'</span> 万円）':'')+'</div>':'')+'</div>';
   h += '<div class="fset"><h4>契約</h4><div class="grid3">'+
@@ -3339,7 +3342,7 @@ async function exportCSV(){
     const ld=lastDoneMeeting(c);
     return [c.rank, c.name, c.kana, companyName(c.companyId), staffName(c.ownerId), statusOf(c).label,
       STAGE_NAME[c.stage]||"", c.inquiryDate, c.source, c.showroom, c.tel, c.email, c.address,
-      LAND[c.landStatus]||"", c.wishArea, c.income, c.savings, c.loanWish, c.budgetTotal, LOAN[c.loanScreen]||"",
+      LAND[c.landStatus]||"", c.wishArea, c.income, c.savings, c.loanWish, c.budgetTotal, loanLabel(c.loanScreen),
       (c.products||[]).map(p=>productName(c.companyId,p)).join(" / "),
       c.mainProductId? productName(c.companyId,c.mainProductId):"", c.buildTiming,
       c.forecast&&FORECAST[c.forecast]? FORECAST[c.forecast].mark : "", c.goalDate||c.expectedMonth||"", c.expectedAmount,
