@@ -156,6 +156,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 input[type=text],input[type=password],input[type=date],input[type=month],input[type=time],input[type=number],input[type=email],input[type=tel],select,textarea{
   width:100%;padding:7px 9px;border:1px solid var(--border-strong);border-radius:var(--r);background:var(--surface);transition:border-color .12s}
+input[type=date],input[type=time],input[type=month]{-webkit-appearance:none;appearance:none;display:block;min-width:0;max-width:100%;text-align:left;min-height:34px}
+input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and-time-value,input[type=month]::-webkit-date-and-time-value{text-align:left;min-height:1.4em}
 input:focus,select:focus,textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
 textarea{resize:vertical;min-height:70px;line-height:1.65}
 label.lb{display:block;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-family:var(--mono);margin-bottom:4px}
@@ -255,6 +257,8 @@ label.lb{display:block;font-size:11px;letter-spacing:.09em;text-transform:upperc
 .st{font-size:11.5px;font-weight:500;padding:2px 9px;border-radius:100px;white-space:nowrap;background:var(--surface3);color:var(--muted)}
 .st.active{background:var(--ok-bg);color:var(--ok)}
 .st.follow{background:var(--danger-bg);color:var(--danger)}
+.st.hold{background:var(--surface3);color:var(--muted)}
+.fw-now{font-size:12.5px;margin-bottom:9px}
 .st.todo{background:var(--rank-b-bg);color:var(--rank-b)}
 .st.contract{background:var(--ok-bg);color:var(--ok)}
 .st.lost{background:var(--surface3);color:var(--faint)}
@@ -974,6 +978,7 @@ function statusOf(c){
   if(c.lost) return {key:"lost", label:"没"};
   if(!c.rank && !(c.meetings||[]).length) return {key:"todo", label:"情報未入力"};
   if(scheduledMeeting(c)) return {key:"active", label:"商談中"};
+  if(followHold(c)) return {key:"hold", label:"様子見"};
   return {key:"follow", label:"次回アポ未設定"};
 }
 function whenClass(s){
@@ -985,8 +990,13 @@ function whenClass(s){
   const dd = parseD(s);
   return ["later",(dd.getMonth()+1)+"/"+dd.getDate()];
 }
+/* 要フォローの手動指定：「要フォローにする」(on) ／「様子見」(off。期限を過ぎると自動に戻る) */
+const FOLLOW_MODE = {"":"自動で判定する", on:"要フォローにする", off:"様子見（要フォローから外す）"};
+const followHold = c => c.followMode==="off" && (!c.followUntil || c.followUntil>=TODAY());
 function needsFollow(c){
   if(c.contracted||c.lost) return false;
+  if(c.followMode==="on") return true;
+  if(followHold(c)) return false;
   if(scheduledMeeting(c)) return false;
   const lc = lastContact(c);
   const d = lc? -daysFrom(lc) : null;
@@ -1737,7 +1747,7 @@ function renderDash(root){
   const t = TODAY();
   const week = act.filter(c=>{const d=daysFrom(nextDate(c)); return d!==null && d>=0 && d<=7;}).length;
   const over = act.filter(c=>{const d=daysFrom(nextDate(c)); return d!==null && d<0;}).length;
-  const follow = act.filter(c=>statusOf(c).key==="follow").length;
+  const follow = act.filter(needsFollow).length;
   const now = new Date(), ym = now.getFullYear()+"-"+pad(now.getMonth()+1);
   const monthWon = won.filter(c=>(c.contractDate||"").startsWith(ym));
   const monthAmt = monthWon.reduce((s,c)=>s+num(c.contractAmount),0);
@@ -1752,7 +1762,7 @@ function renderDash(root){
     kpi("b", "ランク B", cnt("B"), "件", RANKS.B.desc)+
     kpi("c", "ランク C", cnt("C"), "件", RANKS.C.desc)+
     kpi("", "今週の面談", week, "件", "7日以内のアポ")+
-    kpi("warn", "要フォロー", follow, "件", "次回アポ未設定")+
+    kpi("warn", "要フォロー", follow, "件", "アポなし・2週間以上未接触")+
     kpi("ok", "今月の契約", monthWon.length, "棟", man(monthAmt)+" 万円")+
     (()=>{ const mn=monthNumbers(ym, scoped()), gl=goalSum(ym, ui.scopeRep||"").units;
       return kpi(gl && mn.won+mn.hi>=gl? "ok":"", "今月の着地予想", mn.won+mn.hi, "棟", gl? "契約目標 "+gl+" 棟 ／ 契約＋◎" : "契約目標未設定 ／ 契約＋◎"); })()+
@@ -1792,7 +1802,8 @@ function renderDash(root){
       return '<div class="li click" data-cust="'+c.id+'"><span class="rank '+(c.rank||"X")+'">'+(c.rank||"–")+'</span>'+
         '<span class="grow" style="min-width:0"><div class="cname" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(c.name)+'</div>'+
         '<div class="tiny faint">'+esc(companyShort(c.companyId))+' / '+esc(staffName(c.ownerId))+'</div></span>'+
-        '<span class="tiny nowrap" style="color:var(--danger)">'+(isFinite(d)?d+"日":"—")+'</span></div>';
+        '<span class="tiny nowrap" style="color:var(--danger)">'+(isFinite(d)?d+"日":"—")+'</span>'+
+        (canEditCustomer(c)? '<button class="btn sm ghost" data-fhold="'+c.id+'" title="30日間、要フォローから外します">様子見</button>':'')+'</div>';
     }).join("") : '<div class="empty">未接触が続いているお客様はいません</div>')+'</div></div>';
   h += '<div class="panel"><header><h3>自分のTODO</h3><div class="grow"></div>'+
     '<button class="btn sm" data-go="todo">一覧</button></header><div>'+
@@ -1825,6 +1836,11 @@ function renderDash(root){
   $("#dNew").disabled = !canCreateCustomer();
   $("#dHelp").addEventListener("click", openHelp);
   bindCommon(root);
+  root.querySelectorAll("[data-fhold]").forEach(b=>b.addEventListener("click",async e=>{
+    e.stopPropagation();
+    await quickUpdate(b.dataset.fhold,{followMode:"off", followUntil:addDays(TODAY(),30)});
+    toast("30日間は要フォローに出しません（カルテの「フォロー」で変えられます）");
+  }));
 }
 function bindCommon(root){
   root.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>{ view=b.dataset.go; renderAll(); }));
@@ -1893,7 +1909,7 @@ function renderCustomers(root){
   h += '<div class="filters">'+
     '<input type="text" id="fq" placeholder="氏名・電話・住所・面談メモを検索" value="'+esc(ui.fQuery)+'">'+
     '<select id="fStatus"><option value="">全ステータス</option>'+
-      [["active","商談中"],["follow","次回アポ未設定"],["todo","情報未入力"]].map(o=>
+      [["active","商談中"],["follow","次回アポ未設定"],["hold","様子見"],["todo","情報未入力"]].map(o=>
       '<option value="'+o[0]+'"'+(ui.fStatus===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select>'+
     '<select id="fApply"><option value="">申込：すべて</option><option value="yes"'+(ui.fApply==="yes"?" selected":"")+'>申込済</option>'+
       '<option value="no"'+(ui.fApply==="no"?" selected":"")+'>未申込</option></select>'+
@@ -2341,9 +2357,21 @@ function renderRivalCards(){
 function custApplyHTML(c, ed){
   return '<div class="fset"><h4>申込</h4>'+applyRowHTML(c, ed, "cApd_")+'</div>';
 }
+/* 要フォローの出し入れ：自動／要フォローにする／様子見（期限つき可） */
+function followFormHTML(c, ed, attr){
+  const mode = c.followMode||"", hold = followHold(c);
+  const state = c.contracted||c.lost? "契約済・没のお客様は対象外です" : needsFollow(c)? '<b style="color:var(--danger)">いま：要フォロー</b>' : (hold? '<b>いま：様子見中（要フォローに出ません）</b>' : '<b>いま：要フォローではありません</b>');
+  const a = k => attr==="f" ? 'data-f="'+k+'"' : 'data-'+k+'="'+c.id+'"';
+  return '<div class="fw-now">'+state+'</div>'+
+    (ed? '<div class="grid2"><div><label class="lb">要フォローの扱い</label><select '+a("followMode")+'>'+Object.entries(FOLLOW_MODE).map(([k,v])=>'<option value="'+k+'"'+(mode===k?" selected":"")+'>'+v+'</option>').join("")+'</select></div>'+
+      (mode==="off"? '<div><label class="lb">様子見はいつまで（空欄＝ずっと）</label><input type="date" '+a("followUntil")+' value="'+esc(c.followUntil||"")+'"></div>' : '<div></div>')+
+      (mode==="off"||mode==="on"? '<div class="span2"><label class="lb">理由・メモ</label><input type="text" '+a("followNote")+' value="'+esc(c.followNote||"")+'" placeholder="例：連絡がつかない。来月また連絡する"></div>' : '')+'</div>'
+    : '<div class="small muted">'+esc(FOLLOW_MODE[mode]||"")+(c.followNote? '　'+esc(c.followNote):'')+'</div>')+
+    '<p class="tiny faint" style="margin-top:8px">自動：次回の面談予定がなく、最後に会って14日以上たつと要フォローになります。ずっとアポが取れないが没にもできないお客様は「様子見」にすると、要フォローの一覧から外れます。</p>';
+}
 function custMeet(c, ed){
   const ms = meetingsOf(c);
-  let h = custApplyHTML(c, ed);
+  let h = custApplyHTML(c, ed)+'<div class="fset"><h4>フォロー</h4>'+followFormHTML(c, ed, "f")+'</div>';
   if(ms.length){
     h += '<div class="fset"><h4>これまでの流れ</h4><div class="tl">'+ms.map(m=>{
       const done = meetingDone(m), hasNote = !!(m.note||"").trim();
@@ -2492,6 +2520,8 @@ function collectCustomer(){
 }
 function bindCustExtras(c, ed){
   /* 土地の状況を変えたら、出す欄を切り替える */
+  const fsel = $(".drawer [data-f='followMode']");
+  if(fsel) fsel.addEventListener("change",()=>{ collectCustomer(); paintCustomer(); });
   const lsel = $(".drawer [data-f='landStatus']");
   if(lsel) lsel.addEventListener("change",()=>{ collectCustomer(); paintCustomer(); });
   bindZip($(".drawer [data-f='landZip']"), $(".drawer [data-f='landAddress']"), true);
@@ -3627,6 +3657,7 @@ function detailHTML(c, wk){
         .map(o=>'<option value="'+o[0]+'"'+((c.forecast||"")===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div>'+
       applyRowHTML(c, canEditCustomer(c), "apd_")+'</div>'+
     detailLandHTML(c)+
+    '<div class="fset"><h4>フォロー</h4>'+followFormHTML(c, canEditCustomer(c), "p")+'</div>'+
     '<div class="fset"><h4>競合</h4>'+rivalBoxHTML(c, canEditCustomer(c), "rvP_")+'</div>'+
     '<div class="fset">'+weekHTML(c, wk)+'</div>'+
     '<div class="fset">'+cmtHTML(c)+'</div>';
@@ -3652,6 +3683,10 @@ function bindDetail(root, wk, repaint, cid){
   root.querySelectorAll("[data-yf]").forEach(el=>el.addEventListener("change",()=>quickUpdate(el.dataset.yf,{forecast:el.value}).then(later)));
   bindApplyRow(root, (id,date)=>quickUpdate(id,{applied:true, appliedDate:date}).then(later),
     id=>quickUpdate(id,{applied:false, appliedDate:""}).then(later));
+  root.querySelectorAll("[data-followMode]").forEach(el=>el.addEventListener("change",()=>
+    quickUpdate(el.dataset.followmode, el.value==="off"? {followMode:"off"} : {followMode:el.value, followUntil:""}).then(later)));
+  root.querySelectorAll("[data-followUntil]").forEach(el=>el.addEventListener("change",()=>quickUpdate(el.dataset.followuntil,{followUntil:el.value})));
+  root.querySelectorAll("[data-followNote]").forEach(el=>el.addEventListener("change",()=>quickUpdate(el.dataset.follownote,{followNote:el.value.trim()})));
   root.querySelectorAll("[data-lsel]").forEach(el=>el.addEventListener("change",()=>quickUpdate(el.dataset.lsel,{landStatus:el.value}).then(later)));
   root.querySelectorAll("[data-ladr]").forEach(el=>el.addEventListener("change",()=>quickUpdate(el.dataset.ladr,{landAddress:el.value.trim()})));
   root.querySelectorAll("[data-lwish]").forEach(el=>el.addEventListener("change",()=>quickUpdate(el.dataset.lwish,{wishArea:el.value.trim()})));
