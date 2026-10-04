@@ -843,9 +843,8 @@ const rivalNames = c => rivalsOf(c).map(r=>r.name);
 function allRivalNames(){ const m=new Map(); const put=n=>{ const k=rvKey(n); if(k && !m.has(k)) m.set(k,n); };
   rivalNotes.forEach(x=>put(x.name)); customers.forEach(c=>rivalNames(c).forEach(put));
   return [...m.values()].sort((a,b)=>a.localeCompare(b,"ja")); }
-const LOAN = {none:"未実施",applied:"事前審査申込中",approved:"事前審査承認",main:"本申込承認"};
-/* 以前の「否決」は、選ばれているお客様にだけ選択肢として残す */
-const LOAN_OLD = {rejected:"否決"};
+const LOAN = {none:"未実施",applied:"事前審査申込中",approved:"事前審査承認",main:"本申込承認",rejected:"否決"};
+const LOAN_OLD = {};
 const loanLabel = k => LOAN[k] || LOAN_OLD[k] || "";
 const EVT = {
   visit:"来場", meeting:"社内打合せ", event:"見学会・イベント", cere:"地鎮祭・上棟", hand:"引渡し", other:"その他",
@@ -2621,6 +2620,7 @@ function custMoney(c, ed){
     fld("借入希望額", ed?inp("loanWish",c.loanWish,"number",'min="0"'):ro(man(c.loanWish)))+
     fld("総予算", ed?inp("budgetTotal",c.budgetTotal,"number",'min="0"'):ro(man(c.budgetTotal)))+
     fld("ローン審査", ed?sel("loanScreen",c.loanScreen,Object.entries(LOAN).concat(LOAN_OLD[c.loanScreen]? [[c.loanScreen, LOAN_OLD[c.loanScreen]]] : [])):ro(loanLabel(c.loanScreen)),"span2")+
+    fld("金融機関", ed?inp("bank",c.bank,"text",'list="bankList" placeholder="例：北國銀行 〇〇支店"'):ro(c.bank),"span2")+'<datalist id="bankList">'+[...new Set(customers.map(x=>x.bank).filter(Boolean))].map(b=>'<option value="'+esc(b)+'">').join("")+'</datalist>'+
     '</div>'+(total? '<div class="note" style="margin-top:11px">自己資金＋借入希望＝<b class="num">'+man(total)+'</b> 万円'+
       (c.budgetTotal!==""&&c.budgetTotal!=null? '（総予算との差 <span class="num">'+man(total-num(c.budgetTotal))+'</span> 万円）':'')+'</div>':'')+'</div>';
   h += '<div class="fset"><h4>契約</h4><div class="grid3">'+
@@ -3335,14 +3335,14 @@ function renderReport(root){
 async function exportCSV(){
   const list = view==="customers" ? filteredCustomers() : scoped();
   const head=["ランク","顧客名","ふりがな","会社","担当者","状況","ステージ","問合せ日","反響経路","展示場",
-    "電話","メール","住所","土地状況","希望エリア","世帯年収(万)","自己資金(万)","借入希望(万)","総予算(万)","ローン審査",
+    "電話","メール","住所","土地状況","希望エリア","世帯年収(万)","自己資金(万)","借入希望(万)","総予算(万)","ローン審査","金融機関",
     "提案商品","本命商品","建築希望時期","確度","契約目標日","見込み金額(万)","年齢","建設予定地","種別","申込","設計担当","問題点","土地住所","土地代(万)","競合","面談回数","次回アポ","最終接触","直近の面談メモ","契約日","契約金額(万)","粗利(万)","没日","没理由","メモ"];
   const q = v => '"'+String(v==null?"":v).replace(/"/g,'""').replace(/\r?\n/g," ")+'"';
   const lines=[head.map(q).join(",")].concat(list.map(c=>{
     const ld=lastDoneMeeting(c);
     return [c.rank, c.name, c.kana, companyName(c.companyId), staffName(c.ownerId), statusOf(c).label,
       STAGE_NAME[c.stage]||"", c.inquiryDate, c.source, c.showroom, c.tel, c.email, c.address,
-      LAND[c.landStatus]||"", c.wishArea, c.income, c.savings, c.loanWish, c.budgetTotal, loanLabel(c.loanScreen),
+      LAND[c.landStatus]||"", c.wishArea, c.income, c.savings, c.loanWish, c.budgetTotal, loanLabel(c.loanScreen), c.bank||"",
       (c.products||[]).map(p=>productName(c.companyId,p)).join(" / "),
       c.mainProductId? productName(c.companyId,c.mainProductId):"", c.buildTiming,
       c.forecast&&FORECAST[c.forecast]? FORECAST[c.forecast].mark : "", c.goalDate||c.expectedMonth||"", c.expectedAmount,
