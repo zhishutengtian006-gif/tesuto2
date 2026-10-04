@@ -2205,7 +2205,7 @@ function rvAttackHTML(r, ed, c){
   if(!ed) return r.attack? '<div class="rvatk"><div class="tiny faint">今の攻め方'+(r.attackBy? '（'+esc(r.attackBy)+'）':'')+'</div><div class="small" style="white-space:pre-wrap">'+esc(r.attack)+'</div></div>' : '';
   return '<div class="rvatk"><label class="tiny faint">今の攻め方（くわしく）'+(r.attackAt? '　'+esc(r.attackBy||"")+' '+esc(r.attackAt):'')+'</label>'+
     '<textarea data-rvp="'+esc(r.id)+'|attack" rows="3" placeholder="例：標準仕様の比較表で総額の差を見せる。次回は断熱の体感見学に誘う。相手は値引きを先に出してきている">'+esc(r.attack||"")+'</textarea>'+
-    (closed? '' : '<p class="tiny faint" style="margin-top:4px">契約・没になると、自動で「過去の攻め手」に移り、要約されます。</p>')+'</div>';
+    (closed? '' : '<p class="tiny faint" style="margin-top:4px">契約・没になると、自動で「過去の攻め手」に移'+(SAMPLE?'り、要約されます':'ります')+'。</p>')+'</div>';
 }
 /* お客様の競合欄の下に出す参照カード */
 function rivalRefHTML(list, ed, c){
@@ -2381,14 +2381,14 @@ function paintRvn(){
           (canOpen? '<a class="link" data-rvcust="'+c.id+'" style="cursor:pointer">'+esc(c.name||"（無名）")+'</a>' : '<b>'+esc(c.name||"（無名）")+'</b>')+
           esc(r.attackBy||staffName(c.ownerId))+(r.attackAt? ' ／ '+esc(r.attackAt):'')+'</div><div class="tx">'+esc(r.attack)+'</div></div>').join("")
         : '<p class="tiny faint">お客様の競合欄（カルテ・詳細パネル）の「今の攻め方」に書くと、ここに集まります。</p>')+
-      '<p class="tiny faint" style="margin-top:6px">契約・没になると、自動で下の「過去の攻め手」に移り、要約されます（くわしい内容も残ります）。</p></div>'+
+      '<p class="tiny faint" style="margin-top:6px">契約・没になると、自動で下の「過去の攻め手」に移'+(SAMPLE?'り、要約されます（くわしい内容も残ります）':'ります')+'。</p></div>'+
     '<div class="fset"><h4>過去の攻め手（どう攻めて、どうなったか）'+(rvn.sumBusy? '　<span class="chip warn">要約しています…</span>':'')+'</h4>'+
       '<div class="row" style="gap:8px;align-items:flex-start;flex-wrap:wrap"><textarea id="rvnTxt" rows="2" style="flex:1 1 260px;min-height:60px;max-height:150px" placeholder="例：標準仕様で比較表を作り、総額で逆転。見積は先に出さず、住み心地を体感してもらった"></textarea>'+
       '<div style="display:grid;gap:6px"><select id="rvnRes">'+Object.entries(RV_RES).map(([k,v])=>'<option value="'+k+'"'+(rvn.res===k?" selected":"")+'>'+v+'</option>').join("")+'</select>'+
       '<button type="button" class="btn primary sm" id="rvnAdd">書き足す</button></div></div>'+
       '<div style="margin-top:12px">'+(tactics.length? tactics.map(t=>'<div class="rvt"><div class="th">'+
         (t.result? '<span class="chip'+(t.result==="won"?" ok":"")+'">'+esc(RV_RES[t.result]||"")+'</span>':'')+esc(t.date||"")+' ／ '+esc(t.by||"")+
-        (t.auto? '<span class="chip">商談から自動</span>':'')+(t.needSum? '<span class="chip warn">要約待ち</span>':'')+
+        (t.auto? '<span class="chip">商談から自動</span>':'')+(t.needSum && SAMPLE? '<span class="chip warn">要約待ち</span>':'')+
         '<div class="grow"></div><button type="button" class="btn sm ghost" data-rvtdel="'+esc(t.id)+'">消す</button></div><div class="tx">'+esc(t.text)+'</div>'+
         (t.detail && t.detail!==t.text? '<details class="rvdet"><summary class="tiny">くわしく見る</summary><div class="tx small muted" style="margin-top:4px">'+esc(t.detail)+'</div></details>':'')+'</div>').join("")
         : '<p class="tiny faint">まだ書かれていません。うまくいった攻め方も、失敗した攻め方も、残しておくと次の商談で使えます。</p>')+'</div></div>'+
@@ -2396,7 +2396,7 @@ function paintRvn(){
       '<div class="rvtool"><a class="btn sm" target="_blank" rel="noopener" href="https://www.google.com/search?q='+encodeURIComponent(rvn.name+' 坪単価 UA値 C値 標準仕様')+'">ネットで調べる</a>'+
       (SAMPLE? '<button type="button" class="btn sm" id="rvnAi"'+(rvn.aiBusy?' disabled':'')+'>'+(rvn.aiBusy? '作っています…' : 'AIで下書き')+'</button>' : '')+
       ((nt.aiDraft||rvn.ai)? '<span class="chip warn">AI下書き・要確認</span><button type="button" class="btn sm ghost" id="rvnAiOk">確認した</button>' : '')+
-      '<span class="tiny faint">AIの下書きはネットを見ていない目安です。必ず公式サイトで確かめてください。</span></div>'+
+      (SAMPLE? '<span class="tiny faint">AIの下書きはネットを見ていない目安です。必ず公式サイトで確かめてください。</span>' : '')+'</div>'+
       '<div class="grid2 rvspec">'+RV_SPEC.map(x=>{
         const id=x[0], v=d[id]||"";
         return '<div><label class="lb">'+x[1]+'</label>'+(x[2]==="sel"

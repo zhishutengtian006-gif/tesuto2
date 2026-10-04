@@ -17,6 +17,10 @@ TEXT_SWAPS = [
   'Firebase の設定がまだのようです。docs/firebase-config.js に、ご自身の Firebase プロジェクトの設定を貼り付けてください。設定済みで出る場合は、通信が遮断されているか、Firestore のルールで読み書きが許可されていません。'),
  ('この画面ではGoogleカレンダー連携を使えません。公開されたリンクから開き直してください。',
   'Googleカレンダー連携は、この版では使えません（Claude で公開した版のみの機能です）。'),
+ # AI（Claude）の機能はこの版に無いので、案内ごと出さない
+ ('''      : '<p class="tiny faint" style="margin-bottom:11px">文字起こしから議事録を作る機能は、Claude で公開した版でのみ使えます。</p>')+''',
+  '''      : '')+'''),
+ ('文字起こしを貼ると Claude が議事録にまとめます（Claude版のみ）。', ''),
 ]
 
 HEAD = '''<!doctype html>
@@ -75,15 +79,25 @@ SHIM = '''
 </script>
 <script src="firebase-config.js"></script>
 <script type="module">
-import { initializeApp } from "__FB__/firebase-app.js";
-import { getFirestore, doc, collection, onSnapshot, setDoc, deleteDoc, addDoc }
-  from "__FB__/firebase-firestore.js";
-
 const cfg = window.FIREBASE_CONFIG || {};
 const notSet = !cfg.projectId || String(cfg.projectId).indexOf("ここに") === 0;
 if(notSet){
-  window.__crmResolveDb(null);          /* 設定待ちの画面が出る */
+  /* Firebase の設定がまだのときは「お試し版」：この端末のブラウザの中だけに保存する */
+  window.__crmResolveDb(makeLocalDb());
+  const showBar = () => document.body.insertAdjacentHTML("afterbegin",
+    '<div id="demoBar" style="position:sticky;top:0;z-index:300;background:#7a5b14;color:#fff;font-size:12px;line-height:1.5;padding:6px 12px;text-align:center">'+
+    'お試し版：入力した内容は<b>この端末のこのブラウザだけ</b>に保存され、他の人とは共有されません'+
+    '<button type="button" id="demoReset" style="margin-left:10px;font-size:11px;border:1px solid rgba(255,255,255,.6);background:none;color:#fff;border-radius:99px;padding:1px 9px;cursor:pointer">お試しデータを消す</button></div>');
+  if(document.body) showBar(); else document.addEventListener("DOMContentLoaded", showBar);
+  document.addEventListener("click", e => {
+    if(e.target && e.target.id === "demoReset" && confirm("お試しで入れた内容（パスワード・名簿・お客様など）をすべて消して、最初からにします。よろしいですか？")){
+      try{ localStorage.removeItem("crm-demo-v1"); localStorage.removeItem("crm.login"); }catch(_){}
+      location.reload();
+    }
+  });
 }else{
+  const { initializeApp } = await import("__FB__/firebase-app.js");
+  const { getFirestore, doc, collection, onSnapshot, setDoc, deleteDoc, addDoc } = await import("__FB__/firebase-firestore.js");
   const db = getFirestore(initializeApp(cfg));
   /* undefined を含む値は Firestore が受け付けないため、JSON を通して落とす */
   const clean = o => JSON.parse(JSON.stringify(o == null ? {} : o));
@@ -106,6 +120,35 @@ if(notSet){
     add: async o => ({ id: (await addDoc(collection(db, name), clean(o))).id }),
   });
   window.__crmResolveDb({ doc: wrapDoc, collection: wrapCol });
+}
+
+/* お試し版のデータ置き場（localStorage）。Firestore と同じ呼び方で使えるようにする */
+function makeLocalDb(){
+  const KEY = "crm-demo-v1";
+  let data = {};
+  try{ data = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; }catch(e){ data = {}; }
+  const ls = new Set();
+  const clone = o => JSON.parse(JSON.stringify(o == null ? {} : o));
+  const save = () => { try{ localStorage.setItem(KEY, JSON.stringify(data)); }catch(e){} };
+  const notify = () => setTimeout(() => ls.forEach(f => { try{ f(); }catch(e){} }), 0);
+  /* 同じ端末の別タブで変えたときも反映する */
+  window.addEventListener("storage", e => { if(e.key === KEY){ try{ data = JSON.parse(e.newValue || "{}") || {}; }catch(_){} notify(); } });
+  const split = p => { const i = p.indexOf("/"); return [p.slice(0, i), p.slice(i + 1)]; };
+  const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const col = c => (data[c] = data[c] || {});
+  const wrapDoc = path => { const [c, id] = split(path); return {
+    onSnapshot(cb){ const f = () => { const v = data[c] && data[c][id]; cb({ exists: !!v, data: () => clone(v) }); };
+      ls.add(f); setTimeout(f, 0); return () => ls.delete(f); },
+    set:    async o => { col(c)[id] = clone(o); save(); notify(); },
+    update: async o => { col(c)[id] = Object.assign({}, col(c)[id] || {}, clone(o)); save(); notify(); },
+    delete: async () => { if(data[c]) delete data[c][id]; save(); notify(); },
+  }; };
+  const wrapCol = c => ({
+    onSnapshot(cb){ const f = () => cb({ docs: Object.entries(data[c] || {}).map(([id, v]) => ({ id, data: () => clone(v) })) });
+      ls.add(f); setTimeout(f, 0); return () => ls.delete(f); },
+    add: async o => { const id = newId(); col(c)[id] = clone(o); save(); notify(); return { id }; },
+  });
+  return { doc: wrapDoc, collection: wrapCol };
 }
 </script>
 '''

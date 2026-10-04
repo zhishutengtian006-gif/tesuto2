@@ -52,15 +52,25 @@
 </script>
 <script src="firebase-config.js"></script>
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import { getFirestore, doc, collection, onSnapshot, setDoc, deleteDoc, addDoc }
-  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
-
 const cfg = window.FIREBASE_CONFIG || {};
 const notSet = !cfg.projectId || String(cfg.projectId).indexOf("ここに") === 0;
 if(notSet){
-  window.__crmResolveDb(null);          /* 設定待ちの画面が出る */
+  /* Firebase の設定がまだのときは「お試し版」：この端末のブラウザの中だけに保存する */
+  window.__crmResolveDb(makeLocalDb());
+  const showBar = () => document.body.insertAdjacentHTML("afterbegin",
+    '<div id="demoBar" style="position:sticky;top:0;z-index:300;background:#7a5b14;color:#fff;font-size:12px;line-height:1.5;padding:6px 12px;text-align:center">'+
+    'お試し版：入力した内容は<b>この端末のこのブラウザだけ</b>に保存され、他の人とは共有されません'+
+    '<button type="button" id="demoReset" style="margin-left:10px;font-size:11px;border:1px solid rgba(255,255,255,.6);background:none;color:#fff;border-radius:99px;padding:1px 9px;cursor:pointer">お試しデータを消す</button></div>');
+  if(document.body) showBar(); else document.addEventListener("DOMContentLoaded", showBar);
+  document.addEventListener("click", e => {
+    if(e.target && e.target.id === "demoReset" && confirm("お試しで入れた内容（パスワード・名簿・お客様など）をすべて消して、最初からにします。よろしいですか？")){
+      try{ localStorage.removeItem("crm-demo-v1"); localStorage.removeItem("crm.login"); }catch(_){}
+      location.reload();
+    }
+  });
 }else{
+  const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js");
+  const { getFirestore, doc, collection, onSnapshot, setDoc, deleteDoc, addDoc } = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js");
   const db = getFirestore(initializeApp(cfg));
   /* undefined を含む値は Firestore が受け付けないため、JSON を通して落とす */
   const clean = o => JSON.parse(JSON.stringify(o == null ? {} : o));
@@ -83,6 +93,35 @@ if(notSet){
     add: async o => ({ id: (await addDoc(collection(db, name), clean(o))).id }),
   });
   window.__crmResolveDb({ doc: wrapDoc, collection: wrapCol });
+}
+
+/* お試し版のデータ置き場（localStorage）。Firestore と同じ呼び方で使えるようにする */
+function makeLocalDb(){
+  const KEY = "crm-demo-v1";
+  let data = {};
+  try{ data = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; }catch(e){ data = {}; }
+  const ls = new Set();
+  const clone = o => JSON.parse(JSON.stringify(o == null ? {} : o));
+  const save = () => { try{ localStorage.setItem(KEY, JSON.stringify(data)); }catch(e){} };
+  const notify = () => setTimeout(() => ls.forEach(f => { try{ f(); }catch(e){} }), 0);
+  /* 同じ端末の別タブで変えたときも反映する */
+  window.addEventListener("storage", e => { if(e.key === KEY){ try{ data = JSON.parse(e.newValue || "{}") || {}; }catch(_){} notify(); } });
+  const split = p => { const i = p.indexOf("/"); return [p.slice(0, i), p.slice(i + 1)]; };
+  const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const col = c => (data[c] = data[c] || {});
+  const wrapDoc = path => { const [c, id] = split(path); return {
+    onSnapshot(cb){ const f = () => { const v = data[c] && data[c][id]; cb({ exists: !!v, data: () => clone(v) }); };
+      ls.add(f); setTimeout(f, 0); return () => ls.delete(f); },
+    set:    async o => { col(c)[id] = clone(o); save(); notify(); },
+    update: async o => { col(c)[id] = Object.assign({}, col(c)[id] || {}, clone(o)); save(); notify(); },
+    delete: async () => { if(data[c]) delete data[c][id]; save(); notify(); },
+  }; };
+  const wrapCol = c => ({
+    onSnapshot(cb){ const f = () => cb({ docs: Object.entries(data[c] || {}).map(([id, v]) => ({ id, data: () => clone(v) })) });
+      ls.add(f); setTimeout(f, 0); return () => ls.delete(f); },
+    add: async o => { const id = newId(); col(c)[id] = clone(o); save(); notify(); return { id }; },
+  });
+  return { doc: wrapDoc, collection: wrapCol };
 }
 </script>
 
@@ -2293,7 +2332,7 @@ function rvAttackHTML(r, ed, c){
   if(!ed) return r.attack? '<div class="rvatk"><div class="tiny faint">今の攻め方'+(r.attackBy? '（'+esc(r.attackBy)+'）':'')+'</div><div class="small" style="white-space:pre-wrap">'+esc(r.attack)+'</div></div>' : '';
   return '<div class="rvatk"><label class="tiny faint">今の攻め方（くわしく）'+(r.attackAt? '　'+esc(r.attackBy||"")+' '+esc(r.attackAt):'')+'</label>'+
     '<textarea data-rvp="'+esc(r.id)+'|attack" rows="3" placeholder="例：標準仕様の比較表で総額の差を見せる。次回は断熱の体感見学に誘う。相手は値引きを先に出してきている">'+esc(r.attack||"")+'</textarea>'+
-    (closed? '' : '<p class="tiny faint" style="margin-top:4px">契約・没になると、自動で「過去の攻め手」に移り、要約されます。</p>')+'</div>';
+    (closed? '' : '<p class="tiny faint" style="margin-top:4px">契約・没になると、自動で「過去の攻め手」に移'+(SAMPLE?'り、要約されます':'ります')+'。</p>')+'</div>';
 }
 /* お客様の競合欄の下に出す参照カード */
 function rivalRefHTML(list, ed, c){
@@ -2469,14 +2508,14 @@ function paintRvn(){
           (canOpen? '<a class="link" data-rvcust="'+c.id+'" style="cursor:pointer">'+esc(c.name||"（無名）")+'</a>' : '<b>'+esc(c.name||"（無名）")+'</b>')+
           esc(r.attackBy||staffName(c.ownerId))+(r.attackAt? ' ／ '+esc(r.attackAt):'')+'</div><div class="tx">'+esc(r.attack)+'</div></div>').join("")
         : '<p class="tiny faint">お客様の競合欄（カルテ・詳細パネル）の「今の攻め方」に書くと、ここに集まります。</p>')+
-      '<p class="tiny faint" style="margin-top:6px">契約・没になると、自動で下の「過去の攻め手」に移り、要約されます（くわしい内容も残ります）。</p></div>'+
+      '<p class="tiny faint" style="margin-top:6px">契約・没になると、自動で下の「過去の攻め手」に移'+(SAMPLE?'り、要約されます（くわしい内容も残ります）':'ります')+'。</p></div>'+
     '<div class="fset"><h4>過去の攻め手（どう攻めて、どうなったか）'+(rvn.sumBusy? '　<span class="chip warn">要約しています…</span>':'')+'</h4>'+
       '<div class="row" style="gap:8px;align-items:flex-start;flex-wrap:wrap"><textarea id="rvnTxt" rows="2" style="flex:1 1 260px;min-height:60px;max-height:150px" placeholder="例：標準仕様で比較表を作り、総額で逆転。見積は先に出さず、住み心地を体感してもらった"></textarea>'+
       '<div style="display:grid;gap:6px"><select id="rvnRes">'+Object.entries(RV_RES).map(([k,v])=>'<option value="'+k+'"'+(rvn.res===k?" selected":"")+'>'+v+'</option>').join("")+'</select>'+
       '<button type="button" class="btn primary sm" id="rvnAdd">書き足す</button></div></div>'+
       '<div style="margin-top:12px">'+(tactics.length? tactics.map(t=>'<div class="rvt"><div class="th">'+
         (t.result? '<span class="chip'+(t.result==="won"?" ok":"")+'">'+esc(RV_RES[t.result]||"")+'</span>':'')+esc(t.date||"")+' ／ '+esc(t.by||"")+
-        (t.auto? '<span class="chip">商談から自動</span>':'')+(t.needSum? '<span class="chip warn">要約待ち</span>':'')+
+        (t.auto? '<span class="chip">商談から自動</span>':'')+(t.needSum && SAMPLE? '<span class="chip warn">要約待ち</span>':'')+
         '<div class="grow"></div><button type="button" class="btn sm ghost" data-rvtdel="'+esc(t.id)+'">消す</button></div><div class="tx">'+esc(t.text)+'</div>'+
         (t.detail && t.detail!==t.text? '<details class="rvdet"><summary class="tiny">くわしく見る</summary><div class="tx small muted" style="margin-top:4px">'+esc(t.detail)+'</div></details>':'')+'</div>').join("")
         : '<p class="tiny faint">まだ書かれていません。うまくいった攻め方も、失敗した攻め方も、残しておくと次の商談で使えます。</p>')+'</div></div>'+
@@ -2484,7 +2523,7 @@ function paintRvn(){
       '<div class="rvtool"><a class="btn sm" target="_blank" rel="noopener" href="https://www.google.com/search?q='+encodeURIComponent(rvn.name+' 坪単価 UA値 C値 標準仕様')+'">ネットで調べる</a>'+
       (SAMPLE? '<button type="button" class="btn sm" id="rvnAi"'+(rvn.aiBusy?' disabled':'')+'>'+(rvn.aiBusy? '作っています…' : 'AIで下書き')+'</button>' : '')+
       ((nt.aiDraft||rvn.ai)? '<span class="chip warn">AI下書き・要確認</span><button type="button" class="btn sm ghost" id="rvnAiOk">確認した</button>' : '')+
-      '<span class="tiny faint">AIの下書きはネットを見ていない目安です。必ず公式サイトで確かめてください。</span></div>'+
+      (SAMPLE? '<span class="tiny faint">AIの下書きはネットを見ていない目安です。必ず公式サイトで確かめてください。</span>' : '')+'</div>'+
       '<div class="grid2 rvspec">'+RV_SPEC.map(x=>{
         const id=x[0], v=d[id]||"";
         return '<div><label class="lb">'+x[1]+'</label>'+(x[2]==="sel"
@@ -4269,7 +4308,7 @@ function mtgNotes(box, d, per){
   h += '<div class="fset"><h4>議事録</h4>'+
     (SAMPLE? '<div class="row" style="gap:8px;margin-bottom:11px;flex-wrap:wrap"><button class="btn" id="mgAi" type="button">文字起こしから議事録を作る</button>'+
       '<span class="tiny faint">会議の文字起こしを貼ると、Claude が要点・決定事項・宿題に整理します</span></div>'
-      : '<p class="tiny faint" style="margin-bottom:11px">文字起こしから議事録を作る機能は、Claude で公開した版でのみ使えます。</p>')+
+      : '')+
     '<textarea id="mgNotes" style="min-height:280px" placeholder="共有事項・決定事項・担当者ごとの報告など">'+esc(d.notes)+'</textarea></div>';
   h += '</div><div>';
   h += '<div class="fset"><h4>宿題（次の会議まで）</h4><div id="mgActs">'+
@@ -4658,7 +4697,7 @@ function openHelp(){
       'カードをドラッグ（スマホは ◀ ▶）して工程を進め、お客様ごとに<b>契約目標日</b>と<b>今週やること</b>を決めます。翌週は「前回やること」ができたかをチェックします。</li>'+
       '<li><b>② 数字</b><br>月の契約目標に対して、契約済と◎の見込みを足した<b>着地予想</b>を担当者ごとに見ます。目標は右上の「目標を設定」から。</li>'+
       '<li><b>③ 今週の動き</b><br>前回の会議からの契約・工程の前進・新しい反響・面談・没と、次の7日の面談予定。</li>'+
-      '<li><b>④ 議事録・宿題</b><br>決まったことと宿題を書き、「TODOに登録」で各担当に配ります。文字起こしを貼ると Claude が議事録にまとめます（Claude版のみ）。</li>'+
+      '<li><b>④ 議事録・宿題</b><br>決まったことと宿題を書き、「TODOに登録」で各担当に配ります。</li>'+
     '</ol><p class="tiny faint" style="margin-top:10px">最後に「この会議を保存」を押すと、その時点の数字も控えられ、次回に前回からの増減が出ます。</p></div>'+
     '<div class="fset"><h4>編集できる範囲</h4><p class="small muted">見えている会社のお客様は、担当者を問わず誰でも編集できます。'+
     '同じ会社の中で役職による制限はありません。会社をまたいだ閲覧だけが、ログイン時のパスワードで分かれています。</p></div>';
