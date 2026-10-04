@@ -541,6 +541,16 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
   border-radius:0 100px 100px 0;padding:6px 9px 6px 6px;font-size:12px;line-height:1.2}
 .pchip-x:hover{color:var(--danger);background:var(--danger-bg)}
 
+.lnd{font-size:10.5px;padding:0 7px;border-radius:100px;white-space:nowrap;background:var(--surface3);color:var(--faint);font-weight:500}
+.lnd.ok{background:var(--ok-bg);color:var(--ok);font-weight:700} .lnd.warn{background:var(--rank-b-bg);color:var(--rank-b)}
+.landrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.fset.land-decided{border-color:var(--ok);background:color-mix(in srgb,var(--ok-bg) 45%,var(--surface))}
+.sc-land{display:flex;align-items:center;gap:6px;min-width:0}
+.rv-chips{display:flex;flex-wrap:wrap;gap:6px}
+.rv{display:inline-flex;align-items:center;gap:4px;background:var(--rank-a-bg);color:var(--rank-a);border-radius:100px;padding:2px 4px 2px 10px;font-size:12.5px;font-weight:500}
+.rv button{border:0;background:none;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:2px 6px;border-radius:100px;opacity:.7}
+.rv button:hover{opacity:1;background:rgba(0,0,0,.08)}
+
 /* ---------- シート：週タブ ---------- */
 .wk-tabs{display:flex;gap:3px;flex-wrap:wrap}
 .wk-tab{flex:none;border:1px solid var(--border);background:var(--surface);border-radius:4px;padding:2px 6px;cursor:pointer;
@@ -679,7 +689,18 @@ const STAGE_NAME = Object.fromEntries(STAGES.map(s=>[s.id,s.name]));
 Object.entries(STAGE_ALIAS).forEach(([a,b])=>{ STAGE_NAME[a] = STAGE_NAME[b]; });
 const BUILD_TYPES = ["新築","建替え","土地セット","モデル購入","リフォーム","その他"];
 const SOURCES = ["SUUMO","自社HP","完成見学会","モデルハウス","展示場","紹介","チラシ・折込","SNS","看板・通りがかり","不動産会社","その他"];
-const LAND = {own:"所有している",contracted:"契約済み",searching:"探している",none:"未定"};
+const LAND = {searching:"探している", decided:"土地決定", own:"土地あり（所有）", none:"未定"};
+const LAND_ALIAS = {contracted:"decided"};   /* 以前の「契約済み」は「土地決定」に読み替える */
+const LAND_CHIP = {decided:["ok","土地決定"], own:["ok","土地あり"], searching:["warn","土地探し中"], none:["","土地未定"]};
+const landKey = c => LAND[c.landStatus] ? c.landStatus : "none";
+function landChip(c){ const [cls,t]=LAND_CHIP[landKey(c)]; return '<span class="lnd '+cls+'">'+t+'</span>'; }
+/* ---------- 競合 ---------- */
+function rivalsOf(c){
+  if(Array.isArray(c.rivals)) return c.rivals;
+  return String(c.competitors||"").split(/[、,，\/・\n]+/).map(x=>x.trim()).filter(Boolean).map(n=>({id:"t_"+n, name:n}));
+}
+const rivalNames = c => rivalsOf(c).map(r=>r.name);
+function allRivalNames(){ const set=new Set(); customers.forEach(c=>rivalNames(c).forEach(n=>set.add(n))); return [...set].sort((a,b)=>a.localeCompare(b,"ja")); }
 const LOAN = {none:"未実施",applied:"申込中",approved:"承認",rejected:"否決"};
 const EVT = {
   visit:"来場", meeting:"社内打合せ", event:"見学会・イベント", cere:"地鎮祭・上棟", hand:"引渡し", other:"その他",
@@ -702,7 +723,7 @@ let loaded = { auth:false, staff:false, customers:false, events:false, todos:fal
 let me = null, view = "dash", unsubs = [];
 const ui = {
   scope:"all", scopeRep:"",
-  rankTab:"all", fStage:"", fProduct:"", fStatus:"", fQuery:"", fAlert:false, fApply:"", fy:"",
+  rankTab:"all", fStage:"", fProduct:"", fStatus:"", fQuery:"", fAlert:false, fApply:"", fLand:"", fy:"",
   calYM:null, calDay:"", todoTab:"open", reportBy:"owner", adminTab:"pw", sort:{key:"next",dir:1},
   mtgMonth:"", mtgTab:"sheet",
 };
@@ -926,7 +947,7 @@ function subscribeData(){
   const sub=(name,setter)=>DB.collection(name).onSnapshot(s=>{
     setter(s.docs.map(d=>({id:d.id, ...d.data()}))); loaded[name]=true; refreshCurrent();
   }, ()=>{ loaded[name]=true; refreshCurrent(); });
-  unsubs.push(sub("customers", v=>{ v.forEach(c=>{ if(STAGE_ALIAS[c.stage]) c.stage=STAGE_ALIAS[c.stage]; }); customers=v; }));
+  unsubs.push(sub("customers", v=>{ v.forEach(c=>{ if(STAGE_ALIAS[c.stage]) c.stage=STAGE_ALIAS[c.stage]; if(LAND_ALIAS[c.landStatus]) c.landStatus=LAND_ALIAS[c.landStatus]; }); customers=v; }));
   unsubs.push(sub("events", v=>events=v));
   unsubs.push(sub("todos", v=>{ todos=v.filter(t=>!t.deleted); todoTrash=v.filter(t=>t.deleted); }));
   unsubs.push(sub("goals", v=>goals=v));
@@ -1090,7 +1111,8 @@ function meetingGBody(c, m){
   if(ps.length) L.push("提案商品：" + ps.join("、"));
   if(c.tel) L.push("連絡先：" + c.tel);
   if(c.budgetTotal!=="" && c.budgetTotal!=null) L.push("総予算：" + man(c.budgetTotal) + " 万円");
-  if(c.landStatus) L.push("土地：" + (LAND[c.landStatus]||"—") + (c.wishArea? "／希望エリア "+c.wishArea : ""));
+  if(c.landStatus) L.push("土地：" + (LAND[c.landStatus]||"—") + (c.landAddress? "／"+c.landAddress : "") + (c.wishArea? "／希望エリア "+c.wishArea : ""));
+  if(rivalNames(c).length) L.push("競合：" + rivalNames(c).join("、"));
   L.push("営業担当：" + staffName(c.ownerId));
   if(m.place) L.push("場所：" + m.place);
   const prev = lastDoneMeeting(c);
@@ -1716,9 +1738,10 @@ function filteredCustomers(){
   if(ui.fProduct) list = list.filter(c=>(c.products||[]).includes(ui.fProduct));
   if(ui.fStatus) list = list.filter(c=>statusOf(c).key===ui.fStatus);
   if(ui.fApply) list = list.filter(c=>ui.fApply==="yes"? !!c.applied : !c.applied);
+  if(ui.fLand) list = list.filter(c=>landKey(c)===ui.fLand);
   if(ui.fAlert) list = list.filter(needsFollow);
   const q = ui.fQuery.trim().toLowerCase();
-  if(q) list = list.filter(c=>[c.name,c.kana,c.tel,c.email,c.address,c.memo,c.wishArea,c.showroom]
+  if(q) list = list.filter(c=>[c.name,c.kana,c.tel,c.email,c.address,c.memo,c.wishArea,c.showroom,c.landAddress,rivalNames(c).join(" ")]
     .some(v=>String(v||"").toLowerCase().includes(q))
     || (c.meetings||[]).some(m=>String(m.note||"").toLowerCase().includes(q)));
   const {key,dir} = ui.sort, ro={A:0,B:1,C:2,"":3};
@@ -1751,6 +1774,7 @@ function renderCustomers(root){
       '<option value="'+o[0]+'"'+(ui.fStatus===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select>'+
     '<select id="fApply"><option value="">申込：すべて</option><option value="yes"'+(ui.fApply==="yes"?" selected":"")+'>申込済</option>'+
       '<option value="no"'+(ui.fApply==="no"?" selected":"")+'>未申込</option></select>'+
+    '<select id="fLand"><option value="">土地：すべて</option>'+Object.entries(LAND).map(([k,v])=>'<option value="'+k+'"'+(ui.fLand===k?" selected":"")+'>'+esc(v)+'</option>').join("")+'</select>'+
     '<select id="fStage"><option value="">全ステージ</option>'+STAGES.map(s=>
       '<option value="'+s.id+'"'+(ui.fStage===s.id?" selected":"")+'>'+esc(s.name)+'</option>').join("")+'</select>'+
     '<select id="fProduct"><option value="">全ての商品</option>'+prods.map(p=>
@@ -1764,7 +1788,7 @@ function renderCustomers(root){
   root.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{ ui.rankTab=b.dataset.tab; renderCustomers(root); }));
   const bind=(id,key,ev)=>{ const el=$("#"+id); el.addEventListener(ev||"change",()=>{
     ui[key] = el.type==="checkbox"? el.checked : el.value; renderCustomerTable(); refreshTabCounts(); }); };
-  bind("fq","fQuery","input"); bind("fStatus","fStatus"); bind("fStage","fStage"); bind("fProduct","fProduct"); bind("fAlert","fAlert"); bind("fApply","fApply");
+  bind("fq","fQuery","input"); bind("fStatus","fStatus"); bind("fStage","fStage"); bind("fProduct","fProduct"); bind("fAlert","fAlert"); bind("fApply","fApply"); bind("fLand","fLand");
   renderCustomerTable();
 }
 function refreshTabCounts(){
@@ -1795,6 +1819,7 @@ function renderCustomerTable(){
       '<td class="nowrap">'+nd+'</td>'+
       '<td><span class="st '+st.key+'">'+esc(st.label)+'</span></td>'+
       '<td class="nowrap">'+(c.applied? '<span class="ap on">申込済'+(c.appliedDate? ' '+esc(md(c.appliedDate)):'')+'</span>' : '<span class="ap">未申込</span>')+'</td>'+
+      '<td class="nowrap">'+landChip(c)+'</td>'+
       '<td class="small prodcell">'+(prods.length? prods.map(p=>'<span class="chip">'+esc(p)+'</span>').join(" ") : '<span class="faint">—</span>')+'</td>'+
       '<td class="notecell">'+(ld && (ld.note||"").trim()? esc(ld.note) : '<span class="faint">記録なし</span>')+'</td>'+
       '</tr>';
@@ -1802,7 +1827,7 @@ function renderCustomerTable(){
   box.innerHTML = '<div class="tablewrap"><table><thead><tr>'+
     sortHead("rank","ランク")+sortHead("name","顧客名")+
     (scopeCompanies().length>1?'<th>会社</th>':'')+
-    sortHead("owner","担当")+'<th>面談</th>'+sortHead("next","次回アポ")+'<th>状況</th><th>申込</th><th>提案商品</th><th>直近の面談メモ</th>'+
+    sortHead("owner","担当")+'<th>面談</th>'+sortHead("next","次回アポ")+'<th>状況</th><th>申込</th><th>土地</th><th>提案商品</th><th>直近の面談メモ</th>'+
     '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
     '<p class="tiny faint" style="margin-top:8px">'+list.length+' 件を表示　／　ランクは一覧上で直接変更できます。</p>';
   box.querySelectorAll("[data-cust]").forEach(tr=>tr.addEventListener("click",e=>{
@@ -1876,7 +1901,7 @@ function blankCustomer(){
   return { id:null, companyId:(ui.scope!=="all"? ui.scope : (cs[0]||"")), ownerId:me.id,
     name:"", kana:"", tel:"", email:"", postal:"", address:"",
     rank:"B", stage:"reach", source:"", showroom:"", inquiryDate:TODAY(),
-    landStatus:"none", wishArea:"", landArea:"",
+    landStatus:"none", wishArea:"", landArea:"", landZip:"", landAddress:"", landDate:"", rivals:[],
     familySize:"", kids:"", buildTiming:"", tsubo:"", madori:"", competitors:"",
     income:"", savings:"", loanWish:"", budgetTotal:"", loanScreen:"none",
     products:[], mainProductId:"", productNote:"", memo:"",
@@ -1967,7 +1992,6 @@ function custInfo(c, ed){
     fld("建設予定地の〒", ed?inp("siteZip",c.siteZip,"text",'inputmode="numeric" placeholder="7桁で町名まで入ります"'):ro(c.siteZip))+
     fld("建設予定地", ed?inp("buildSite",c.buildSite,"text",'placeholder="例：白山市〇〇町"'):ro(c.buildSite))+
     fld("種別", ed?sel("buildType",c.buildType,[["",""]].concat(BUILD_TYPES.map(t=>[t,t]))):ro(c.buildType))+
-    fld("土地代（万円）", ed?inp("landPrice",c.landPrice,"number",'min="0"'):ro(man(c.landPrice)))+
     fld("建物金額・税抜（万円）", ed?inp("buildingPrice",c.buildingPrice,"number",'min="0"'):ro(man(c.buildingPrice)))+
     fld("設計担当", ed?inp("designer",c.designer):ro(c.designer))+
     fld("申込", '<div style="padding:7px 0">'+(c.applied? '<span class="ap on">申込済'+(c.appliedDate? ' '+esc(fmtDY(c.appliedDate)):'')+'</span>' : '<span class="ap">未申込</span>')+
@@ -1985,8 +2009,8 @@ function custInfo(c, ed){
     fld("建築希望時期", ed?inp("buildTiming",c.buildTiming,"text",'placeholder="例：2027年春"'):ro(c.buildTiming))+
     fld("希望坪数", ed?inp("tsubo",c.tsubo,"number",'min="0"'):ro(c.tsubo))+
     fld("希望間取り", ed?inp("madori",c.madori,"text",'placeholder="例：4LDK"'):ro(c.madori))+
-    fld("競合他社", ed?inp("competitors",c.competitors):ro(c.competitors))+
     '</div></div>';
+  h += '<div class="fset"><h4>競合</h4><p class="small muted" style="margin-bottom:9px">比較されている会社を入れます（複数可）。集計の「競合別」にも使います。</p>'+rivalBoxHTML(c, ed, "rvK_")+'</div>';
   h += '<div class="fset"><h4>メモ</h4>'+(ed?'<textarea data-f="memo" placeholder="ヒアリング内容、ご家族の事情、注意点など">'+esc(c.memo||"")+'</textarea>'
     :'<div class="small" style="white-space:pre-wrap">'+(c.memo?esc(c.memo):'<span class="faint">—</span>')+'</div>')+'</div>';
   return h;
@@ -2013,6 +2037,24 @@ function bindApplyRow(root, onSet, onClear){
     if(btn) btn.addEventListener("click",()=>{ if(inp.value) onSet(inp.dataset.apin, inp.value); });
   });
   root.querySelectorAll("[data-apclr]").forEach(b=>b.addEventListener("click",()=>onClear(b.dataset.apclr)));
+}
+/* 競合：会社名のタグ。追加／× で外す。入力中は他のお客様で使った名前が候補に出る */
+function rivalBoxHTML(c, ed, pre){
+  const list = rivalsOf(c), id = pre+(c.id||"new");
+  return '<div class="rv-chips">'+(list.length? list.map(r=>'<span class="rv">'+esc(r.name)+(ed? '<button type="button" data-rvdel="'+esc(r.id)+'" title="外す">×</button>':'')+'</span>').join("")
+      : '<span class="tiny faint">競合は入っていません</span>')+'</div>'+
+    (ed? '<div class="row" style="gap:6px;margin-top:8px"><input type="text" id="'+id+'" list="'+id+'_l" data-rvin="1" placeholder="競合の会社名（例：住林）" style="max-width:240px">'+
+      '<datalist id="'+id+'_l">'+allRivalNames().filter(n=>!list.some(r=>r.name===n)).map(n=>'<option value="'+esc(n)+'">').join("")+'</datalist>'+
+      '<button type="button" class="btn sm" data-rvadd="1">追加</button></div>' : '');
+}
+/* 追加・削除のたびに onChange(新しい一覧) を呼ぶ */
+function bindRivalBox(root, getList, onChange){
+  const add = () => { const inp=root.querySelector("[data-rvin]"); if(!inp) return; const name=inp.value.trim(); if(!name) return;
+    const cur = getList(); if(cur.some(r=>r.name===name)){ inp.value=""; return; }
+    onChange(cur.concat([{id:"r"+uid().slice(-6), name}])); };
+  const ab=root.querySelector("[data-rvadd]"); if(ab) ab.addEventListener("click", add);
+  const ai=root.querySelector("[data-rvin]"); if(ai) ai.addEventListener("keydown",e=>{ if(e.key==="Enter" && !e.isComposing){ e.preventDefault(); add(); } });
+  root.querySelectorAll("[data-rvdel]").forEach(b=>b.addEventListener("click",()=>onChange(getList().filter(r=>r.id!==b.dataset.rvdel))));
 }
 /* カルテの申込欄（面談記録タブの先頭） */
 function custApplyHTML(c, ed){
@@ -2067,10 +2109,18 @@ function mblockHTML(m,i){
 }
 function custMoney(c, ed){
   const total = num(c.savings)+num(c.loanWish);
-  let h = '<div class="fset"><h4>土地</h4><div class="grid2">'+
-    fld("土地の状況", ed?sel("landStatus",c.landStatus,Object.entries(LAND)):ro(LAND[c.landStatus]))+
-    fld("土地面積（坪）", ed?inp("landArea",c.landArea,"number",'min="0" step="0.1"'):ro(c.landArea))+
-    fld("希望エリア", ed?inp("wishArea",c.wishArea):ro(c.wishArea),"span2")+
+  const lk = landKey(c), dec = lk==="decided", own = lk==="own";
+  let h = '<div class="fset land-'+lk+'"><h4>土地</h4>'+
+    '<div class="landrow">'+landChip(c)+'<span class="tiny faint">'+({decided:"土地が決まりました。決まった土地の情報を入れます",own:"お客様がすでに土地をお持ちです",searching:"土地を探している段階です。希望のエリアを入れます",none:"土地の状況がまだ分かっていません"})[lk]+'</span></div>'+
+    '<div class="grid2" style="margin-top:12px">'+
+    fld("土地の状況", ed?sel("landStatus",lk,Object.entries(LAND)):ro(LAND[lk]), "span2")+
+    ((dec||own)? (dec? fld("土地決定日", ed?inp("landDate",c.landDate,"date"):ro(fmtDY(c.landDate)), "span2"):'')+
+      fld(dec?"決定した土地の郵便番号":"土地の郵便番号", ed?inp("landZip",c.landZip,"text",'inputmode="numeric" placeholder="7桁で町名まで入ります"'):ro(c.landZip))+
+      fld("土地面積（坪）", ed?inp("landArea",c.landArea,"number",'min="0" step="0.1"'):ro(c.landArea))+
+      fld(dec?"決定した土地の住所":"土地の住所", ed?inp("landAddress",c.landAddress,"text",'placeholder="例：白山市〇〇町123-4"'):ro(c.landAddress), "span2")+
+      fld("土地代（万円）", ed?inp("landPrice",c.landPrice,"number",'min="0"'):ro(man(c.landPrice)), "span2")
+    : fld("希望エリア", ed?inp("wishArea",c.wishArea):ro(c.wishArea),"span2")+
+      fld("希望の土地面積（坪）", ed?inp("landArea",c.landArea,"number",'min="0" step="0.1"'):ro(c.landArea),"span2"))+
     '</div></div>';
   h += '<div class="fset"><h4>資金計画（単位：万円）</h4><div class="grid2">'+
     fld("世帯年収", ed?inp("income",c.income,"number",'min="0"'):ro(man(c.income)))+
@@ -2160,6 +2210,16 @@ function collectCustomer(){
   }
 }
 function bindCustExtras(c, ed){
+  /* 土地の状況を変えたら、出す欄を切り替える */
+  const lsel = $(".drawer [data-f='landStatus']");
+  if(lsel) lsel.addEventListener("change",()=>{ collectCustomer(); paintCustomer(); });
+  bindZip($(".drawer [data-f='landZip']"), $(".drawer [data-f='landAddress']"), true);
+  /* 競合（カルテ） */
+  const rvRoot = $(".drawer .rv-chips"); 
+  if(rvRoot) bindRivalBox(rvRoot.parentElement, ()=>rivalsOf(drawerCust), async list=>{
+    collectCustomer(); drawerCust.rivals = list;
+    if(c.id) await quickUpdate(c.id, {rivals:list});
+    paintCustomer(); });
   /* 提案商品：この会社の商品一覧に足す／外す（会社・商品の設定に保存） */
   const cfgSave = async (msg) => { CFG = buildCFG({companies:companies(), catalog:catalog(), fyStart:fyStart()}); collectCustomer(); paintCustomer();
     try{ await saveConfig(); toast(msg); }catch(e){ toast("保存できませんでした"); } };
@@ -2702,6 +2762,8 @@ function renderReport(root){
     source:{name:"反響経路別", key:c=>c.source||"", label:k=>k||"未設定"},
     showroom:{name:"展示場・反響元別", key:c=>c.showroom||"", label:k=>k||"未設定"},
     stage:{name:"ステージ別", key:c=>c.stage||"", label:k=>STAGE_NAME[k]||"未設定"},
+    land:{name:"土地別", key:c=>landKey(c), label:k=>LAND[k]||"未定"},
+    rival:{name:"競合別", key:null},
   };
   let h = topbar("集計・分析",
     '<select id="fySel" style="width:auto">'+[...years].sort((a,b)=>b-a).map(y=>'<option value="'+y+'"'+(ui.fy===String(y)?" selected":"")+'>'+esc(fyLabel(y))+'</option>').join("")+
@@ -2724,6 +2786,7 @@ function renderReport(root){
   const bump = (keys, f) => keys.forEach(([k,label])=>{ t[k]=t[k]||{label, n:0, ap:0, won:0, amt:0}; f(t[k]); });
   const keysOf = c => {
     if(ui.reportBy==="product") return (c.products||[]).map(p=>[c.companyId+"|"+p, productName(c.companyId,p)+(scopeCompanies().length>1?"（"+companyShort(c.companyId)+"）":"")]);
+    if(ui.reportBy==="rival"){ const n=rivalNames(c); return n.length? n.map(x=>["r|"+x, x]) : [["", "競合なし・未入力"]]; }
     const g = groupers[ui.reportBy], k = g.key(c)||""; return [[k, g.label(k)||"未設定"]];
   };
   fresh.forEach(c=>bump(keysOf(c), r=>r.n++));
@@ -2772,7 +2835,7 @@ async function exportCSV(){
   const list = view==="customers" ? filteredCustomers() : scoped();
   const head=["ランク","顧客名","ふりがな","会社","担当者","状況","ステージ","問合せ日","反響経路","展示場",
     "電話","メール","住所","土地状況","希望エリア","世帯年収(万)","自己資金(万)","借入希望(万)","総予算(万)","ローン審査",
-    "提案商品","本命商品","建築希望時期","確度","契約目標日","見込み金額(万)","年齢","建設予定地","種別","申込","設計担当","問題点","面談回数","次回アポ","最終接触","直近の面談メモ","契約日","契約金額(万)","粗利(万)","没日","没理由","メモ"];
+    "提案商品","本命商品","建築希望時期","確度","契約目標日","見込み金額(万)","年齢","建設予定地","種別","申込","設計担当","問題点","土地住所","土地代(万)","競合","面談回数","次回アポ","最終接触","直近の面談メモ","契約日","契約金額(万)","粗利(万)","没日","没理由","メモ"];
   const q = v => '"'+String(v==null?"":v).replace(/"/g,'""').replace(/\r?\n/g," ")+'"';
   const lines=[head.map(q).join(",")].concat(list.map(c=>{
     const ld=lastDoneMeeting(c);
@@ -2782,7 +2845,7 @@ async function exportCSV(){
       (c.products||[]).map(p=>productName(c.companyId,p)).join(" / "),
       c.mainProductId? productName(c.companyId,c.mainProductId):"", c.buildTiming,
       c.forecast&&FORECAST[c.forecast]? FORECAST[c.forecast].mark : "", c.goalDate||c.expectedMonth||"", c.expectedAmount,
-      c.age, c.buildSite, c.buildType, c.applied?"有"+(c.appliedDate? " "+c.appliedDate:""):"無", c.designer, c.issues,
+      c.age, c.buildSite, c.buildType, c.applied?"有"+(c.appliedDate? " "+c.appliedDate:""):"無", c.designer, c.issues, c.landAddress, c.landPrice, rivalNames(c).join(" / "),
       (c.meetings||[]).length, nextDate(c)||"", lastContact(c)||"", ld?ld.note:"",
       c.contractDate, c.contractAmount, c.grossProfit, c.lostDate, c.lostReason, c.memo].map(q).join(",");
   }));
@@ -3274,17 +3337,37 @@ function detailHTML(c, wk){
       '<select class="rank-sel fc-sel" data-yf="'+c.id+'" title="確度">'+[["","確度"],["hi","◎ 確度高"],["mid","○ 確度中"],["lo","△ 確度低"]]
         .map(o=>'<option value="'+o[0]+'"'+((c.forecast||"")===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div>'+
       applyRowHTML(c, canEditCustomer(c), "apd_")+'</div>'+
+    detailLandHTML(c)+
+    '<div class="fset"><h4>競合</h4>'+rivalBoxHTML(c, canEditCustomer(c), "rvP_")+'</div>'+
     '<div class="fset">'+weekHTML(c, wk)+'</div>'+
     '<div class="fset">'+cmtHTML(c)+'</div>';
 }
+/* パネルの土地欄：状況を選ぶ → 決まったら住所を入れる */
+function detailLandHTML(c){
+  const ed = canEditCustomer(c), lk = landKey(c), dec = lk==="decided"||lk==="own";
+  return '<div class="fset land-'+lk+'"><h4>土地</h4><div class="landrow">'+
+    (ed? '<select class="rank-sel" data-lsel="'+c.id+'" style="min-width:150px">'+Object.entries(LAND).map(([k,v])=>'<option value="'+k+'"'+(lk===k?" selected":"")+'>'+esc(v)+'</option>').join("")+'</select>' : landChip(c))+
+    '</div>'+
+    (dec? '<div style="margin-top:10px"><label class="lb" for="lad_'+c.id+'">'+(lk==="decided"?"決定した土地の住所":"土地の住所")+'</label>'+
+      (ed? '<input type="text" id="lad_'+c.id+'" data-ladr="'+c.id+'" value="'+esc(c.landAddress||"")+'" placeholder="例：白山市〇〇町123-4">' : '<div>'+esc(c.landAddress||"—")+'</div>')+
+      '<p class="tiny faint" style="margin-top:5px">郵便番号から入れたいときは、「カルテを開く」→「資金・土地」</p></div>'
+    : (lk==="searching"? '<div style="margin-top:10px"><label class="lb" for="lwi_'+c.id+'">希望エリア</label>'+
+        (ed? '<input type="text" id="lwi_'+c.id+'" data-lwish="'+c.id+'" value="'+esc(c.wishArea||"")+'" placeholder="例：野々市市・白山市">' : '<div>'+esc(c.wishArea||"—")+'</div>')+'</div>' : ''))+
+  '</div>';
+}
 /* 詳細パネルの中の入力を保存する（保存したら repaint で描き直す） */
-function bindDetail(root, wk, repaint){
+function bindDetail(root, wk, repaint, cid){
   const later = () => setTimeout(repaint, 350);
   root.querySelectorAll("[data-gd]").forEach(el=>el.addEventListener("change",()=>
     quickUpdate(el.dataset.gd, {goalDate:el.value, expectedMonth:el.value? el.value.slice(0,7) : ""}).then(later)));
   root.querySelectorAll("[data-yf]").forEach(el=>el.addEventListener("change",()=>quickUpdate(el.dataset.yf,{forecast:el.value}).then(later)));
   bindApplyRow(root, (id,date)=>quickUpdate(id,{applied:true, appliedDate:date}).then(later),
     id=>quickUpdate(id,{applied:false, appliedDate:""}).then(later));
+  root.querySelectorAll("[data-lsel]").forEach(el=>el.addEventListener("change",()=>quickUpdate(el.dataset.lsel,{landStatus:el.value}).then(later)));
+  root.querySelectorAll("[data-ladr]").forEach(el=>el.addEventListener("change",()=>quickUpdate(el.dataset.ladr,{landAddress:el.value.trim()})));
+  root.querySelectorAll("[data-lwish]").forEach(el=>el.addEventListener("change",()=>quickUpdate(el.dataset.lwish,{wishArea:el.value.trim()})));
+  const rvBox = root.querySelector(".rv-chips");
+  if(rvBox) bindRivalBox(rvBox.parentElement, ()=>rivalsOf(customers.find(x=>x.id===cid)||{}), list=>quickUpdate(cid,{rivals:list}).then(later));
   const saveWeek = (key, patch) => {
     const [cid, k] = key.split("|"); const c = customers.find(x=>x.id===cid); if(!c) return Promise.resolve();
     const weekly = {...(c.weekly||{})}; weekly[k] = {...(weekly[k]||{}), ...patch};
@@ -3326,7 +3409,7 @@ function openSheetDetail(cid, wk){
     const body = $("#sdBody"), c = customers.find(x=>x.id===cid); if(!body || !c) return;
     const st = body.scrollTop;
     body.innerHTML = detailHTML(c, wk);
-    bindDetail(body, wk, paint);
+    bindDetail(body, wk, paint, cid);
     body.scrollTop = st;
   };
   paint();
@@ -3359,6 +3442,8 @@ function mtgSheet(box, d, per){
         (c.applied? '<span class="ap on" title="申込済'+(c.appliedDate? "（"+esc(fmtDY(c.appliedDate))+"）":"")+'">申込'+(c.appliedDate? " "+esc(md(c.appliedDate)):"")+'</span>'
                   : '<span class="ap">未申込</span>')+'</span></div>'+
       (info? '<div class="tiny muted sc-1">'+esc(info)+'</div>':'')+
+      '<div class="tiny sc-row sc-land">'+landChip(c)+(c.landAddress && (landKey(c)==="decided"||landKey(c)==="own")? '<span class="muted sc-1" title="'+esc(c.landAddress)+'">'+esc(c.landAddress)+'</span>':'')+'</div>'+
+      (rivalNames(c).length? '<div class="tiny muted sc-1" title="競合">競合：'+esc(rivalNames(c).join("、"))+'</div>':'')+
       '<div class="tiny sc-row">'+(c.goalDate? '<span class="muted">目標 '+esc(md(c.goalDate))+'</span>'+goalLeft(c) : goalLeft(c))+'</div>'+
       '<div class="sc-now'+(x.plan||x.result?'':' empty')+(x.done?' done':'')+'" data-sd="'+c.id+'">'+
         '<span class="sc-now-l">今週</span>'+(x.plan? esc(x.plan) : x.result? esc(x.result) : 'やることが未記入')+'</div>'+
