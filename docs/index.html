@@ -1690,7 +1690,7 @@ function refreshCurrent(){
   else if(view==="rivals"){ if(!$("#rvSearch") || document.activeElement!==$("#rvSearch")) renderRivalCards(); }
   else if(view==="mtg"){
     /* 書いている最中は描き直さない（書き終わって枠を離れたら描き直す） */
-    if(ui.mtgTab==="notes") return;
+    if(ui.mtgTab==="notes" && $("#mtgBox")) return;
     const b=$("#mtgBox"); if(b && isEditingIn(b)){ mtgStale=true; return; }
     renderView();
   }
@@ -1755,7 +1755,7 @@ function renderDash(root){
     kpi("warn", "要フォロー", follow, "件", "次回アポ未設定")+
     kpi("ok", "今月の契約", monthWon.length, "棟", man(monthAmt)+" 万円")+
     (()=>{ const mn=monthNumbers(ym, scoped()), gl=goalSum(ym, ui.scopeRep||"").units;
-      return kpi(gl && mn.won+mn.hi>=gl? "ok":"", "今月の着地予想", mn.won+mn.hi, "棟", gl? "目標 "+gl+" 棟 ／ 契約＋◎" : "目標未設定 ／ 契約＋◎"); })()+
+      return kpi(gl && mn.won+mn.hi>=gl? "ok":"", "今月の着地予想", mn.won+mn.hi, "棟", gl? "契約目標 "+gl+" 棟 ／ 契約＋◎" : "契約目標未設定 ／ 契約＋◎"); })()+
     '</div>';
 
   /* A/B/C レーン */
@@ -2102,12 +2102,12 @@ function custInfo(c, ed){
     fld("会社", ed?sel("companyId",c.companyId,compOpts):ro(companyName(c.companyId)))+
     fld("営業担当", (ed&&canManageFor(c))?sel("ownerId",c.ownerId,ownerOpts):ro(staffName(c.ownerId)))+
     '</div></div>';
-  h += '<div class="fset"><h4>契約のゴール</h4><div class="grid3">'+
+  h += '<div class="fset"><h4>契約目標</h4><div class="grid3">'+
     fld("契約目標日", ed?inp("goalDate",c.goalDate,"date"):ro(c.goalDate? fmtDY(c.goalDate) : (c.expectedMonth? monthLabel(c.expectedMonth):"")))+
     fld("確度", ed?sel("forecast",c.forecast,[["","未設定"],["hi","◎ 確度高"],["mid","○ 確度中"],["lo","△ 確度低"]])
       :ro(c.forecast&&FORECAST[c.forecast]? FORECAST[c.forecast].mark+" "+FORECAST[c.forecast].label : ""))+
     fld("見込み金額（万円）", ed?inp("expectedAmount",c.expectedAmount,"number",'min="0" placeholder="空欄なら総予算"'):ro(c.expectedAmount!==""&&c.expectedAmount!=null? man(c.expectedAmount):""))+
-    '</div><p class="tiny faint" style="margin-top:9px">毎週の営業会議で決めるゴールです。◎は「目標日に契約できる見込み」で、その月の着地予想に入ります。</p></div>';
+    '</div><p class="tiny faint" style="margin-top:9px">毎週の営業会議で決めるゴールです。◎は「契約目標日に契約できる見込み」で、その月の着地予想に入ります。</p></div>';
   h += '<div class="fset"><h4>打合わせシートの項目</h4><div class="grid3">'+
     fld("年齢", ed?inp("age",c.age,"number",'min="0"'):ro(c.age))+
     fld("ご主人の勤務先", ed?inp("workHusband",c.workHusband):ro(c.workHusband))+
@@ -3463,6 +3463,7 @@ function mtgReps(){ return ui.scopeRep ? scopeStaff().filter(s=>s.id===ui.scopeR
 
 /* ---------- 会議の記録 ---------- */
 let mtgDraft = null;
+const mtgStamp = iso => { const t=new Date(iso); return isNaN(t)? "" : (t.getMonth()+1)+"/"+t.getDate()+" "+pad(t.getHours())+":"+pad(t.getMinutes()); };
 const mtgsInScope = () => sortBy(mtgs.filter(m=>(m.scope||"all")===ui.scope), m=>m.date||"", "desc");
 function newMtgDraft(){
   const today = mtgsInScope().find(m=>m.date===TODAY());
@@ -3502,6 +3503,8 @@ function buildSnapshot(ym){
 
 /* ---------- 画面 ---------- */
 function renderMtg(root){
+  /* 保存済みの会議を読み込む前に開くと、同じ日の会議を二重に作ってしまうので、読み込みを待つ */
+  if(!loaded.mtgs){ root.innerHTML = topbar("営業会議","")+'<div class="content"><div class="tablewrap"><div class="empty">会議の記録を読み込んでいます…</div></div></div>'; return; }
   const d = ensureDraft();
   if(!ui.mtgTab || !MTG_TABS.some(t=>t[0]===ui.mtgTab)) ui.mtgTab = "sheet";
   const past = mtgsInScope();
@@ -3510,16 +3513,20 @@ function renderMtg(root){
     '<button class="btn sm" id="mgPrevM">'+I.L+'</button>'+
     '<b class="mono" style="min-width:104px;text-align:center">'+esc(monthLabel(ui.mtgMonth))+'</b>'+
     '<button class="btn sm" id="mgNextM">'+I.R+'</button>'+
-    '<button class="btn" id="mgGoals">目標を設定</button>');
+    '<button class="btn" id="mgGoals">契約目標を設定</button>');
   h += '<div class="content">';
   h += '<div class="mtgbar"><span class="scope-label">会議</span>'+
     '<select id="mgPick"><option value="">'+(d.id? "新しい会議を始める" : esc(fmtDY(d.date))+"（未保存）")+'</option>'+
       past.map(m=>'<option value="'+m.id+'"'+(d.id===m.id?" selected":"")+'>'+esc(fmtDY(m.date))+
-        (m.actions&&m.actions.length? "　宿題"+m.actions.length+"件":"")+'</option>').join("")+'</select>'+
+        (m.actions&&m.actions.length? "　宿題"+m.actions.length+"件":"")+
+        (m.updatedBy? "　"+esc(m.updatedBy)+(m.updatedAt? " "+esc(mtgStamp(m.updatedAt)):"") : "")+'</option>').join("")+'</select>'+
     '<span class="period">集計期間 '+esc(fmtD(isoDate(new Date(parseD(per.start).getTime()+86400000))))+' 〜 '+esc(fmtD(per.end))+
       (per.prev? '（前回 '+esc(fmtD(per.prev.date))+' の会議から）':'（前回の会議が無いので直近7日）')+'</span>'+
     '<div class="grow"></div>'+
+    (d.id? '<button class="btn ghost" id="mgDel" style="color:var(--danger)">この会議を削除</button>' : '')+
     '<button class="btn primary" id="mgSave">この会議を保存</button></div>';
+  const dups = past.filter(m=>m.date===d.date);
+  if(dups.length>1) h += '<div class="banner warn" style="margin-bottom:12px">'+esc(fmtDY(d.date))+' の会議が '+dups.length+' 件あります（同じ日に重ねて保存されたものです）。上の「会議」から開いて、不要な方を「この会議を削除」で消してください。</div>';
   h += '<div class="tabs">'+MTG_TABS.map(t=>'<button data-mt="'+t[0]+'" class="'+(ui.mtgTab===t[0]?"on":"")+'">'+t[1]+'</button>').join("")+'</div>';
   h += '<div id="mtgBox" style="margin-top:16px"></div></div>';
   root.innerHTML = h;
@@ -3527,10 +3534,11 @@ function renderMtg(root){
   $("#mgNextM").addEventListener("click",()=>{ ui.mtgMonth=shiftYM(ui.mtgMonth,1); if(!d.id) d.month=ui.mtgMonth; renderMtg(root); });
   $("#mgGoals").addEventListener("click",()=>openGoals(ui.mtgMonth));
   $("#mgSave").addEventListener("click",()=>saveMtg(true));
+  const mgDel = $("#mgDel"); if(mgDel) mgDel.addEventListener("click",()=>deleteMtg(d.id));
   $("#mgPick").addEventListener("change",e=>{
     syncNotesFromDom();
     const m = mtgs.find(x=>x.id===e.target.value);
-    mtgDraft = m ? loadMtgDraft(m) : {...newMtgDraft(), id:null, date:TODAY(), notes:"", actions:[], minutes:null, snapshot:null};
+    mtgDraft = m ? loadMtgDraft(m) : { id:null, scope:ui.scope, date:TODAY(), month:ui.mtgMonth||thisMonth(), attendees:scopeStaff().map(s=>s.id), notes:"", actions:[], minutes:null, snapshot:null, createdBy:"" };
     ui.mtgMonth = mtgDraft.month; renderMtg(root);
   });
   root.querySelectorAll("[data-mt]").forEach(b=>b.addEventListener("click",()=>{ syncNotesFromDom(); ui.mtgTab=b.dataset.mt; renderMtg(root); }));
@@ -3540,7 +3548,7 @@ function renderMtg(root){
 
 const weekKey = s => { const d=parseD(s)||new Date(); const w=(d.getDay()+6)%7; return isoDate(new Date(d.getFullYear(), d.getMonth(), d.getDate()-w)); };
 function goalLeft(c){
-  if(!c.goalDate) return '<span class="gl none">目標日を決める</span>';
+  if(!c.goalDate) return '<span class="gl none">契約目標日を決める</span>';
   const d = daysFrom(c.goalDate);
   if(d===null) return '';
   if(d<0) return '<span class="gl over">'+(-d)+'日過ぎ</span>';
@@ -3613,7 +3621,7 @@ function detailHTML(c, wk){
       '<div class="small muted" style="margin-top:3px">'+esc(money)+'</div>'+
       '<div class="small" style="margin-top:6px">次回アポ '+whenPill(c)+'</div>'+
       (c.issues? '<div class="small" style="color:var(--danger);margin-top:5px">課題：'+esc(c.issues)+'</div>':'')+'</div>'+
-    '<div class="fset"><h4>契約のゴール</h4><div class="sc-goal" style="border:0;padding:0">'+
+    '<div class="fset"><h4>契約目標</h4><div class="sc-goal" style="border:0;padding:0">'+
       '<label class="tiny">契約目標日</label><input type="date" data-gd="'+c.id+'" value="'+esc(c.goalDate||"")+'">'+goalLeft(c)+
       '<select class="rank-sel fc-sel" data-yf="'+c.id+'" title="確度">'+[["","確度"],["hi","◎ 確度高"],["mid","○ 確度中"],["lo","△ 確度低"]]
         .map(o=>'<option value="'+o[0]+'"'+((c.forecast||"")===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div>'+
@@ -3725,7 +3733,7 @@ function mtgSheet(box, d, per){
       (info? '<div class="tiny muted sc-1">'+esc(info)+'</div>':'')+
       '<div class="tiny sc-row sc-land">'+landChip(c)+(c.landAddress && (landKey(c)==="decided"||landKey(c)==="own")? '<span class="muted sc-1" title="'+esc(c.landAddress)+'">'+esc(c.landAddress)+'</span>':'')+'</div>'+
       (rivalNames(c).length? '<div class="tiny muted sc-1" title="競合">競合：'+esc(rivalNames(c).join("、"))+'</div>':'')+
-      '<div class="tiny sc-row">'+(c.goalDate? '<span class="muted">目標 '+esc(md(c.goalDate))+'</span>'+goalLeft(c) : goalLeft(c))+'</div>'+
+      '<div class="tiny sc-row">'+(c.goalDate? '<span class="muted">契約目標 '+esc(md(c.goalDate))+'</span>'+goalLeft(c) : goalLeft(c))+'</div>'+
       '<div class="sc-now'+(x.plan||x.result?'':' empty')+(x.done?' done':'')+'" data-sd="'+c.id+'">'+
         '<span class="sc-now-l">今週</span>'+(x.plan? esc(x.plan) : x.result? esc(x.result) : 'やることが未記入')+'</div>'+
       '<div class="sc-foot">'+(dots? '<span class="wds" title="これまでの週">'+dots+'</span>':'')+
@@ -3752,7 +3760,7 @@ function mtgSheet(box, d, per){
     '<span><b class="num">'+list.length+'</b> 件が商談中</span>'+
     '<span>うち申込済 <b class="num" style="color:var(--ok)">'+apN+'</b></span>'+
     '<span class="'+(noGoal?"warn":"")+'">契約目標日なし <b class="num">'+noGoal+'</b></span>'+
-    '<span class="'+(overdue?"bad":"")+'">目標日を過ぎた <b class="num">'+overdue+'</b></span>'+
+    '<span class="'+(overdue?"bad":"")+'">契約目標日を過ぎた <b class="num">'+overdue+'</b></span>'+
     '<span class="'+(noPlan?"warn":"")+'">今週やることが未記入 <b class="num">'+noPlan+'</b></span>'+
     '<span class="faint">今週＝'+esc(weekRange(wk))+'</span></div>';
   if(!reps.length) h += '<div class="panel"><div class="empty">名簿にメンバーがいません。</div></div>';
@@ -3761,7 +3769,7 @@ function mtgSheet(box, d, per){
     const won = scopedWon().filter(c=>c.ownerId===s.id && String(c.contractDate||"").startsWith(ui.mtgMonth));
     const g = goalSum(ui.mtgMonth, s.id).units;
     h += '<section class="srep"><header><h3>'+esc(s.name)+'</h3>'+
-      '<span class="tiny muted">商談中 '+mine.length+'件（申込済 '+mine.filter(c=>c.applied).length+'）'+(g? '　／　'+esc(monthLabel(ui.mtgMonth))+'目標 '+g+'棟・契約済 '+won.length+'棟':'')+'</span></header>'+
+      '<span class="tiny muted">商談中 '+mine.length+'件（申込済 '+mine.filter(c=>c.applied).length+'）'+(g? '　／　'+esc(monthLabel(ui.mtgMonth))+'契約目標 '+g+'棟・契約済 '+won.length+'棟':'')+'</span></header>'+
       '<div class="sgrid-wrap"><div class="sgrid">'+STAGES.map(st=>{
         const cs = sortBy(mine.filter(c=>c.stage===st.id), c=>c.goalDate||"9999", "asc");
         return '<div class="scol" data-drop="'+st.id+'"><div class="scol-h">'+esc(st.name)+'<span class="num">'+cs.length+'</span>'+
@@ -3850,14 +3858,14 @@ function mtgNums(box, d, per){
   const rate = g.units ? Math.round(landing/g.units*100) : null;
   const prevSnap = per.prev && per.prev.snapshot && per.prev.snapshot.month===ym ? per.prev.snapshot : null;
   let h = '';
-  if(!g.units) h += '<div class="banner warn" style="margin-bottom:14px">'+esc(monthLabel(ym))+' の目標がまだありません。右上の「目標を設定」から、担当者ごとの契約棟数を入れてください。</div>';
+  if(!g.units) h += '<div class="banner warn" style="margin-bottom:14px">'+esc(monthLabel(ym))+' の契約目標がまだありません。右上の「契約目標を設定」から、担当者ごとの契約棟数を入れてください。</div>';
   h += '<div class="kpis">'+
-    kpi("", "目標", g.units, "棟", g.amount? man(g.amount)+" 万円" : "金額目標なし")+
+    kpi("", "契約目標", g.units, "棟", g.amount? man(g.amount)+" 万円" : "金額契約目標なし")+
     kpi("ok", "契約済", n.won, "棟", man(n.wonAmt)+" 万円")+
     kpi("", "◎ 確度高", n.hi, "棟", man(n.hiAmt)+" 万円")+
     kpi("", "着地予想", landing, "棟", "契約＋◎　（○まで "+upside+" 棟）")+
     kpi(rate===null? "" : rate>=100? "ok" : "warn", "達成見込み", rate===null? "—" : rate, rate===null? "" : "%",
-      g.units? (g.units-landing>0? "あと "+(g.units-landing)+" 棟" : "目標到達") : "目標未設定")+
+      g.units? (g.units-landing>0? "あと "+(g.units-landing)+" 棟" : "契約目標に到達") : "契約目標未設定")+
     '</div>';
   /* 目標バー */
   const scale = Math.max(g.units, upside, 1);
@@ -3867,7 +3875,7 @@ function mtgNums(box, d, per){
       (n.won? '<span class="w" style="width:'+pct(n.won)+'"></span>':'')+
       (n.hi? '<span class="h" style="width:'+pct(n.hi)+'"></span>':'')+
       (n.mid? '<span class="m" style="width:'+pct(n.mid)+'"></span>':'')+
-      (g.units? '<span class="goal'+(g.units/scale>0.85?' end':g.units/scale<0.15?' start':'')+'" style="left:calc('+pct(g.units)+' - 1px)"><b>目標 '+g.units+'</b></span>':'')+
+      (g.units? '<span class="goal'+(g.units/scale>0.85?' end':g.units/scale<0.15?' start':'')+'" style="left:calc('+pct(g.units)+' - 1px)"><b>契約目標 '+g.units+'</b></span>':'')+
     '</div></div>'+
     '<div class="glegend"><span><i style="background:var(--ok)"></i>契約済 '+n.won+'</span>'+
       '<span><i style="background:var(--accent)"></i>◎ '+n.hi+'</span>'+
@@ -3894,8 +3902,8 @@ function mtgNums(box, d, per){
       '<td class="num">'+(fol? '<span style="color:var(--danger)">'+fol+'</span>' : 0)+'</td></tr>';
   }).join("");
   h += '<div class="sechead"><h2>担当者別</h2><span class="hint">'+(prevSnap? '小さい数字は前回の会議からの増減' : '前回の会議を保存すると、次回から増減が出ます')+'</span></div>'+
-    '<div class="tablewrap"><table><thead><tr><th>担当</th><th class="num">目標</th><th class="num">契約済</th><th class="num">◎</th><th class="num">○</th><th class="num">△</th>'+
-    '<th class="num">着地予想</th><th class="num">目標との差</th><th class="num">期間中の面談</th><th class="num">要フォロー</th></tr></thead><tbody>'+
+    '<div class="tablewrap"><table><thead><tr><th>担当</th><th class="num">契約目標</th><th class="num">契約済</th><th class="num">◎</th><th class="num">○</th><th class="num">△</th>'+
+    '<th class="num">着地予想</th><th class="num">契約目標との差</th><th class="num">期間中の面談</th><th class="num">要フォロー</th></tr></thead><tbody>'+
     (rows || '<tr><td colspan="10" class="empty">名簿にメンバーがいません</td></tr>')+'</tbody></table></div>'+
     '<p class="tiny faint" style="margin-top:8px">着地予想＝契約済＋◎（その月に契約予定で確度高）。確度と契約目標日は「① 打合わせシート」かお客様のカルテで入れます。</p>';
   box.innerHTML = h;
@@ -3949,7 +3957,7 @@ function mtgNotes(box, d, per){
   h += '<div>';
   h += '<div class="fset"><h4>会議の情報</h4><div class="grid2">'+
     fld("会議日", '<input type="date" id="mgDate" value="'+esc(d.date)+'">')+
-    fld("対象月（目標）", '<input type="month" id="mgMonth" value="'+esc(d.month)+'">')+'</div>'+
+    fld("対象月（契約目標）", '<input type="month" id="mgMonth" value="'+esc(d.month)+'">')+'</div>'+
     '<div style="margin-top:12px"><label class="lb">出席者</label><div class="checks">'+
       reps.map(s=>'<label class="check"><input type="checkbox" data-att="'+s.id+'"'+(d.attendees.includes(s.id)?" checked":"")+'>'+esc(s.name)+'</label>').join("")+
     '</div></div></div>';
@@ -3983,7 +3991,7 @@ function mtgNotes(box, d, per){
   if(d.snapshot && d.snapshot.total){
     const t = d.snapshot.total;
     h += '<div class="fset"><h4>この会議の時点の数字（'+esc(monthLabel(d.snapshot.month))+'）</h4><dl class="kv">'+
-      '<dt>目標</dt><dd class="num">'+num(t.goal)+' 棟</dd><dt>契約済</dt><dd class="num">'+num(t.won)+' 棟</dd>'+
+      '<dt>契約目標</dt><dd class="num">'+num(t.goal)+' 棟</dd><dt>契約済</dt><dd class="num">'+num(t.won)+' 棟</dd>'+
       '<dt>◎ / ○ / △</dt><dd class="num">'+num(t.hi)+' / '+num(t.mid)+' / '+num(t.lo)+'</dd>'+
       '<dt>着地予想</dt><dd class="num">'+(num(t.won)+num(t.hi))+' 棟</dd></dl></div>';
   }
@@ -4013,6 +4021,9 @@ async function saveMtg(showToast){
   syncNotesFromDom();
   const d = mtgDraft; if(!d) return false;
   d.actions = d.actions.filter(a=>(a.title||"").trim() || a.todoId);
+  /* 同じ範囲・同じ日の会議は1つだけ（二重に作らない） */
+  const same = mtgsInScope().find(m=>m.id!==d.id && m.date===d.date);
+  if(same){ toast(fmtDY(d.date)+" の会議はすでにあります。上の「会議」から開くか、日付を変えてください"); return false; }
   /* 数字の控えは「今日の会議」を保存したときだけ取り直す（過去の会議の数字は残す） */
   const snapshot = (!d.snapshot || d.date===TODAY()) ? buildSnapshot(d.month) : d.snapshot;
   const doc = { scope:ui.scope, date:d.date, month:d.month, attendees:d.attendees, notes:d.notes,
@@ -4026,6 +4037,12 @@ async function saveMtg(showToast){
     const r=$("#viewRoot"); if(r && view==="mtg") renderMtg(r);
     return true;
   }catch(e){ toast("保存できませんでした"); return false; }
+}
+async function deleteMtg(id){
+  const m = mtgs.find(x=>x.id===id); if(!m) return;
+  if(!await askConfirm("会議を削除", fmtDY(m.date)+" の会議の記録（共有事項・宿題・議事録）を消します。\nもう戻せません。TODOに登録済みの宿題は消えません。","削除する",true)) return;
+  try{ await DB.doc("mtgs/"+id).delete(); mtgDraft=null; toast("会議を削除しました"); const r=$("#viewRoot"); if(r && view==="mtg") renderMtg(r); }
+  catch(e){ toast("削除できませんでした"); }
 }
 async function registerMtgTodos(){
   syncNotesFromDom();
@@ -4053,7 +4070,7 @@ function openGoals(ym){
   const body = '<div class="row" style="gap:8px;margin-bottom:14px;flex-wrap:wrap">'+
       '<button class="btn sm" id="glPrev" type="button">'+I.L+'</button><b class="mono">'+esc(monthLabel(ym))+'</b>'+
       '<button class="btn sm" id="glNext" type="button">'+I.R+'</button><div class="grow"></div>'+
-      '<button class="btn sm" id="glCopy" type="button">前月の目標を写す</button></div>'+
+      '<button class="btn sm" id="glCopy" type="button">前月の契約目標を写す</button></div>'+
     (rows.length? '<div class="tablewrap"><table><thead><tr>'+(cs.length>1?'<th>会社</th>':'')+'<th>担当</th><th class="num">契約棟数</th><th class="num">契約金額（万円）</th></tr></thead><tbody>'+
       rows.map(r=>{ const x=g(r.cid, r.s.id); return '<tr>'+(cs.length>1?'<td class="small">'+esc(companyShort(r.cid))+'</td>':'')+
         '<td class="cname">'+esc(r.s.name)+'</td>'+
@@ -4061,7 +4078,7 @@ function openGoals(ym){
         '<td><input type="number" min="0" step="10" data-ga="'+esc(r.cid)+'|'+r.s.id+'" value="'+esc(x.amount==null?"":x.amount)+'" style="text-align:right"></td></tr>'; }).join("")+
       '<tr><td class="cname"'+(cs.length>1?' colspan="2"':'')+'>合計</td><td class="num" id="glSumU"></td><td class="num" id="glSumA"></td></tr>'+
       '</tbody></table></div>' : '<div class="empty">名簿にメンバーがいません。「パスワード・名簿」から追加してください。</div>')+
-    '<p class="tiny faint" style="margin-top:10px">担当者ごとの月間目標です。会社タブで絞っている場合は、その会社の分だけが出ます。空欄にすると目標なしになります。</p>';
+    '<p class="tiny faint" style="margin-top:10px">担当者ごとの月間契約目標です。会社タブで絞っている場合は、その会社の分だけが出ます。空欄にすると契約目標なしになります。</p>';
   openOverlay('<div class="modal" style="width:min(640px,calc(100% - 32px))"><div class="dhead"><b>契約目標の設定</b><div class="grow"></div>'+
     '<button class="x" id="dClose">'+I.x+'</button></div><div class="dbody">'+body+'</div>'+
     '<div class="dfoot"><button class="btn primary" id="glSave">保存</button><button class="btn" id="dCancel">閉じる</button></div></div>');
@@ -4081,7 +4098,7 @@ function openGoals(ym){
     rows.forEach(r=>{ const x=goals.find(q=>q.id===goalId(pm,r.cid,r.s.id)); if(!x) return;
       const u=document.querySelector('[data-gu="'+r.cid+'|'+r.s.id+'"]'), a=document.querySelector('[data-ga="'+r.cid+'|'+r.s.id+'"]');
       if(u && !u.value) u.value = x.units==null?"":x.units; if(a && !a.value) a.value = x.amount==null?"":x.amount; });
-    sums(); toast("前月の目標を写しました（保存で確定します）");
+    sums(); toast("前月の契約目標を写しました（保存で確定します）");
   });
   $("#glSave").addEventListener("click", async ()=>{
     const btn=$("#glSave"); btn.disabled=true; btn.textContent="保存中…";
@@ -4095,7 +4112,7 @@ function openGoals(ym){
           updatedAt:new Date().toISOString(), updatedBy:me.name||""});
         n++;
       }
-      toast(monthLabel(ym)+" の目標を保存しました"); closeOverlay();
+      toast(monthLabel(ym)+" の契約目標を保存しました"); closeOverlay();
     }catch(e){ btn.disabled=false; btn.textContent="保存"; toast("保存できませんでした"); }
   });
 }
