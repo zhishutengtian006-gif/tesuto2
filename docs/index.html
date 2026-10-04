@@ -378,6 +378,9 @@ a.btn{text-decoration:none;color:var(--text);display:inline-flex;align-items:cen
 .rvp{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:6px 8px;align-items:center;margin:6px 0 8px;font-size:12px;color:var(--faint)}
 .rvp input{min-width:0}
 @media (max-width:700px){.rvp{grid-template-columns:auto 1fr}}
+.rvatk{margin:6px 0 8px}
+.rvatk textarea{min-height:64px;max-height:180px}
+.rvdet summary{cursor:pointer;color:var(--accent);margin-top:4px}
 .rvgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
 .rvcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:13px 14px;cursor:pointer;text-align:left;display:block;width:100%}
 .rvcard:hover{border-color:var(--accent)}
@@ -1097,6 +1100,7 @@ function subscribeData(){
   loaded.customers=loaded.events=loaded.todos=loaded.goals=loaded.mtgs=loaded.rivalNotes=false;
   const sub=(name,setter)=>DB.collection(name).onSnapshot(s=>{
     setter(s.docs.map(d=>({id:d.id, ...d.data()}))); loaded[name]=true; refreshCurrent();
+    if(name==="customers"||name==="rivalNotes") scheduleRvSweep();
   }, ()=>{ loaded[name]=true; refreshCurrent(); });
   unsubs.push(sub("customers", v=>{ v.forEach(c=>{ if(STAGE_ALIAS[c.stage]) c.stage=STAGE_ALIAS[c.stage]; if(LAND_ALIAS[c.landStatus]) c.landStatus=LAND_ALIAS[c.landStatus]; }); customers=v; }));
   unsubs.push(sub("events", v=>events=v));
@@ -2213,7 +2217,7 @@ function rivalBoxHTML(c, ed, pre){
     (ed? '<div class="row" style="gap:6px;margin-top:8px"><input type="text" id="'+id+'" list="'+id+'_l" data-rvin="1" placeholder="競合の会社名（例：住林）" style="max-width:240px">'+
       '<datalist id="'+id+'_l">'+allRivalNames().filter(n=>!list.some(r=>r.name===n)).map(n=>'<option value="'+esc(n)+'">').join("")+'</datalist>'+
       '<button type="button" class="btn sm" data-rvadd="1">追加</button></div>' : '')+
-    rivalRefHTML(list, ed);
+    rivalRefHTML(list, ed, c);
 }
 /* 追加・削除のたびに onChange(新しい一覧) を呼ぶ */
 function bindRivalBox(root, getList, onChange, refresh){
@@ -2225,7 +2229,8 @@ function bindRivalBox(root, getList, onChange, refresh){
   root.querySelectorAll("[data-rvdel]").forEach(b=>b.addEventListener("click",()=>onChange(getList().filter(r=>r.id!==b.dataset.rvdel))));
   root.querySelectorAll("[data-rvopen]").forEach(b=>b.addEventListener("click",()=>openRivalNote(b.dataset.rvopen, refresh)));
   root.querySelectorAll("[data-rvp]").forEach(el=>el.addEventListener("change",()=>{
-    const [id,k] = el.dataset.rvp.split("|"); onChange(getList().map(r=>r.id===id? {...r,[k]:el.value.trim()} : r)); }));
+    const [id,k] = el.dataset.rvp.split("|"), v = el.value.trim();
+    onChange(getList().map(r=>r.id===id? {...r, [k]:v, ...(k==="attack"? {attackBy:me.name||"", attackAt:TODAY()} : {})} : r)); }));
 }
 
 /* ============================================================
@@ -2281,8 +2286,17 @@ function rvContactOf(c, name){
 }
 const rvRow = (k,v) => v? '<div class="rr"><span>'+k+'</span><b>'+esc(v)+'</b></div>' : '';
 const rvLast = nt => { const t=arr(nt&&nt.tactics); const l=t[t.length-1]; return l? (l.result?"【"+RV_RES[l.result]+"】":"")+l.text : ""; };
+/* このお客様で、この競合に対して「今どう攻めているか」 */
+function rvAttackHTML(r, ed, c){
+  const closed = c && (c.contracted||c.lost);
+  if(r.archivedAt) return '<div class="rvatk done"><span class="tiny faint">今の攻め方は '+esc(r.archivedAt)+' に「過去の攻め手」へ移しました（競合ノートで見られます）</span></div>';
+  if(!ed) return r.attack? '<div class="rvatk"><div class="tiny faint">今の攻め方'+(r.attackBy? '（'+esc(r.attackBy)+'）':'')+'</div><div class="small" style="white-space:pre-wrap">'+esc(r.attack)+'</div></div>' : '';
+  return '<div class="rvatk"><label class="tiny faint">今の攻め方（くわしく）'+(r.attackAt? '　'+esc(r.attackBy||"")+' '+esc(r.attackAt):'')+'</label>'+
+    '<textarea data-rvp="'+esc(r.id)+'|attack" rows="3" placeholder="例：標準仕様の比較表で総額の差を見せる。次回は断熱の体感見学に誘う。相手は値引きを先に出してきている">'+esc(r.attack||"")+'</textarea>'+
+    (closed? '' : '<p class="tiny faint" style="margin-top:4px">契約・没になると、自動で「過去の攻め手」に移り、要約されます。</p>')+'</div>';
+}
 /* お客様の競合欄の下に出す参照カード */
-function rivalRefHTML(list, ed){
+function rivalRefHTML(list, ed, c){
   if(!list.length) return "";
   return '<div class="rvrefs">'+list.map(r=>{
     const nt=rivalNote(r.name), rec=rivalRecord(r.name);
@@ -2292,6 +2306,7 @@ function rivalRefHTML(list, ed){
       (ed? '<div class="rvp"><label>相手の営業</label><input type="text" data-rvp="'+esc(r.id)+'|sales" value="'+esc(r.sales||"")+'" placeholder="氏名">'+
            '<label>設計</label><input type="text" data-rvp="'+esc(r.id)+'|designer" value="'+esc(r.designer||"")+'" placeholder="氏名"></div>'
          : ((r.sales||r.designer)? rvRow("担当", [r.sales?"営業 "+r.sales:"", r.designer?"設計 "+r.designer:""].filter(Boolean).join("　")) : ''))+
+      rvAttackHTML(r, ed, c)+
       (rvInfoed(nt)
         ? rvRow("単価",rvPriceLine(nt))+rvRow("性能",rvSpecLine(nt))+rvRow("特徴",nt.feature)+rvRow("弱み",nt.weak)+rvRow("攻め手",rvLast(nt))
         : '<p class="tiny faint">まだ情報がありません。わかったことを書いておくと、次から全員が参照できます。</p>')+'</div>';
@@ -2306,6 +2321,7 @@ function openRivalNote(name, onClose){
   $("#rvn").classList.add("on");
   document.addEventListener("keydown", rvnKey);
   paintRvn();
+  rvSummarize(name);
 }
 function rvnKey(e){ if(e.key!=="Escape") return; const a=$("#ask"); if(a&&a.classList.contains("on")) return; closeRivalNote(); }
 function collectRvn(){
@@ -2314,8 +2330,9 @@ function collectRvn(){
   const r=$("#rvnRes"); if(r) rvn.res=r.value;
 }
 /* 書き込み：まだ無ければ作り、あれば足りない項目だけ更新（他の人の書き足しは消さない） */
-async function rvWrite(patch){
-  const name = rvn.name, cur = rivalNote(name);
+async function rvWrite(patch){ return rvWriteName(rvn.name, patch); }
+async function rvWriteName(name, patch, quiet){
+  const cur = rivalNote(name);
   const doc = {...patch, updatedBy:me.name||"", updatedAt:new Date().toISOString()};
   try{
     if(cur) await DB.doc("rivalNotes/"+cur.id).update(doc);
@@ -2323,7 +2340,54 @@ async function rvWrite(patch){
     const i = rivalNotes.findIndex(x=>rvKey(x.name)===rvKey(name));
     if(i>=0) rivalNotes[i] = {...rivalNotes[i], ...doc}; else rivalNotes.push({id:rvDocId(name), name, ...RV_BLANK, tactics:[], ...doc});
     return true;
-  }catch(e){ toast("保存できませんでした"); return false; }
+  }catch(e){ if(!quiet) toast("保存できませんでした"); return false; }
+}
+/* ---------- 今の攻め方 → 過去の攻め手（契約・没で自動で移す） ---------- */
+const rvShort = t => { const x=String(t||"").replace(/\s+/g," ").trim(); return x.length>70? x.slice(0,70)+"…" : x; };
+let rvSweepBusy=false, rvSweepT=0;
+function scheduleRvSweep(){ clearTimeout(rvSweepT); rvSweepT=setTimeout(rvArchiveSweep, 900); }
+async function rvArchiveSweep(){
+  if(rvSweepBusy || !me || !loaded.customers || !loaded.rivalNotes) return;
+  rvSweepBusy = true;
+  try{
+    for(const c of allVisible()){
+      if(!(c.contracted||c.lost) || !canEditCustomer(c) || !Array.isArray(c.rivals)) continue;
+      const todo = c.rivals.filter(r=>String(r.attack||"").trim() && !r.archivedAt);
+      if(!todo.length) continue;
+      let ok = true;
+      for(const r of todo){
+        const tid = "c"+c.id+"_"+rvDocId(r.name), nt = rivalNote(r.name);
+        if(nt && arr(nt.tactics).some(t=>t.id===tid)) continue;
+        const t = {id:tid, text:rvShort(r.attack), detail:String(r.attack).trim(), result:c.contracted?"won":"lost",
+          by:r.attackBy||staffName(c.ownerId), date:TODAY(), custId:c.id, needSum:true, auto:true};
+        if(!await rvWriteName(r.name, {tactics:arr(nt&&nt.tactics).concat([t])}, true)) ok=false;
+      }
+      if(ok) await DB.doc("customers/"+c.id).update({rivals:c.rivals.map(r=>String(r.attack||"").trim()&&!r.archivedAt? {...r, archivedAt:TODAY()} : r)});
+    }
+  }catch(e){}
+  rvSweepBusy = false;
+}
+/* 自動で移した攻め手を、AIで短く要約する（ノートを開いたときに、要約待ちがあれば実行） */
+async function rvSummarize(name){
+  if(!SAMPLE || !rvn || rvn.sumBusy) return;
+  const nt = rivalNote(name); const pend = arr(nt&&nt.tactics).filter(t=>t.needSum && t.detail);
+  if(!pend.length) return;
+  rvn.sumBusy = true; paintRvn();
+  const done = {};
+  for(const t of pend){
+    try{
+      const out = await SAMPLE.json("住宅会社の営業が、競合「"+name+"」と争った商談でとった攻め方の記録です。次の商談で同じ相手と戦う営業が一目で使えるよう、"+
+        "「何をしたか（攻め方の要点）」と「結果（"+(RV_RES[t.result]||"不明")+"）につながった理由」を60字以内の日本語1文に要約してください。記録に無いことは書かないでください。\n\n# 記録\n"+t.detail.slice(0,6000)+
+        "\n\n# 出力\n{\"summary\": \"…\"} の形のJSONだけを返してください。");
+      const sm = out && String(out.summary||"").trim(); if(sm) done[t.id] = sm.slice(0,120);
+    }catch(e){ if(e && ["not_granted","sampling_disabled","not_declared","capability_disabled"].includes(e.code)) break; }
+  }
+  const ids = Object.keys(done);
+  if(ids.length){
+    const cur = arr((rivalNote(name)||{}).tactics).map(t=>done[t.id]? {...t, text:done[t.id], needSum:false} : t);
+    await rvWriteName(name, {tactics:cur}, true);
+  }
+  if(rvn){ rvn.sumBusy = false; if(rvn.name===name) paintRvn(); }
 }
 async function saveRvnFields(quiet){
   if(rvn.skipSave) return true;
@@ -2385,6 +2449,7 @@ function paintRvn(){
   if(!rvn) return;
   const l=$("#rvn"), nt=rivalNote(rvn.name)||{}, rec=rivalRecord(rvn.name), d=rvn.draft;
   const tactics = arr(nt.tactics).slice().reverse();
+  const curAtk = rec.open.map(c=>({c, r:rivalsOf(c).find(x=>rvKey(x.name)===rvKey(rvn.name))})).filter(x=>x.r && String(x.r.attack||"").trim());
   const canOpen = !$("#overlay").classList.contains("on");
   const recRows = rec.cs.length? rec.cs.map(c=>{
     const st = c.contracted? '<span class="chip ok">契約</span>' : c.lost? '<span class="chip">見送り</span>' : '<span class="chip warn">商談中</span>';
@@ -2399,6 +2464,22 @@ function paintRvn(){
     '<div class="grow"></div><button class="x" id="rvnX">'+I.x+'</button></div><div class="dbody">'+
     '<div class="fset"><h4>これまでの対戦</h4><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px">'+rvStats(rec)+'</div>'+recRows+
       '<p class="tiny faint" style="margin-top:6px">あなたが見られるお客様の分です。見送りになった理由も一緒に振り返れます。</p></div>'+
+    '<div class="fset"><h4>今の攻め方（商談中のお客様）</h4>'+
+      (curAtk.length? curAtk.map(({c,r})=>'<div class="rvt"><div class="th"><span class="chip warn">商談中</span>'+
+          (canOpen? '<a class="link" data-rvcust="'+c.id+'" style="cursor:pointer">'+esc(c.name||"（無名）")+'</a>' : '<b>'+esc(c.name||"（無名）")+'</b>')+
+          esc(r.attackBy||staffName(c.ownerId))+(r.attackAt? ' ／ '+esc(r.attackAt):'')+'</div><div class="tx">'+esc(r.attack)+'</div></div>').join("")
+        : '<p class="tiny faint">お客様の競合欄（カルテ・詳細パネル）の「今の攻め方」に書くと、ここに集まります。</p>')+
+      '<p class="tiny faint" style="margin-top:6px">契約・没になると、自動で下の「過去の攻め手」に移り、要約されます（くわしい内容も残ります）。</p></div>'+
+    '<div class="fset"><h4>過去の攻め手（どう攻めて、どうなったか）'+(rvn.sumBusy? '　<span class="chip warn">要約しています…</span>':'')+'</h4>'+
+      '<div class="row" style="gap:8px;align-items:flex-start;flex-wrap:wrap"><textarea id="rvnTxt" rows="2" style="flex:1 1 260px;min-height:60px;max-height:150px" placeholder="例：標準仕様で比較表を作り、総額で逆転。見積は先に出さず、住み心地を体感してもらった"></textarea>'+
+      '<div style="display:grid;gap:6px"><select id="rvnRes">'+Object.entries(RV_RES).map(([k,v])=>'<option value="'+k+'"'+(rvn.res===k?" selected":"")+'>'+v+'</option>').join("")+'</select>'+
+      '<button type="button" class="btn primary sm" id="rvnAdd">書き足す</button></div></div>'+
+      '<div style="margin-top:12px">'+(tactics.length? tactics.map(t=>'<div class="rvt"><div class="th">'+
+        (t.result? '<span class="chip'+(t.result==="won"?" ok":"")+'">'+esc(RV_RES[t.result]||"")+'</span>':'')+esc(t.date||"")+' ／ '+esc(t.by||"")+
+        (t.auto? '<span class="chip">商談から自動</span>':'')+(t.needSum? '<span class="chip warn">要約待ち</span>':'')+
+        '<div class="grow"></div><button type="button" class="btn sm ghost" data-rvtdel="'+esc(t.id)+'">消す</button></div><div class="tx">'+esc(t.text)+'</div>'+
+        (t.detail && t.detail!==t.text? '<details class="rvdet"><summary class="tiny">くわしく見る</summary><div class="tx small muted" style="margin-top:4px">'+esc(t.detail)+'</div></details>':'')+'</div>').join("")
+        : '<p class="tiny faint">まだ書かれていません。うまくいった攻め方も、失敗した攻め方も、残しておくと次の商談で使えます。</p>')+'</div></div>'+
     '<div class="fset"><h4>この会社の情報</h4>'+
       '<div class="rvtool"><a class="btn sm" target="_blank" rel="noopener" href="https://www.google.com/search?q='+encodeURIComponent(rvn.name+' 坪単価 UA値 C値 標準仕様')+'">ネットで調べる</a>'+
       (SAMPLE? '<button type="button" class="btn sm" id="rvnAi"'+(rvn.aiBusy?' disabled':'')+'>'+(rvn.aiBusy? '作っています…' : 'AIで下書き')+'</button>' : '')+
@@ -2415,14 +2496,6 @@ function paintRvn(){
       fl("feature","特徴・強み","例：ブランド力と設計提案、アフターが厚い","ta")+
       fl("weak","弱み・ここを突く","例：標準で付く設備が少なく、見積が上がりやすい","ta")+
       '<button type="button" class="btn primary sm" id="rvnSave">この情報を保存</button></div>'+
-    '<div class="fset"><h4>過去の攻め手（どう攻めて、どうなったか）</h4>'+
-      '<div class="row" style="gap:8px;align-items:flex-start;flex-wrap:wrap"><textarea id="rvnTxt" rows="2" style="flex:1 1 260px;min-height:60px;max-height:150px" placeholder="例：標準仕様で比較表を作り、総額で逆転。見積は先に出さず、住み心地を体感してもらった"></textarea>'+
-      '<div style="display:grid;gap:6px"><select id="rvnRes">'+Object.entries(RV_RES).map(([k,v])=>'<option value="'+k+'"'+(rvn.res===k?" selected":"")+'>'+v+'</option>').join("")+'</select>'+
-      '<button type="button" class="btn primary sm" id="rvnAdd">書き足す</button></div></div>'+
-      '<div style="margin-top:12px">'+(tactics.length? tactics.map(t=>'<div class="rvt"><div class="th">'+
-        (t.result? '<span class="chip'+(t.result==="won"?" ok":"")+'">'+esc(RV_RES[t.result]||"")+'</span>':'')+esc(t.date||"")+' ／ '+esc(t.by||"")+
-        '<div class="grow"></div><button type="button" class="btn sm ghost" data-rvtdel="'+esc(t.id)+'">消す</button></div><div class="tx">'+esc(t.text)+'</div></div>').join("")
-        : '<p class="tiny faint">まだ書かれていません。うまくいった攻め方も、失敗した攻め方も、残しておくと次の商談で使えます。</p>')+'</div></div>'+
     '</div><div class="dfoot"><button class="btn" id="rvnClose">閉じる</button>'+
     '<button class="btn ghost" id="rvnDel" style="color:var(--danger)">この競合を削除</button><div class="grow"></div>'+
     (nt.updatedAt? '<span class="tiny faint">最終更新 '+esc(nt.updatedBy||"")+' ／ '+esc(String(nt.updatedAt).slice(0,10))+'</span>':'')+'</div></div>';
