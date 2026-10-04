@@ -338,6 +338,13 @@ tr.rC td.stripe{border-left-color:var(--rank-c)}
 .tl{display:flex;flex-direction:column}
 .tlnode{position:relative;padding:0 0 16px 20px;border-left:2px solid var(--border);margin-left:6px}
 .tlnode:last-child{border-left-color:transparent;padding-bottom:0}
+.tlnode.tlgo{cursor:pointer}
+.tlnode.tlgo .tldot::after{content:"";position:absolute;inset:-12px}
+.tlnode.tlgo:hover .tlstage{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+.mblock{scroll-margin-top:8px}
+.mblock.flash{animation:mflash 1.4s ease-out}
+@keyframes mflash{0%{box-shadow:0 0 0 3px var(--accent);background:var(--accent-soft)}100%{box-shadow:0 0 0 3px transparent}}
+@media (prefers-reduced-motion:reduce){.mblock.flash{animation:none;box-shadow:0 0 0 2px var(--accent)}}
 .tldot{position:absolute;left:-8px;top:3px;width:14px;height:14px;border-radius:50%;background:var(--surface);border:2px solid var(--border-strong)}
 .tldot.done{background:var(--accent);border-color:var(--accent)}
 .tldot.sched{border-color:var(--accent)}
@@ -2550,7 +2557,8 @@ function custMeet(c, ed){
       const done = meetingDone(m), hasNote = !!(m.note||"").trim();
       let flag = "";
       if(!done && m.date){ const [cls,txt]=whenClass(m.date); flag='<span class="when '+cls+'">予定 '+esc(txt)+'</span>'; }
-      return '<div class="tlnode"><div class="tldot '+(done?"done":(m.date?"sched":""))+'"></div>'+
+      const go = ed? ' data-tlgo="'+m.idx+'" title="この回の記録へ移動"' : '';
+      return '<div class="tlnode'+(ed?' tlgo':'')+'"'+go+'><div class="tldot '+(done?"done":(m.date?"sched":""))+'"></div>'+
         '<div class="tltop"><span class="tlstage">'+esc(m.n)+'面談</span>'+
         (m.date? '<span class="tldate">'+esc(fmtDY(m.date))+(m.time? ' '+esc(m.time):'')+'</span>':'<span class="tldate faint">日付未定</span>')+
         flag+(m.gcalId? '<span class="chip">Googleに登録済</span>':'')+
@@ -2692,6 +2700,12 @@ function collectCustomer(){
   }
 }
 function bindCustExtras(c, ed){
+  /* 「これまでの流れ」の丸／行を押すと、その回の記録欄へ移動 */
+  document.querySelectorAll(".drawer [data-tlgo]").forEach(n=>n.addEventListener("click",()=>{
+    const blk = document.querySelector('.drawer .mblock[data-mi="'+n.dataset.tlgo+'"]'); if(!blk) return;
+    blk.scrollIntoView({behavior:"smooth", block:"start"});
+    blk.classList.remove("flash"); void blk.offsetWidth; blk.classList.add("flash");
+  }));
   /* 土地の状況を変えたら、出す欄を切り替える */
   const fsel = $(".drawer [data-f='followMode']");
   if(fsel) fsel.addEventListener("change",()=>{ collectCustomer(); paintCustomer(); });
