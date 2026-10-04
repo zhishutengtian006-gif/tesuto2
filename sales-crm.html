@@ -70,6 +70,10 @@ input[type=text],input[type=password],input[type=date],input[type=month],input[t
   width:100%;padding:7px 9px;border:1px solid var(--border-strong);border-radius:var(--r);background:var(--surface);transition:border-color .12s}
 input[type=date],input[type=time],input[type=month]{-webkit-appearance:none;appearance:none;display:block;min-width:0;max-width:100%;text-align:left;min-height:34px}
 input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and-time-value,input[type=month]::-webkit-date-and-time-value{text-align:left;min-height:1.4em}
+.dc{position:relative;display:block;min-width:0;flex:1 1 auto}
+.dc input[type=date]{padding-right:56px}
+.dclr{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:var(--surface3);color:var(--muted);border-radius:100px;padding:3px 10px;font-size:12px;cursor:pointer}
+.dclr:hover{background:var(--border)}
 input:focus,select:focus,textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
 textarea{resize:vertical;min-height:70px;line-height:1.65}
 label.lb{display:block;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-family:var(--mono);margin-bottom:4px}
@@ -4446,6 +4450,21 @@ function closeOverlay(){
   document.removeEventListener("keydown", escClose);
   refreshCurrent();
 }
+/* 日付欄に「消す」ボタンを付ける（iPhoneの日付ピッカーの「リセット」では空にならないことがあるため） */
+function decorateDates(){
+  const ov=$("#overlay"); if(!ov || !ov.classList.contains("on")) return;
+  ov.querySelectorAll("input[type=date]").forEach(inp=>{
+    if(inp.dataset.dc || inp.dataset.apin!==undefined || inp.id==="mgDate" || inp.dataset.f==="date" || inp.style.width) return;
+    inp.dataset.dc = "1";
+    const w=document.createElement("span"); w.className="dc";
+    inp.parentNode.insertBefore(w, inp); w.appendChild(inp);
+    const b=document.createElement("button"); b.type="button"; b.className="dclr"; b.textContent="消す"; b.title="日付を空にする"; w.appendChild(b);
+    const sync = () => { b.style.display = inp.value? "" : "none"; };
+    ["input","change","blur","focus"].forEach(ev=>inp.addEventListener(ev,sync)); sync();
+    b.addEventListener("click",()=>{ inp.value=""; inp.dispatchEvent(new Event("input",{bubbles:true})); inp.dispatchEvent(new Event("change",{bubbles:true})); sync(); });
+  });
+}
+try{ let t=0; new MutationObserver(()=>{ clearTimeout(t); t=setTimeout(decorateDates,0); }).observe(document.getElementById("overlay"),{childList:true,subtree:true}); }catch(e){}
 try{ const th=localStorage.getItem("crm.theme"); if(th&&th!=="auto") document.documentElement.setAttribute("data-theme",th); }catch(e){}
 boot();
 </script>
