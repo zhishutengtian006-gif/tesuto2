@@ -1641,6 +1641,13 @@ function refreshCurrent(){
 }
 function renderView(){
   const r=$("#viewRoot"); if(!r) return;
+  /* 描き直しても、横スクロール（営業会議のシートなど）と縦の位置を保つ */
+  const keep = r.dataset.view===view ? {y:window.scrollY, x:[...r.querySelectorAll(".sgrid-wrap,.sgrid")].map(e=>e.scrollLeft)} : null;
+  r.dataset.view = view;
+  renderViewInner(r);
+  if(keep){ r.querySelectorAll(".sgrid-wrap,.sgrid").forEach((e,i)=>{ if(keep.x[i]) e.scrollLeft=keep.x[i]; }); window.scrollTo(0, keep.y); }
+}
+function renderViewInner(r){
   ({dash:renderDash, customers:renderCustomers, meetings:renderMeetings, calendar:renderCalendar,
     todo:renderTodo, rivals:renderRivals, report:renderReport, contract:renderContract, lost:renderLost, admin:renderAdmin, mtg:renderMtg}[view] || renderDash)(r);
 }
