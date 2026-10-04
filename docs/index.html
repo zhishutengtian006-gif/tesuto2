@@ -833,7 +833,9 @@ function rivalsOf(c){
   return String(c.competitors||"").split(/[、,，\/・\n]+/).map(x=>x.trim()).filter(Boolean).map(n=>({id:"t_"+n, name:n}));
 }
 const rivalNames = c => rivalsOf(c).map(r=>r.name);
-function allRivalNames(){ const set=new Set(); customers.forEach(c=>rivalNames(c).forEach(n=>set.add(n))); rivalNotes.forEach(x=>x.name&&set.add(x.name)); return [...set].sort((a,b)=>a.localeCompare(b,"ja")); }
+function allRivalNames(){ const m=new Map(); const put=n=>{ const k=rvKey(n); if(k && !m.has(k)) m.set(k,n); };
+  rivalNotes.forEach(x=>put(x.name)); customers.forEach(c=>rivalNames(c).forEach(put));
+  return [...m.values()].sort((a,b)=>a.localeCompare(b,"ja")); }
 const LOAN = {none:"未実施",applied:"申込中",approved:"承認",rejected:"否決"};
 const EVT = {
   visit:"来場", meeting:"社内打合せ", event:"見学会・イベント", cere:"地鎮祭・上棟", hand:"引渡し", other:"その他",
@@ -2430,21 +2432,89 @@ function paintRvn(){
   }));
   l.querySelectorAll("[data-rvcust]").forEach(a=>a.addEventListener("click",async ()=>{ const id=a.dataset.rvcust; await closeRivalNote(); openCustomer(id); }));
 }
-/* 画面「競合ノート」：全競合の一覧 */
+/* 画面「競合ノート」：全競合の一覧／競合の担当者一覧 */
 function renderRivals(root){
+  const tab = ui.rvTab==="people" ? "people" : "cos";
   root.innerHTML = topbar("競合ノート", '<button class="btn primary" id="rvNew">'+I.plus+'競合を追加</button>')+
-    '<div class="content"><p class="small muted" style="margin-bottom:12px">競合の単価・性能・特徴と、過去の攻め手をみんなで書き足していく場所です。お客様に競合名を入れると、ここの情報がその場で参照できます。</p>'+
-    '<div class="row" style="margin-bottom:14px"><input type="text" id="rvSearch" placeholder="会社名・単価・特徴で探す" value="'+esc(ui.rvQ||"")+'" style="max-width:320px"></div>'+
+    '<div class="content"><div class="tabs" style="margin-bottom:14px">'+[["cos","競合の会社"],["people","競合の担当者（書き出し）"]]
+      .map(t=>'<button data-rvtab="'+t[0]+'" class="'+(tab===t[0]?"on":"")+'">'+t[1]+'</button>').join("")+'</div>'+
+    (tab==="cos"? '<p class="small muted" style="margin-bottom:12px">競合の単価・性能・特徴と、過去の攻め手をみんなで書き足していく場所です。お客様に競合名を入れると、ここの情報がその場で参照できます。</p>' : '')+
+    (tab==="cos"? '<div class="row" style="margin-bottom:14px"><input type="text" id="rvSearch" placeholder="会社名・単価・特徴で探す" value="'+esc(ui.rvQ||"")+'" style="max-width:320px"></div>' : '')+
     '<div id="rvCards"></div></div>';
   $("#rvNew").addEventListener("click",async ()=>{
     const n = await askPrompt("競合を追加","会社名を入れてください（例：住林）","会社名","ノートを開く");
     if(n && n.trim()) openRivalNote(n.trim(), renderRivalCards);
   });
-  $("#rvSearch").addEventListener("input",e=>{ ui.rvQ=e.target.value; renderRivalCards(); });
+  root.querySelectorAll("[data-rvtab]").forEach(b=>b.addEventListener("click",()=>{ ui.rvTab=b.dataset.rvtab; renderRivals(root); }));
+  const sr=$("#rvSearch"); if(sr) sr.addEventListener("input",e=>{ ui.rvQ=e.target.value; renderRivalCards(); });
   renderRivalCards();
+}
+/* お客様に入れた「相手の営業・設計」を、会社ごと・人ごとに集める（お客様の名前は含めない） */
+function rivalPeople(){
+  const map = new Map();
+  allVisible().forEach(c=>{
+    rivalsOf(c).forEach(r=>{
+      [["sales","営業"],["designer","設計"]].forEach(([k,role])=>{
+        const nm = String(r[k]||"").trim(); if(!nm) return;
+        const key = rvKey(r.name)+"|"+rvKey(nm)+"|"+role;
+        const e = map.get(key) || {company:(rivalNote(r.name)||{}).name||String(r.name).normalize("NFKC"), person:nm, role, n:0, won:0, lost:0, last:""};
+        e.n++; if(c.contracted) e.won++; else if(c.lost) e.lost++;
+        const d = String(c.updatedAt||c.createdAt||"").slice(0,10); if(d>e.last) e.last=d;
+        map.set(key, e);
+      });
+    });
+  });
+  return [...map.values()].sort((a,b)=>a.company.localeCompare(b.company,"ja") || a.role.localeCompare(b.role,"ja") || a.person.localeCompare(b.person,"ja"));
+}
+function rivalPeopleRows(list){
+  return list.map(e=>{ const nt = rivalNote(e.company)||{};
+    return [e.company, e.person, e.role, e.n, e.won, e.lost, e.last, [nt.tier, nt.structure].filter(Boolean).join(" "), nt.area||""]; });
+}
+const RV_PEOPLE_HEAD = ["会社名","担当者名","役割","対戦件数","自社が契約","自社が見送り","直近の関わり","会社の特徴（価格帯・構造）","施工エリア"];
+async function exportRivalPeople(){
+  const rows = rivalPeopleRows(rivalPeople());
+  if(!rows.length) return toast("担当者が入っている競合がありません");
+  const q = v => '"'+String(v==null?"":v).replace(/"/g,'""').replace(/\r?\n/g," ")+'"';
+  const csv = "\ufeff"+[RV_PEOPLE_HEAD].concat(rows).map(r=>r.map(q).join(",")).join("\r\n");
+  let dl=null; try{ dl=await window.claude.use("downloads"); }catch(e){}
+  if(!dl) return toast("この画面ではファイルの書き出しができません。「コピー」を使ってください");
+  try{ await dl.save({filename:"competitor_people_"+TODAY()+".csv", data:csv}); toast("CSVを書き出しました"); }
+  catch(e){ if(e&&e.code==="declined") return; toast("書き出しできませんでした"); }
+}
+async function copyRivalPeople(){
+  const rows = rivalPeopleRows(rivalPeople());
+  if(!rows.length) return toast("担当者が入っている競合がありません");
+  const tsv = [RV_PEOPLE_HEAD].concat(rows).map(r=>r.map(v=>String(v==null?"":v).replace(/[\t\r\n]+/g," ")).join("\t")).join("\n");
+  try{ await navigator.clipboard.writeText(tsv); toast("コピーしました。メールや表計算に貼り付けられます"); }
+  catch(e){
+    openOverlay('<div class="modal"><div class="dhead"><b>コピーして使ってください</b><div class="grow"></div><button class="x" id="dClose">'+I.x+'</button></div>'+
+      '<div class="dbody"><textarea id="rvTsv" readonly style="min-height:260px;white-space:pre"></textarea></div><div class="dfoot"><button class="btn" id="dCancel">閉じる</button></div></div>');
+    $("#rvTsv").value = tsv; $("#rvTsv").select();
+    $("#dClose").addEventListener("click",closeOverlay); $("#dCancel").addEventListener("click",closeOverlay);
+  }
+}
+function renderRivalPeople(box){
+  const all = rivalPeople();
+  const f = ui.rvRole||"";
+  const list = f? all.filter(e=>e.role===f) : all;
+  const cos = new Set(list.map(e=>rvKey(e.company))).size;
+  let h = '<div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px"><select id="rvRole" style="max-width:160px"><option value="">営業・設計すべて</option><option value="営業"'+(f==="営業"?" selected":"")+'>営業のみ</option><option value="設計"'+(f==="設計"?" selected":"")+'>設計のみ</option></select>'+
+    '<span class="tiny muted">'+cos+'社 ／ '+list.length+'名</span><div class="grow"></div>'+
+    '<button class="btn sm" id="rvCopy">コピー</button><button class="btn primary sm" id="rvCsv">CSV書き出し</button></div>'+
+    '<p class="tiny faint" style="margin-bottom:12px">お客様に入れた「相手の営業・設計」を、会社ごとにまとめた一覧です。お客様の名前は含まれません。氏名などの個人情報を含むため、渡す相手と目的を確かめてから共有してください。</p>';
+  h += list.length? '<div class="tablewrap"><table><thead><tr>'+RV_PEOPLE_HEAD.slice(0,7).map((t,i)=>'<th'+(i>=3&&i<=5?' class="num"':'')+'>'+t+'</th>').join("")+'</tr></thead><tbody>'+
+    list.map(e=>'<tr class="click" data-rvco="'+esc(e.company)+'"><td><b>'+esc(e.company)+'</b></td><td>'+esc(e.person)+'</td><td><span class="chip">'+e.role+'</span></td>'+
+      '<td class="num">'+e.n+'</td><td class="num">'+e.won+'</td><td class="num">'+e.lost+'</td><td class="small nowrap">'+esc(e.last)+'</td></tr>').join("")+'</tbody></table></div>'
+    : '<div class="tablewrap"><div class="empty">担当者はまだ入っていません。お客様の競合欄にある「相手の営業」「設計」に氏名を入れると、ここに集まります</div></div>';
+  box.innerHTML = h;
+  $("#rvRole").addEventListener("change",e=>{ ui.rvRole=e.target.value; renderRivalPeople(box); });
+  $("#rvCopy").addEventListener("click", copyRivalPeople);
+  $("#rvCsv").addEventListener("click", exportRivalPeople);
+  box.querySelectorAll("[data-rvco]").forEach(r=>r.addEventListener("click",()=>openRivalNote(r.dataset.rvco, renderRivalCards)));
 }
 function renderRivalCards(){
   const box=$("#rvCards"); if(!box) return;
+  if(ui.rvTab==="people") return renderRivalPeople(box);
   const q=rvKey(ui.rvQ||"");
   let rows = allRivalNames().map(n=>({n, nt:rivalNote(n), rec:rivalRecord(n)}));
   if(q) rows = rows.filter(r=>rvKey([r.n, r.nt&&rvPriceLine(r.nt), r.nt&&rvSpecLine(r.nt), r.nt&&r.nt.feature, r.nt&&r.nt.weak, arr(r.nt&&r.nt.tactics).map(t=>t.text).join(" ")].join(" ")).includes(q));
