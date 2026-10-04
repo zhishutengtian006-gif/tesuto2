@@ -254,6 +254,36 @@ tr.rC td.stripe{border-left-color:var(--rank-c)}
 .mblock .mh{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .mblock .mh .ms{font-weight:700;font-size:12.5px}
 
+
+/* ---------- 競合ノート ---------- */
+.chip.ok{background:var(--ok-bg);color:var(--ok)} .chip.warn{background:var(--rank-b-bg);color:var(--rank-b)}
+.rvrec .link{color:var(--accent);font-weight:500;text-decoration:underline;text-underline-offset:3px}
+#rvn{position:fixed;inset:0;z-index:150;display:none}
+#rvn.on{display:block}
+#rvn .modal{width:min(660px,calc(100% - 24px))}
+.rv .rvname{font-size:12.5px;font-weight:500;padding:2px 0;opacity:1;text-decoration:underline dotted;text-underline-offset:3px}
+.rv .rvname:hover{background:none;text-decoration:underline}
+.rvrefs{display:grid;gap:8px;margin-top:10px}
+.rvref{border:1px solid var(--border);border-radius:var(--r);background:var(--surface2);padding:10px 12px}
+.rvref .rvh{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.rvref .rr{display:flex;gap:8px;font-size:12.5px;line-height:1.6;padding:2px 0}
+.rvref .rr span{flex:none;width:3.4em;color:var(--faint);font-size:11.5px;padding-top:1px}
+.rvref .rr b{font-weight:400;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap;word-break:break-word}
+.rvgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
+.rvcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:13px 14px;cursor:pointer;text-align:left;display:block;width:100%}
+.rvcard:hover{border-color:var(--accent)}
+.rvcard h3{font-size:15px;margin-bottom:6px}
+.rvcard .rvs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.rvcard .rr{display:flex;gap:8px;font-size:12.5px;line-height:1.6;padding:2px 0}
+.rvcard .rr span{flex:none;width:3.4em;color:var(--faint);font-size:11.5px;padding-top:1px}
+.rvcard .rr b{font-weight:400;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.rvt{border:1px solid var(--border);border-radius:var(--r);padding:9px 11px;margin-bottom:8px;background:var(--surface)}
+.rvt .th{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11.5px;color:var(--faint);margin-bottom:3px}
+.rvt .tx{white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.7}
+.rvrec{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border);font-size:13px;flex-wrap:wrap}
+.rvrec:first-of-type{border-top:0}
+.rvrec .rs{color:var(--muted);font-size:12px;min-width:0;flex:1 1 160px}
+
 /* ---------- drawer / modal ---------- */
 #overlay{position:fixed;inset:0;z-index:100;display:none}
 #overlay.on{display:block}
@@ -634,6 +664,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 
 <div id="root"><div class="loginwrap"><div class="loginbox"><div class="frm"><p class="muted small">読み込み中…</p></div></div></div></div>
 <div id="overlay"></div>
+<div id="rvn"></div>
 <div id="ask"></div>
 <div class="toast" id="toast"></div>
 
@@ -700,7 +731,7 @@ function rivalsOf(c){
   return String(c.competitors||"").split(/[、,，\/・\n]+/).map(x=>x.trim()).filter(Boolean).map(n=>({id:"t_"+n, name:n}));
 }
 const rivalNames = c => rivalsOf(c).map(r=>r.name);
-function allRivalNames(){ const set=new Set(); customers.forEach(c=>rivalNames(c).forEach(n=>set.add(n))); return [...set].sort((a,b)=>a.localeCompare(b,"ja")); }
+function allRivalNames(){ const set=new Set(); customers.forEach(c=>rivalNames(c).forEach(n=>set.add(n))); rivalNotes.forEach(x=>x.name&&set.add(x.name)); return [...set].sort((a,b)=>a.localeCompare(b,"ja")); }
 const LOAN = {none:"未実施",applied:"申込中",approved:"承認",rejected:"否決"};
 const EVT = {
   visit:"来場", meeting:"社内打合せ", event:"見学会・イベント", cere:"地鎮祭・上棟", hand:"引渡し", other:"その他",
@@ -718,8 +749,8 @@ const WD = ["日","月","火","水","木","金","土"];
 let DB = null, dbState = "loading";
 let CFG = buildCFG({});
 let AUTH = null;
-let staff = [], customers = [], events = [], todos = [], todoTrash = [], goals = [], mtgs = [];
-let loaded = { auth:false, staff:false, customers:false, events:false, todos:false, goals:false, mtgs:false };
+let staff = [], customers = [], events = [], todos = [], todoTrash = [], goals = [], mtgs = [], rivalNotes = [];
+let loaded = { auth:false, staff:false, customers:false, events:false, todos:false, goals:false, mtgs:false, rivalNotes:false };
 let me = null, view = "dash", unsubs = [];
 const ui = {
   scope:"all", scopeRep:"",
@@ -890,6 +921,7 @@ const I = {
   check:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.8" y="2.4" width="12.4" height="11.4" rx="1.6"/><path d="M4.8 8.2l2.1 2.1 4.3-4.3"/></svg>',
   chart:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 14V2M2 14h12"/><rect x="4.4" y="8" width="2.4" height="4"/><rect x="8" y="5" width="2.4" height="7"/><rect x="11.6" y="9.6" width="2.4" height="2.4"/></svg>',
   seal:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="6.4" r="4.2"/><path d="M5.4 10.2L4.4 14.4l3.6-1.8 3.6 1.8-1-4.2"/></svg>',
+  flag:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3.4 14.6V2M3.4 2.8h8.2l-1.8 2.8 1.8 2.8H3.4"/></svg>',
   box:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.8 5.2h12.4v8.2a1 1 0 01-1 1H2.8a1 1 0 01-1-1z"/><path d="M1.4 2.6h13.2v2.6H1.4zM6.4 8.4h3.2"/></svg>',
   gear:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.3"/><path d="M8 1.6l1 1.7 2-.4.5 1.9 1.8.9-1 1.8 1 1.8-1.8.9-.5 1.9-2-.4-1 1.7-1-1.7-2 .4-.5-1.9-1.8-.9 1-1.8-1-1.8 1.8-.9.5-1.9 2 .4z"/></svg>',
   house:'<svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.5 8.6L10 2.6l7.5 6"/><path d="M4.2 9.9v7.5h11.6V9.9"/><path d="M8.1 17.4v-4.3h3.8v4.3"/></svg>',
@@ -943,7 +975,7 @@ async function boot(){
 }
 function subscribeData(){
   unsubs.forEach(u=>{try{u();}catch(e){}}); unsubs=[];
-  loaded.customers=loaded.events=loaded.todos=loaded.goals=loaded.mtgs=false;
+  loaded.customers=loaded.events=loaded.todos=loaded.goals=loaded.mtgs=loaded.rivalNotes=false;
   const sub=(name,setter)=>DB.collection(name).onSnapshot(s=>{
     setter(s.docs.map(d=>({id:d.id, ...d.data()}))); loaded[name]=true; refreshCurrent();
   }, ()=>{ loaded[name]=true; refreshCurrent(); });
@@ -952,6 +984,7 @@ function subscribeData(){
   unsubs.push(sub("todos", v=>{ todos=v.filter(t=>!t.deleted); todoTrash=v.filter(t=>t.deleted); }));
   unsubs.push(sub("goals", v=>goals=v));
   unsubs.push(sub("mtgs", v=>mtgs=v));
+  unsubs.push(sub("rivalNotes", v=>rivalNotes=v));
 }
 /* ---------- セッション（この端末に覚えておく） ---------- */
 function saveSession(){
@@ -991,7 +1024,7 @@ function afterLogin(){
 function signOut(silent){
   clearSession();
   me=null; unsubs.forEach(u=>{try{u();}catch(e){}}); unsubs=[];
-  customers=[];events=[];todos=[];todoTrash=[];goals=[];mtgs=[]; mtgDraft=null; view="dash";
+  customers=[];events=[];todos=[];todoTrash=[];goals=[];mtgs=[];rivalNotes=[]; mtgDraft=null; view="dash";
   login.scope=""; login.staffId=""; login.newName=""; login.err="";
   closeOverlay(); renderAll();
   if(!silent) toast("ログアウトしました");
@@ -1447,6 +1480,7 @@ const NAV = [
   {id:"todo", name:"TODO", icon:"check"},
   {id:"report", name:"集計", icon:"chart"},
   {id:"mtg", name:"営業会議", icon:"mtg"},
+  {id:"rivals", name:"競合ノート", icon:"flag"},
 ];
 const ARCHIVE_NAV = [
   {id:"contract", name:"契約済", icon:"seal"},
@@ -1565,6 +1599,7 @@ function refreshCurrent(){
   if(view==="customers") renderCustomerTable();
   else if(view==="calendar") renderCalGrid();
   else if(view==="todo") renderTodoList();
+  else if(view==="rivals"){ if(!$("#rvSearch") || document.activeElement!==$("#rvSearch")) renderRivalCards(); }
   else if(view==="mtg"){
     /* 書いている最中は描き直さない（書き終わって枠を離れたら描き直す） */
     if(ui.mtgTab==="notes") return;
@@ -1576,13 +1611,13 @@ function refreshCurrent(){
 function renderView(){
   const r=$("#viewRoot"); if(!r) return;
   ({dash:renderDash, customers:renderCustomers, meetings:renderMeetings, calendar:renderCalendar,
-    todo:renderTodo, report:renderReport, contract:renderContract, lost:renderLost, admin:renderAdmin, mtg:renderMtg}[view] || renderDash)(r);
+    todo:renderTodo, rivals:renderRivals, report:renderReport, contract:renderContract, lost:renderLost, admin:renderAdmin, mtg:renderMtg}[view] || renderDash)(r);
 }
 const VIEW_SUB = {
   dash:"商談サマリー", customers:"行をクリックでカルテを開きます", meetings:"次回アポを時系列で確認",
   calendar:"面談と予定を月単位で確認", todo:"やることの管理", report:"担当者別・商品別の実績",
   contract:"成約したお客様", lost:"見送り・失注したお客様", admin:"ログインパスワードとメンバー名簿",
-  mtg:"打合わせシート・数字・議事録",
+  mtg:"打合わせシート・数字・議事録", rivals:"競合の単価・性能・特徴・過去の攻め手",
 };
 function topbar(title, right){
   return '<div class="topbar"><div><h1>'+esc(title)+'</h1>'+
@@ -2041,21 +2076,179 @@ function bindApplyRow(root, onSet, onClear){
 /* 競合：会社名のタグ。追加／× で外す。入力中は他のお客様で使った名前が候補に出る */
 function rivalBoxHTML(c, ed, pre){
   const list = rivalsOf(c), id = pre+(c.id||"new");
-  return '<div class="rv-chips">'+(list.length? list.map(r=>'<span class="rv">'+esc(r.name)+(ed? '<button type="button" data-rvdel="'+esc(r.id)+'" title="外す">×</button>':'')+'</span>').join("")
+  return '<div class="rv-chips">'+(list.length? list.map(r=>'<span class="rv"><button type="button" class="rvname" data-rvopen="'+esc(r.name)+'" title="この会社のノートを見る">'+esc(r.name)+'</button>'+(ed? '<button type="button" data-rvdel="'+esc(r.id)+'" title="外す">×</button>':'')+'</span>').join("")
       : '<span class="tiny faint">競合は入っていません</span>')+'</div>'+
     (ed? '<div class="row" style="gap:6px;margin-top:8px"><input type="text" id="'+id+'" list="'+id+'_l" data-rvin="1" placeholder="競合の会社名（例：住林）" style="max-width:240px">'+
       '<datalist id="'+id+'_l">'+allRivalNames().filter(n=>!list.some(r=>r.name===n)).map(n=>'<option value="'+esc(n)+'">').join("")+'</datalist>'+
-      '<button type="button" class="btn sm" data-rvadd="1">追加</button></div>' : '');
+      '<button type="button" class="btn sm" data-rvadd="1">追加</button></div>' : '')+
+    rivalRefHTML(list);
 }
 /* 追加・削除のたびに onChange(新しい一覧) を呼ぶ */
-function bindRivalBox(root, getList, onChange){
+function bindRivalBox(root, getList, onChange, refresh){
   const add = () => { const inp=root.querySelector("[data-rvin]"); if(!inp) return; const name=inp.value.trim(); if(!name) return;
     const cur = getList(); if(cur.some(r=>r.name===name)){ inp.value=""; return; }
     onChange(cur.concat([{id:"r"+uid().slice(-6), name}])); };
   const ab=root.querySelector("[data-rvadd]"); if(ab) ab.addEventListener("click", add);
   const ai=root.querySelector("[data-rvin]"); if(ai) ai.addEventListener("keydown",e=>{ if(e.key==="Enter" && !e.isComposing){ e.preventDefault(); add(); } });
   root.querySelectorAll("[data-rvdel]").forEach(b=>b.addEventListener("click",()=>onChange(getList().filter(r=>r.id!==b.dataset.rvdel))));
+  root.querySelectorAll("[data-rvopen]").forEach(b=>b.addEventListener("click",()=>openRivalNote(b.dataset.rvopen, refresh)));
 }
+
+/* ============================================================
+   競合ノート：競合ごとの単価・性能・特徴・過去の攻め手を、全員で書き足していく
+   （お客様に付けた競合名と同じ名前なら、自動で参照できる）
+   ============================================================ */
+const RV_RES = {won:"契約できた", lost:"負けた", draw:"決着前・不明"};
+const rvKey = n => String(n||"").normalize("NFKC").replace(/\s+/g,"").toLowerCase();
+function rvDocId(n){ const k=rvKey(n); let h=2166136261; for(let i=0;i<k.length;i++){ h=Math.imul(h^k.charCodeAt(i),16777619)>>>0; } return "n"+h.toString(36)+"x"+k.length; }
+const rivalNote = n => rivalNotes.find(x=>rvKey(x.name)===rvKey(n)) || null;
+/* この競合が付いているお客様（自分が見られる範囲）と、その結果 */
+function rivalRecord(n){
+  const k=rvKey(n), cs=allVisible().filter(c=>rivalNames(c).some(x=>rvKey(x)===k));
+  return {cs, won:cs.filter(c=>c.contracted), lost:cs.filter(c=>c.lost&&!c.contracted), open:cs.filter(c=>!c.contracted&&!c.lost)};
+}
+function rvStats(rec){
+  if(!rec.cs.length) return '<span class="tiny faint">対戦の記録なし</span>';
+  const dec = rec.won.length+rec.lost.length;
+  return '<span class="chip">対戦 '+rec.cs.length+'件</span><span class="chip ok">契約 '+rec.won.length+'</span><span class="chip">見送り '+rec.lost.length+'</span><span class="chip">商談中 '+rec.open.length+'</span>'+
+    (dec? '<span class="tiny faint">契約率 '+Math.round(rec.won.length/dec*100)+'%</span>':'');
+}
+const rvRow = (k,v) => v? '<div class="rr"><span>'+k+'</span><b>'+esc(v)+'</b></div>' : '';
+const rvLast = nt => { const t=arr(nt&&nt.tactics); const l=t[t.length-1]; return l? (l.result?"【"+RV_RES[l.result]+"】":"")+l.text : ""; };
+/* お客様の競合欄の下に出す参照カード */
+function rivalRefHTML(list){
+  if(!list.length) return "";
+  return '<div class="rvrefs">'+list.map(r=>{
+    const nt=rivalNote(r.name), rec=rivalRecord(r.name);
+    return '<div class="rvref"><div class="rvh"><b>'+esc(r.name)+'</b><div class="grow"></div>'+
+      '<button type="button" class="btn sm" data-rvopen="'+esc(r.name)+'">'+(nt?"詳しく見る・書き足す":"情報を書く")+'</button></div>'+
+      '<div class="rvs" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:3px">'+rvStats(rec)+'</div>'+
+      (nt && (nt.price||nt.perf||nt.feature||nt.weak||arr(nt.tactics).length)
+        ? rvRow("単価",nt.price)+rvRow("性能",nt.perf)+rvRow("特徴",nt.feature)+rvRow("弱み",nt.weak)+rvRow("攻め手",rvLast(nt))
+        : '<p class="tiny faint">まだ情報がありません。わかったことを書いておくと、次から全員が参照できます。</p>')+'</div>';
+  }).join("")+'</div>';
+}
+let rvn = null;
+function openRivalNote(name, onClose){
+  name = String(name||"").trim(); if(!name) return;
+  const nt = rivalNote(name) || {};
+  rvn = {name, onClose, draft:{price:nt.price||"", perf:nt.perf||"", feature:nt.feature||"", weak:nt.weak||""}, res:""};
+  $("#rvn").classList.add("on");
+  document.addEventListener("keydown", rvnKey);
+  paintRvn();
+}
+function rvnKey(e){ if(e.key!=="Escape") return; const a=$("#ask"); if(a&&a.classList.contains("on")) return; closeRivalNote(); }
+function collectRvn(){
+  if(!rvn) return;
+  ["price","perf","feature","weak"].forEach(k=>{ const el=$("#rvn [data-rf='"+k+"']"); if(el) rvn.draft[k]=el.value.trim(); });
+  const r=$("#rvnRes"); if(r) rvn.res=r.value;
+}
+/* 書き込み：まだ無ければ作り、あれば足りない項目だけ更新（他の人の書き足しは消さない） */
+async function rvWrite(patch){
+  const name = rvn.name, cur = rivalNote(name);
+  const doc = {...patch, updatedBy:me.name||"", updatedAt:new Date().toISOString()};
+  try{
+    if(cur) await DB.doc("rivalNotes/"+cur.id).update(doc);
+    else await DB.doc("rivalNotes/"+rvDocId(name)).set({name, price:"", perf:"", feature:"", weak:"", tactics:[], ...doc});
+    const i = rivalNotes.findIndex(x=>rvKey(x.name)===rvKey(name));
+    if(i>=0) rivalNotes[i] = {...rivalNotes[i], ...doc}; else rivalNotes.push({id:rvDocId(name), name, price:"", perf:"", feature:"", weak:"", tactics:[], ...doc});
+    return true;
+  }catch(e){ toast("保存できませんでした"); return false; }
+}
+async function saveRvnFields(quiet){
+  collectRvn(); const nt = rivalNote(rvn.name)||{}, d = rvn.draft;
+  if(nt.id && ["price","perf","feature","weak"].every(k=>(nt[k]||"")===d[k])) return true;
+  if(!nt.id && !d.price && !d.perf && !d.feature && !d.weak) return true;
+  const ok = await rvWrite({price:d.price, perf:d.perf, feature:d.feature, weak:d.weak});
+  if(ok && !quiet) toast("保存しました");
+  return ok;
+}
+async function closeRivalNote(){
+  if(!rvn) return;
+  await saveRvnFields(true);
+  const cb = rvn.onClose; rvn = null;
+  document.removeEventListener("keydown", rvnKey);
+  const l=$("#rvn"); l.classList.remove("on"); l.innerHTML="";
+  if(cb) cb(); else refreshCurrent();
+}
+function paintRvn(){
+  if(!rvn) return;
+  const l=$("#rvn"), nt=rivalNote(rvn.name)||{}, rec=rivalRecord(rvn.name), d=rvn.draft;
+  const tactics = arr(nt.tactics).slice().reverse();
+  const canOpen = !$("#overlay").classList.contains("on");
+  const recRows = rec.cs.length? rec.cs.map(c=>{
+    const st = c.contracted? '<span class="chip ok">契約</span>' : c.lost? '<span class="chip">見送り</span>' : '<span class="chip warn">商談中</span>';
+    const why = c.contracted? (c.contractDate? fmtDY(c.contractDate)+' 契約' : '') : c.lost? (c.lostReason? '理由：'+c.lostReason : '理由なし') : (STAGE_NAME[c.stage]||'');
+    return '<div class="rvrec">'+st+(canOpen? '<a class="link" data-rvcust="'+c.id+'" style="cursor:pointer">'+esc(c.name||"（無名）")+'</a>' : '<b>'+esc(c.name||"（無名）")+'</b>')+
+      '<span class="tiny faint">'+esc(companyShort(c.companyId))+' ／ '+esc(staffName(c.ownerId))+'</span><span class="rs">'+esc(why)+'</span></div>';
+  }).join("") : '<p class="tiny faint">この会社を競合に入れたお客様はまだいません。</p>';
+  const fl = (k,label,ph,tag) => '<div style="margin-bottom:11px"><label class="lb">'+label+'</label>'+
+    (tag==="in"? '<input type="text" data-rf="'+k+'" value="'+esc(d[k])+'" placeholder="'+esc(ph)+'">' : '<textarea data-rf="'+k+'" rows="3" style="min-height:70px;max-height:170px" placeholder="'+esc(ph)+'">'+esc(d[k])+'</textarea>')+'</div>';
+  l.innerHTML = '<div class="scrim" id="rvnScrim"></div><div class="modal"><div class="dhead"><span class="chip" style="background:var(--rank-a-bg);color:var(--rank-a)">競合</span><b>'+esc(rvn.name)+'</b>'+
+    '<div class="grow"></div><button class="x" id="rvnX">'+I.x+'</button></div><div class="dbody">'+
+    '<div class="fset"><h4>これまでの対戦</h4><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px">'+rvStats(rec)+'</div>'+recRows+
+      '<p class="tiny faint" style="margin-top:6px">あなたが見られるお客様の分です。見送りになった理由も一緒に振り返れます。</p></div>'+
+    '<div class="fset"><h4>この会社の情報</h4>'+
+      fl("price","単価・価格帯","例：坪単価 85〜95万円。標準仕様でも本体は高め","in")+
+      fl("perf","性能","例：UA値0.46・C値0.5、耐震等級3、全館空調は別途","ta")+
+      fl("feature","特徴・強み","例：ブランド力と設計提案、アフターが厚い","ta")+
+      fl("weak","弱み・ここを突く","例：標準で付く設備が少なく、見積が上がりやすい","ta")+
+      '<button type="button" class="btn primary sm" id="rvnSave">この情報を保存</button></div>'+
+    '<div class="fset"><h4>過去の攻め手（どう攻めて、どうなったか）</h4>'+
+      '<div class="row" style="gap:8px;align-items:flex-start;flex-wrap:wrap"><textarea id="rvnTxt" rows="2" style="flex:1 1 260px;min-height:60px;max-height:150px" placeholder="例：標準仕様で比較表を作り、総額で逆転。見積は先に出さず、住み心地を体感してもらった"></textarea>'+
+      '<div style="display:grid;gap:6px"><select id="rvnRes">'+Object.entries(RV_RES).map(([k,v])=>'<option value="'+k+'"'+(rvn.res===k?" selected":"")+'>'+v+'</option>').join("")+'</select>'+
+      '<button type="button" class="btn primary sm" id="rvnAdd">書き足す</button></div></div>'+
+      '<div style="margin-top:12px">'+(tactics.length? tactics.map(t=>'<div class="rvt"><div class="th">'+
+        (t.result? '<span class="chip'+(t.result==="won"?" ok":"")+'">'+esc(RV_RES[t.result]||"")+'</span>':'')+esc(t.date||"")+' ／ '+esc(t.by||"")+
+        '<div class="grow"></div><button type="button" class="btn sm ghost" data-rvtdel="'+esc(t.id)+'">消す</button></div><div class="tx">'+esc(t.text)+'</div></div>').join("")
+        : '<p class="tiny faint">まだ書かれていません。うまくいった攻め方も、失敗した攻め方も、残しておくと次の商談で使えます。</p>')+'</div></div>'+
+    '</div><div class="dfoot"><button class="btn" id="rvnClose">閉じる</button><div class="grow"></div>'+
+    (nt.updatedAt? '<span class="tiny faint">最終更新 '+esc(nt.updatedBy||"")+' ／ '+esc(String(nt.updatedAt).slice(0,10))+'</span>':'')+'</div></div>';
+  $("#rvnScrim").addEventListener("click",closeRivalNote);
+  $("#rvnX").addEventListener("click",closeRivalNote);
+  $("#rvnClose").addEventListener("click",closeRivalNote);
+  $("#rvnSave").addEventListener("click",async ()=>{ if(await saveRvnFields()) paintRvn(); });
+  $("#rvnAdd").addEventListener("click",async ()=>{
+    collectRvn(); const txt=($("#rvnTxt").value||"").trim(); if(!txt) return toast("攻め手を書いてください");
+    if(!await saveRvnFields(true)) return;
+    const cur = arr((rivalNote(rvn.name)||{}).tactics);
+    const ok = await rvWrite({tactics:cur.concat([{id:"t"+uid().slice(-7), text:txt, result:rvn.res, by:me.name||"", date:TODAY()}])});
+    if(ok){ toast("書き足しました"); rvn.res=""; paintRvn(); }
+  });
+  l.querySelectorAll("[data-rvtdel]").forEach(b=>b.addEventListener("click",async ()=>{
+    if(!await askConfirm("消しますか？","この攻め手の記録を消します。","消す",true)) return;
+    collectRvn();
+    const ok = await rvWrite({tactics:arr((rivalNote(rvn.name)||{}).tactics).filter(t=>t.id!==b.dataset.rvtdel)});
+    if(ok) paintRvn();
+  }));
+  l.querySelectorAll("[data-rvcust]").forEach(a=>a.addEventListener("click",async ()=>{ const id=a.dataset.rvcust; await closeRivalNote(); openCustomer(id); }));
+}
+/* 画面「競合ノート」：全競合の一覧 */
+function renderRivals(root){
+  root.innerHTML = topbar("競合ノート", '<button class="btn primary" id="rvNew">'+I.plus+'競合を追加</button>')+
+    '<div class="content"><p class="small muted" style="margin-bottom:12px">競合の単価・性能・特徴と、過去の攻め手をみんなで書き足していく場所です。お客様に競合名を入れると、ここの情報がその場で参照できます。</p>'+
+    '<div class="row" style="margin-bottom:14px"><input type="text" id="rvSearch" placeholder="会社名・単価・特徴で探す" value="'+esc(ui.rvQ||"")+'" style="max-width:320px"></div>'+
+    '<div id="rvCards"></div></div>';
+  $("#rvNew").addEventListener("click",async ()=>{
+    const n = await askPrompt("競合を追加","会社名を入れてください（例：住林）","会社名","ノートを開く");
+    if(n && n.trim()) openRivalNote(n.trim(), renderRivalCards);
+  });
+  $("#rvSearch").addEventListener("input",e=>{ ui.rvQ=e.target.value; renderRivalCards(); });
+  renderRivalCards();
+}
+function renderRivalCards(){
+  const box=$("#rvCards"); if(!box) return;
+  const q=rvKey(ui.rvQ||"");
+  let rows = allRivalNames().map(n=>({n, nt:rivalNote(n), rec:rivalRecord(n)}));
+  if(q) rows = rows.filter(r=>rvKey([r.n, r.nt&&r.nt.price, r.nt&&r.nt.perf, r.nt&&r.nt.feature, r.nt&&r.nt.weak, arr(r.nt&&r.nt.tactics).map(t=>t.text).join(" ")].join(" ")).includes(q));
+  rows.sort((a,b)=>b.rec.cs.length-a.rec.cs.length || a.n.localeCompare(b.n,"ja"));
+  if(!rows.length){ box.innerHTML='<div class="tablewrap"><div class="empty">'+(q? "該当する競合はありません" : "競合はまだ登録されていません。お客様に競合名を入れるか、右上の「競合を追加」から始めます")+'</div></div>'; return; }
+  box.innerHTML='<div class="rvgrid">'+rows.map(r=>'<button type="button" class="rvcard" data-rvopen="'+esc(r.n)+'"><h3>'+esc(r.n)+'</h3><div class="rvs">'+rvStats(r.rec)+'</div>'+
+    (r.nt? rvRow("単価",r.nt.price)+rvRow("性能",r.nt.perf)+rvRow("特徴",r.nt.feature)+rvRow("攻め手",rvLast(r.nt)) : '')+
+    (r.nt && (r.nt.price||r.nt.perf||r.nt.feature||arr(r.nt.tactics).length)? '' : '<p class="tiny faint">まだ情報がありません。タップして書き始めます</p>')+'</button>').join("")+'</div>';
+  box.querySelectorAll("[data-rvopen]").forEach(b=>b.addEventListener("click",()=>openRivalNote(b.dataset.rvopen, renderRivalCards)));
+}
+
 /* カルテの申込欄（面談記録タブの先頭） */
 function custApplyHTML(c, ed){
   return '<div class="fset"><h4>申込</h4>'+applyRowHTML(c, ed, "cApd_")+'</div>';
@@ -2219,7 +2412,7 @@ function bindCustExtras(c, ed){
   if(rvRoot) bindRivalBox(rvRoot.parentElement, ()=>rivalsOf(drawerCust), async list=>{
     collectCustomer(); drawerCust.rivals = list;
     if(c.id) await quickUpdate(c.id, {rivals:list});
-    paintCustomer(); });
+    paintCustomer(); }, ()=>{ collectCustomer(); paintCustomer(); });
   /* 提案商品：この会社の商品一覧に足す／外す（会社・商品の設定に保存） */
   const cfgSave = async (msg) => { CFG = buildCFG({companies:companies(), catalog:catalog(), fyStart:fyStart()}); collectCustomer(); paintCustomer();
     try{ await saveConfig(); toast(msg); }catch(e){ toast("保存できませんでした"); } };
@@ -3367,7 +3560,7 @@ function bindDetail(root, wk, repaint, cid){
   root.querySelectorAll("[data-ladr]").forEach(el=>el.addEventListener("change",()=>quickUpdate(el.dataset.ladr,{landAddress:el.value.trim()})));
   root.querySelectorAll("[data-lwish]").forEach(el=>el.addEventListener("change",()=>quickUpdate(el.dataset.lwish,{wishArea:el.value.trim()})));
   const rvBox = root.querySelector(".rv-chips");
-  if(rvBox) bindRivalBox(rvBox.parentElement, ()=>rivalsOf(customers.find(x=>x.id===cid)||{}), list=>quickUpdate(cid,{rivals:list}).then(later));
+  if(rvBox) bindRivalBox(rvBox.parentElement, ()=>rivalsOf(customers.find(x=>x.id===cid)||{}), list=>quickUpdate(cid,{rivals:list}).then(later), repaint);
   const saveWeek = (key, patch) => {
     const [cid, k] = key.split("|"); const c = customers.find(x=>x.id===cid); if(!c) return Promise.resolve();
     const weekly = {...(c.weekly||{})}; weekly[k] = {...(weekly[k]||{}), ...patch};
@@ -4109,6 +4302,7 @@ function openOverlay(html){
 function escClose(e){
   if(e.key!=="Escape") return;
   const a=$("#ask"); if(a && a.classList.contains("on")) return;
+  const rn=$("#rvn"); if(rn && rn.classList.contains("on")) return;
   closeOverlay();
 }
 function closeOverlay(){
