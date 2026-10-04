@@ -2308,6 +2308,7 @@ async function rvWrite(patch){
   }catch(e){ toast("保存できませんでした"); return false; }
 }
 async function saveRvnFields(quiet){
+  if(rvn.skipSave) return true;
   collectRvn(); const nt = rivalNote(rvn.name)||{}, d = rvn.draft;
   const patch = {}; RV_KEYS.forEach(k=>{ patch[k] = (RV_NUM.includes(k) && d[k]!=="" && isFinite(Number(d[k])))? Number(d[k]) : d[k]; });
   const same = RV_KEYS.every(k=>String(rvHas(nt[k])? nt[k] : "")===String(patch[k]));
@@ -2339,6 +2340,20 @@ async function rvAiDraft(){
     toast(e && ["not_granted","sampling_disabled","not_declared","capability_disabled","rate_limited","session_expired","cancelled"].includes(e.code)? aiErrText(e.code) : "うまく作れませんでした。もう一度押してください");
   }
   rvn.aiBusy = false; paintRvn();
+}
+/* 競合を消す：ノートを削除。お客様に付いている競合名も外すかは選べる */
+async function deleteRival(){
+  const name = rvn.name, k = rvKey(name), nt = rivalNote(name), mine = rivalRecord(name).cs.filter(canEditCustomer);
+  if(!await askConfirm("競合を削除","「"+name+"」のノート（単価・性能・特徴・過去の攻め手）を削除します。\nもう戻せません。","削除する",true)) return;
+  let strip = false;
+  if(mine.length) strip = !!await askConfirm("お客様の競合欄からも外しますか？", mine.length+"人のお客様に「"+name+"」が付いています。\n・外す：お客様の競合欄からも消します\n・キャンセル：お客様には残します（競合ノートの一覧には名前だけ残ります）","外す");
+  try{
+    if(nt) await DB.doc("rivalNotes/"+nt.id).delete();
+    rivalNotes = rivalNotes.filter(x=>rvKey(x.name)!==k);
+    if(strip) for(const c of mine) await DB.doc("customers/"+c.id).update({rivals:rivalsOf(c).filter(r=>rvKey(r.name)!==k), updatedAt:new Date().toISOString()});
+    toast("「"+name+"」を削除しました");
+  }catch(e){ toast("削除できませんでした"); }
+  rvn.skipSave = true; await closeRivalNote();
 }
 async function closeRivalNote(){
   if(!rvn) return;
@@ -2390,12 +2405,14 @@ function paintRvn(){
         (t.result? '<span class="chip'+(t.result==="won"?" ok":"")+'">'+esc(RV_RES[t.result]||"")+'</span>':'')+esc(t.date||"")+' ／ '+esc(t.by||"")+
         '<div class="grow"></div><button type="button" class="btn sm ghost" data-rvtdel="'+esc(t.id)+'">消す</button></div><div class="tx">'+esc(t.text)+'</div></div>').join("")
         : '<p class="tiny faint">まだ書かれていません。うまくいった攻め方も、失敗した攻め方も、残しておくと次の商談で使えます。</p>')+'</div></div>'+
-    '</div><div class="dfoot"><button class="btn" id="rvnClose">閉じる</button><div class="grow"></div>'+
+    '</div><div class="dfoot"><button class="btn" id="rvnClose">閉じる</button>'+
+    '<button class="btn ghost" id="rvnDel" style="color:var(--danger)">この競合を削除</button><div class="grow"></div>'+
     (nt.updatedAt? '<span class="tiny faint">最終更新 '+esc(nt.updatedBy||"")+' ／ '+esc(String(nt.updatedAt).slice(0,10))+'</span>':'')+'</div></div>';
   $("#rvnScrim").addEventListener("click",closeRivalNote);
   $("#rvnX").addEventListener("click",closeRivalNote);
   $("#rvnClose").addEventListener("click",closeRivalNote);
   $("#rvnSave").addEventListener("click",async ()=>{ if(await saveRvnFields()) paintRvn(); });
+  $("#rvnDel").addEventListener("click", deleteRival);
   const ai=$("#rvnAi"); if(ai) ai.addEventListener("click", rvAiDraft);
   const aiOk=$("#rvnAiOk"); if(aiOk) aiOk.addEventListener("click",async ()=>{ collectRvn(); if(!await saveRvnFields(true)) return; rvn.ai=false; if(await rvWrite({aiDraft:false})){ toast("確認済みにしました"); paintRvn(); } });
   $("#rvnAdd").addEventListener("click",async ()=>{
