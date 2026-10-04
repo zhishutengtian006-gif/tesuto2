@@ -2064,7 +2064,7 @@ function custInfo(c, ed){
     fld("建設予定地の〒", ed?inp("siteZip",c.siteZip,"text",'inputmode="numeric" placeholder="7桁で町名まで入ります"'):ro(c.siteZip))+
     fld("建設予定地", ed?inp("buildSite",c.buildSite,"text",'placeholder="例：白山市〇〇町"'):ro(c.buildSite))+
     fld("種別", ed?sel("buildType",c.buildType,[["",""]].concat(BUILD_TYPES.map(t=>[t,t]))):ro(c.buildType))+
-    fld("建物金額・税抜（万円）", ed?inp("buildingPrice",c.buildingPrice,"number",'min="0"'):ro(man(c.buildingPrice)))+
+    fld("総予算（万円）", ed?inp("budgetTotal",c.budgetTotal,"number",'min="0"'):ro(man(c.budgetTotal)))+
     fld("設計担当", ed?inp("designer",c.designer):ro(c.designer))+
     fld("申込", '<div style="padding:7px 0">'+(c.applied? '<span class="ap on">申込済'+(c.appliedDate? ' '+esc(fmtDY(c.appliedDate)):'')+'</span>' : '<span class="ap">未申込</span>')+
       '<span class="tiny faint" style="margin-left:6px">「面談記録」タブで付けます</span></div>')+
