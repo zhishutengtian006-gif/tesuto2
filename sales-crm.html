@@ -3196,8 +3196,8 @@ function renderReport(root){
     kpi("", "申込", aps.length, "件", "うち契約済 "+won.filter(c=>c.applied).length+"件（"+apRate+"%）")+
     kpi("ok", "契約", won.length, "棟", man(amt)+" 万円")+
     kpi("", "平均契約単価", won.length? Math.round(amt/won.length):0, "万円", "粗利計 "+man(gp)+" 万円")+
-    kpi("", "成約率", rate, "%", "契約 "+won.length+" / 没 "+lost.length)+
-    kpi("warn", "要フォロー", act.filter(needsFollow).length, "件", "いま・次回アポ未設定")+
+    kpi("", "成約率（反響→契約）", fresh.length? Math.round(won.length/fresh.length*100) : 0, "%", "契約 "+won.length+" ÷ 反響 "+fresh.length+(won.length+lost.length? "　／　契約÷(契約＋没) "+rate+"%" : ""))+
+    kpi("warn", "要フォロー", act.filter(needsFollow).length, "件", "いま・アポなし2週間以上")+
     '</div>';
   h += '<div class="tabs" style="margin-top:18px">'+Object.entries(groupers).map(([k,g])=>
     '<button data-rb="'+k+'" class="'+(ui.reportBy===k?"on":"")+'">'+esc(g.name)+'</button>').join("")+'</div>';
