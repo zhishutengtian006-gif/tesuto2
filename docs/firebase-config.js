@@ -14,3 +14,11 @@ window.FIREBASE_CONFIG = {
   messagingSenderId: "ここにmessagingSenderIdを貼る",
   appId:             "ここにappIdを貼る"
 };
+
+/* ============================================================
+   自分のGoogleカレンダーへの同期を使うときだけ、下に「OAuth クライアントID」を貼ります。
+   Google Cloud コンソール → Google Auth Platform（APIとサービス）→ クライアント
+   で作った「ウェブアプリケーション」のクライアントID（～.apps.googleusercontent.com）です。
+   これも公開されて問題のない値です。手順は FIREBASE-SETUP.md の「Googleカレンダー同期」。
+   ============================================================ */
+window.GOOGLE_CLIENT_ID = "ここにクライアントIDを貼る";

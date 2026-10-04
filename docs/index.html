@@ -8,6 +8,7 @@
 </head>
 <body>
 
+<script src="firebase-config.js"></script>
 <script>
 /* ------------------------------------------------------------
    アプリ本体は claude.use("db") からデータベースを受け取る作りなので、
@@ -43,14 +44,64 @@
       }catch(e){ rej(e); }
     });
   }};
+  /* 自分のGoogleカレンダーへ書き込む（Google Identity Services のトークン方式。サーバー不要） */
+  var GCID = String(window.GOOGLE_CLIENT_ID || "");
+  var gConfigured = !!GCID && GCID.indexOf("ここに") !== 0;
+  var TKEY = "crm.gtoken", tokenClient = null, pendingRes = null;
+  function cachedToken(){
+    try{ var o = JSON.parse(localStorage.getItem(TKEY) || "null"); if(o && o.t && o.exp - 60000 > Date.now()) return o.t; }catch(e){}
+    return null;
+  }
+  function loadGis(){
+    if(!gConfigured || window.__gisLoading) return;
+    window.__gisLoading = true;
+    var s = document.createElement("script"); s.src = "https://accounts.google.com/gsi/client"; s.async = true;
+    s.onload = function(){
+      try{
+        tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: GCID, scope: "https://www.googleapis.com/auth/calendar.events", prompt: "",
+          callback: function(r){
+            var res = pendingRes; pendingRes = null;
+            if(r && r.access_token){
+              try{ localStorage.setItem(TKEY, JSON.stringify({t:r.access_token, exp:Date.now() + (Number(r.expires_in)||3600)*1000})); }catch(e){}
+              if(res) res(r.access_token);
+            }else if(res) res(null);
+          },
+          error_callback: function(){ var res = pendingRes; pendingRes = null; if(res) res(null); }
+        });
+      }catch(e){}
+    };
+    document.head.appendChild(s);
+  }
+  if(gConfigured){ if(document.head) loadGis(); else document.addEventListener("DOMContentLoaded", loadGis); }
+  var gcalsync = {
+    configured: gConfigured,
+    /* interactive のときだけ Google のログイン窓を出す（ボタンを押したときに同期的に呼ぶ） */
+    token: function(interactive){
+      var t = cachedToken(); if(t) return Promise.resolve(t);
+      if(!interactive || !tokenClient) return Promise.resolve(null);
+      return new Promise(function(res){ pendingRes = res; try{ tokenClient.requestAccessToken(); }catch(e){ pendingRes = null; res(null); } });
+    },
+    api: function(method, path, body){
+      var t = cachedToken(); if(!t) return Promise.resolve({ok:false, status:401});
+      return fetch("https://www.googleapis.com/calendar/v3" + path, {
+        method: method, headers: {"Authorization": "Bearer " + t, "Content-Type": "application/json"},
+        body: body ? JSON.stringify(body) : undefined
+      }).then(function(r){
+        if(r.status === 401){ try{ localStorage.removeItem(TKEY); }catch(e){} }
+        if(r.status === 204) return {ok:true, status:204, data:null};
+        return r.json().catch(function(){ return null; }).then(function(d){ return {ok:r.ok, status:r.status, data:d}; });
+      }).catch(function(){ return {ok:false, status:0}; });
+    }
+  };
   window.claude = { use: function(name){
     if(name === "db") return dbReady;
     if(name === "downloads") return Promise.resolve(downloads);
-    return Promise.resolve(null);   /* mcp（Googleカレンダー）はこの版では無し */
+    if(name === "gcalsync") return Promise.resolve(gcalsync);
+    return Promise.resolve(null);   /* mcp（Claude版のGoogleカレンダー連携）はこの版では無し */
   }};
 })();
 </script>
-<script src="firebase-config.js"></script>
 <script type="module">
 const cfg = window.FIREBASE_CONFIG || {};
 const notSet = !cfg.projectId || String(cfg.projectId).indexOf("ここに") === 0;
@@ -420,6 +471,8 @@ a.btn{text-decoration:none;color:var(--text);display:inline-flex;align-items:cen
 .rvatk{margin:6px 0 8px}
 .rvatk textarea{min-height:64px;max-height:180px}
 .rvdet summary{cursor:pointer;color:var(--accent);margin-top:4px}
+.gsp{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 13px}
+.gsp.warn{border-color:var(--danger);background:var(--danger-bg)}
 .rvgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
 .rvcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:13px 14px;cursor:pointer;text-align:left;display:block;width:100%}
 .rvcard:hover{border-color:var(--accent)}
@@ -1073,6 +1126,140 @@ function whenPill(c){
   return '<span class="when '+cls+'">'+esc(txt)+(m.time?' '+esc(m.time):'')+'</span>';
 }
 
+
+/* ============================================================
+   個人のGoogleカレンダーへ自動で写す（ウェブ版のみ）
+   自分が担当のお客様の面談予定と、自分の予定を、自分のGoogleカレンダーへ。
+   アプリで変えると Google 側も書き換わる（アプリ → Google の一方向）。
+   ============================================================ */
+const gs = { p:null, state:"none", busy:false, map:{}, mapLoaded:false, unsub:null, last:"", err:"", pending:0, t:0 };
+const gsOn = () => { try{ return localStorage.getItem("crm.gsync.on")==="1"; }catch(e){ return false; } };
+function setGsOn(v){ try{ localStorage.setItem("crm.gsync.on", v?"1":"0"); }catch(e){} }
+async function initGsync(){
+  try{ gs.p = await window.claude.use("gcalsync"); }catch(e){ gs.p = null; }
+  if(!gs.p) return;
+  gs.state = gs.p.configured ? (gsOn()? "idle" : "off") : "noconfig";
+  gsWatchMap(); refreshCurrent();
+}
+function gsWatchMap(){
+  if(!gs.p || !gs.p.configured || !me || gs.unsub || !DB) return;
+  const myId = me.id;
+  gs.unsub = DB.doc("gsync/"+myId).onSnapshot(sn=>{
+    if(!me || me.id!==myId) return;
+    gs.map = (sn.exists && sn.data().map) || {}; gs.mapLoaded = true; scheduleGsync();
+  }, ()=>{});
+}
+function gsReset(){ if(gs.unsub){ try{ gs.unsub(); }catch(e){} } gs.unsub=null; gs.map={}; gs.mapLoaded=false; gs.pending=0; gs.err=""; if(gs.p) gs.state = gs.p.configured? (gsOn()?"idle":"off") : "noconfig"; }
+function eventGBody(doc){
+  const L = ["種別：" + (EVT[doc.type]||"その他"), "担当：" + staffName(doc.staffId)];
+  if(doc.companyId) L.push("会社：" + companyName(doc.companyId));
+  if(doc.customerId){ const c=customers.find(x=>x.id===doc.customerId); if(c) L.push("お客様：" + c.name + " 様"); }
+  if(doc.place) L.push("場所：" + doc.place);
+  if(doc.note) L.push("", doc.note);
+  L.push("", "— 住宅営業カルテ から登録された予定です");
+  return L.join("\n");
+}
+/* 自分の分の「写すべき予定」。7日より前のものは触らない（消しもしない） */
+function gsDesired(){
+  const out = {}, all = {}, from = addDays(TODAY(), -7);
+  customers.forEach(c=>{
+    if(c.ownerId!==me.id || c.lost) return;
+    (c.meetings||[]).forEach((m,i)=>{
+      if(!m.date || !parseD(m.date)) return;
+      const k = "m_"+c.id+"_"+i; all[k] = true;
+      if(m.date < from) return;
+      const mm = {...m, n:stageName(i)};
+      out[k] = {summary:"【"+mm.n+"面談】"+(c.name||"")+" 様（"+companyShort(c.companyId)+"）", location:m.place||"",
+        description:meetingGBody(c, mm), date:m.date, start:m.time||"", end:""};
+    });
+  });
+  events.forEach(e=>{
+    if(e.staffId!==me.id || !e.date || !parseD(e.date)) return;
+    const k = "e_"+e.id; all[k] = true;
+    if(e.date < from) return;
+    out[k] = {summary:"【"+(EVT[e.type]||"その他")+"】"+(e.title||""), location:e.place||"", description:eventGBody(e),
+      date:e.date, start:e.startTime||"", end:e.endTime||""};
+  });
+  return {out, all};
+}
+function gsHash(d){ const t=JSON.stringify(d); let h=2166136261; for(let i=0;i<t.length;i++){ h=Math.imul(h^t.charCodeAt(i),16777619)>>>0; } return h.toString(36)+t.length; }
+function gsBody(d){
+  const b = {summary:d.summary, description:d.description, location:d.location||"", status:"confirmed",
+    extendedProperties:{private:{crm:"1"}}};
+  if(d.start){
+    const end = d.end && d.end>d.start ? d.end : addHour(d.start);
+    b.start = {dateTime:d.date+"T"+d.start+":00", timeZone:"Asia/Tokyo"};
+    b.end = end>d.start ? {dateTime:d.date+"T"+end+":00", timeZone:"Asia/Tokyo"} : {dateTime:addDays(d.date,1)+"T00:00:00", timeZone:"Asia/Tokyo"};
+  }else{ b.start = {date:d.date}; b.end = {date:addDays(d.date,1)}; }
+  return b;
+}
+function gsPlan(){
+  const {out, all} = gsDesired(), ops = [];
+  Object.entries(out).forEach(([k,d])=>{ const h=gsHash(d), cur=gs.map[k]; if(!cur || cur.h!==h) ops.push({k, d, h, gid:cur&&cur.gid}); });
+  Object.keys(gs.map).forEach(k=>{ if(!out[k] && !all[k]) ops.push({k, del:true, gid:gs.map[k].gid}); });
+  return ops;
+}
+function scheduleGsync(){ clearTimeout(gs.t); if(gs.p && gs.p.configured && gsOn()) gs.t = setTimeout(()=>gsRun(false), 2500); }
+/* interactive=true は「ボタンを押した」とき。Googleのログイン窓は押したときにしか開けない */
+async function gsRun(interactive){
+  if(!gs.p || !gs.p.configured || gs.busy || !me) return;
+  if(!loaded.customers || !loaded.events || !gs.mapLoaded){ if(interactive) toast("読み込み中です。少し待ってからもう一度押してください"); return; }
+  const ops = gsPlan(); gs.pending = ops.length;
+  if(!ops.length && !interactive){ gs.state="ok"; paintGs(); return; }
+  const tok = gs.p.token(interactive);   // ここより前で await しない（ログイン窓がブロックされるため）
+  gs.busy = true; gs.err = ""; paintGs();
+  try{
+    if(!(await tok)){ gs.state = "auth"; return; }
+    const map = {...gs.map}; let done = 0, fail = 0, authLost = false;
+    for(const o of ops){
+      let r;
+      if(o.del){
+        r = await gs.p.api("DELETE", "/calendars/primary/events/"+encodeURIComponent(o.gid));
+        if(r.ok || r.status===404 || r.status===410){ delete map[o.k]; done++; continue; }
+      }else{
+        const body = gsBody(o.d);
+        r = o.gid ? await gs.p.api("PATCH", "/calendars/primary/events/"+encodeURIComponent(o.gid), body) : null;
+        if(!r || r.status===404 || r.status===410) r = await gs.p.api("POST", "/calendars/primary/events", body);
+        if(r.ok && r.data && r.data.id){ map[o.k] = {gid:r.data.id, h:o.h}; done++; continue; }
+      }
+      if(r.status===401){ authLost = true; break; }
+      fail++;
+    }
+    if(done) await DB.doc("gsync/"+me.id).set({map, updatedAt:new Date().toISOString()});
+    gs.map = map; gs.pending = gsPlan().length;
+    gs.state = authLost? "auth" : "ok";
+    gs.last = new Date().toTimeString().slice(0,5);
+    if(fail) gs.err = fail+"件をGoogleに送れませんでした。少し時間をおいて「今すぐ同期」を押してください";
+    if(interactive && !authLost) toast(done? "Googleカレンダーに "+done+" 件を反映しました" : "Googleカレンダーは最新です");
+  }catch(e){ gs.err = "Googleカレンダーと通信できませんでした"; }
+  finally{ gs.busy = false; paintGs(); }
+}
+async function gsStart(){
+  setGsOn(true); gs.state = "idle"; gsWatchMap();
+  await gsRun(true);
+}
+async function gsStop(){
+  if(!await askConfirm("同期をやめる","この端末からGoogleカレンダーへの書き込みをやめます。\nすでにGoogleカレンダーに入った予定は残ります。","やめる")) return;
+  setGsOn(false); gs.state = "off"; paintGs();
+}
+function gsPanelHTML(){
+  if(!gs.p) return "";
+  if(gs.state==="noconfig") return '<div class="gsp"><b>Googleカレンダー</b><span class="tiny faint">自分のGoogleカレンダーへの同期は、Googleの設定（クライアントID）を入れると使えます。</span></div>';
+  if(gs.state==="off" || !gsOn()) return '<div class="gsp"><div class="grow"><b>自分のGoogleカレンダーに同期</b><div class="tiny faint">自分が担当のお客様の面談予定と、自分の予定を、自分のGoogleカレンダーに自動で書き込みます。アプリで変えると、Google側も書き換わります。</div></div>'+
+    '<button class="btn primary sm" data-gs="start">同期をはじめる</button></div>';
+  const st = gs.busy? "同期しています…" : gs.state==="auth"? '<span style="color:var(--danger)">Googleへの接続が切れています'+(gs.pending? "（未反映 "+gs.pending+" 件）":"")+'</span>'
+    : (gs.pending? "未反映 "+gs.pending+" 件" : "同期済み"+(gs.last? "（"+gs.last+"）":""));
+  return '<div class="gsp'+(gs.state==="auth"?" warn":"")+'"><span class="gdot"></span><div class="grow"><b>Googleカレンダー</b>　<span class="small">'+st+'</span>'+
+    (gs.err? '<div class="tiny" style="color:var(--danger)">'+esc(gs.err)+'</div>':'')+'</div>'+
+    (gs.state==="auth"? '<button class="btn primary sm" data-gs="run">Googleにつなぐ</button>' : '<button class="btn sm" data-gs="run"'+(gs.busy?" disabled":"")+'>今すぐ同期</button>')+
+    '<button class="btn sm ghost" data-gs="stop">やめる</button></div>';
+}
+function bindGs(root){
+  (root||document).querySelectorAll("[data-gs]").forEach(b=>b.addEventListener("click",()=>{
+    const a=b.dataset.gs; if(a==="start") gsStart(); else if(a==="run") gsRun(true); else if(a==="stop") gsStop(); }));
+}
+function paintGs(){ document.querySelectorAll(".gsp-slot").forEach(el=>{ el.innerHTML = gsPanelHTML(); bindGs(el); }); }
+
 /* ---------- icons ---------- */
 const I = {
   dash:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.8" y="1.8" width="5.2" height="5.6" rx="1"/><rect x="9" y="1.8" width="5.2" height="3.2" rx="1"/><rect x="1.8" y="9.4" width="5.2" height="4.8" rx="1"/><rect x="9" y="7" width="5.2" height="7.2" rx="1"/></svg>',
@@ -1103,6 +1290,7 @@ async function boot(){
   if(!db){ dbState="off"; return renderAll(); }
   DB = db; dbState = "ok";
   initGcal();
+  initGsync();
   initSample();
   try{
     DB.doc("meta/config").onSnapshot(s=>{
@@ -1140,6 +1328,7 @@ function subscribeData(){
   const sub=(name,setter)=>DB.collection(name).onSnapshot(s=>{
     setter(s.docs.map(d=>({id:d.id, ...d.data()}))); loaded[name]=true; refreshCurrent();
     if(name==="customers"||name==="rivalNotes") scheduleRvSweep();
+    if(name==="customers"||name==="events") scheduleGsync();
   }, ()=>{ loaded[name]=true; refreshCurrent(); });
   unsubs.push(sub("customers", v=>{ v.forEach(c=>{ if(STAGE_ALIAS[c.stage]) c.stage=STAGE_ALIAS[c.stage]; if(LAND_ALIAS[c.landStatus]) c.landStatus=LAND_ALIAS[c.landStatus]; }); customers=v; }));
   unsubs.push(sub("events", v=>events=v));
@@ -1182,10 +1371,11 @@ function afterLogin(){
   ui.scope = cs.length===1 ? cs[0] : "all";
   ui.scopeRep = "";
   subscribeData();
+  gsReset(); gsWatchMap();
 }
 function signOut(silent){
   clearSession();
-  me=null; unsubs.forEach(u=>{try{u();}catch(e){}}); unsubs=[];
+  me=null; unsubs.forEach(u=>{try{u();}catch(e){}}); unsubs=[]; gsReset();
   customers=[];events=[];todos=[];todoTrash=[];goals=[];mtgs=[];rivalNotes=[]; mtgDraft=null; view="dash";
   login.scope=""; login.staffId=""; login.newName=""; login.err="";
   closeOverlay(); renderAll();
@@ -2699,6 +2889,10 @@ function custMeet(c, ed){
         '件名は「【2回目面談】佐藤 一郎 様（ノーク）」の形式で、詳細欄にランク・ステージ・提案商品・前回の記録が入ります。</p>'+
         '<button class="btn primary" id="mPushG" type="button">未登録の予定をGoogleカレンダーに登録</button>'+
         '<div id="mPushMsg" style="margin-top:11px"></div></div>';
+    }else if(gs.p){
+      h += '<div class="fset"><h4>Googleカレンダー</h4><p class="small muted">'+(gs.p.configured && gsOn()
+        ? '担当者の端末で同期をはじめていれば、日付の入った面談は担当者のGoogleカレンダーに自動で入ります（変えれば書き換わります）。'
+        : 'カレンダー画面の「自分のGoogleカレンダーに同期」をはじめると、担当の面談が自動でGoogleカレンダーに入ります。')+'</p></div>';
     }else{
       const g = gcalMsg(gcal.errCode||"server_not_connected");
       h += '<div class="banner '+g.cls+'">'+g.text+'</div>';
@@ -3002,7 +3196,7 @@ function shiftYM(ym,d){ const [y,m]=ym.split("-").map(Number); const t=new Date(
 function renderCalendar(root){
   if(!ui.calYM){ const n=new Date(); ui.calYM=n.getFullYear()+"-"+pad(n.getMonth()+1); }
   const [y,m]=ui.calYM.split("-").map(Number);
-  const gm = gcal.status==="ready" ? null : gcalMsg(gcal.errCode||"server_not_connected");
+  const gm = (gcal.status==="ready" || gs.p) ? null : gcalMsg(gcal.errCode||"server_not_connected");
   let h = topbar("カレンダー",
     '<button class="btn sm" id="calPrev">'+I.L+'</button>'+
     '<b class="mono" style="min-width:98px;text-align:center">'+y+'年'+m+'月</b>'+
@@ -3010,7 +3204,8 @@ function renderCalendar(root){
     '<button class="btn sm" id="calToday">今日</button>'+
     '<button class="btn primary" id="calNew">'+I.plus+'予定を追加</button>');
   h += '<div class="content">'+
-    (gcal.status==="loading"? '<div class="banner" style="margin-bottom:12px">Googleカレンダーの接続を確認しています…</div>':'')+
+    (gcal.status==="loading" && !gs.p? '<div class="banner" style="margin-bottom:12px">Googleカレンダーの接続を確認しています…</div>':'')+
+    (gs.p? '<div class="gsp-slot" style="margin-bottom:12px">'+gsPanelHTML()+'</div>' : '')+
     (gm? '<div class="banner '+gm.cls+'" style="margin-bottom:12px"><span>'+gm.text+'</span>'+
       (gm.retry?'<button class="btn sm" id="gcalRetry" style="margin-left:auto">再試行</button>':'')+'</div>':'')+
     '<div class="filters" style="padding-top:0;padding-bottom:14px">'+
@@ -3024,12 +3219,13 @@ function renderCalendar(root){
       '</div></div>'+
     '<div id="calBox"></div></div>';
   root.innerHTML = h;
+  bindGs(root);
   $("#calPrev").addEventListener("click",()=>{ ui.calYM=shiftYM(ui.calYM,-1); renderCalendar(root); });
   $("#calNext").addEventListener("click",()=>{ ui.calYM=shiftYM(ui.calYM,1); renderCalendar(root); });
   $("#calToday").addEventListener("click",()=>{ const n=new Date(); ui.calYM=n.getFullYear()+"-"+pad(n.getMonth()+1); renderCalendar(root); });
   $("#calNew").addEventListener("click",()=>openEvent(null));
   const rt=$("#gcalRetry"); if(rt) rt.addEventListener("click",()=>{ gcal.status="loading"; renderCalendar(root); initGcal(); });
-  const gs=$("#gcalShow"); if(gs) gs.addEventListener("change",()=>{ setGcalPref("show",gs.checked); renderCalGrid(); });
+  const gsh=$("#gcalShow"); if(gsh) gsh.addEventListener("change",()=>{ setGcalPref("show",gsh.checked); renderCalGrid(); });
   watchGcalMonth(ui.calYM);
   renderCalGrid();
 }
@@ -3139,6 +3335,7 @@ function openEvent(id, preset){
       ? '<div class="fset"><h4>Googleカレンダー</h4><label class="check"><input type="checkbox" id="gc_push"'+
         ((e.gcalId||(isNew&&gcalPushPref()))?" checked":"")+(ed?"":" disabled")+'>この予定をGoogleカレンダーにも登録する</label>'+
         (e.gcalLink? '<p class="tiny" style="margin-top:9px"><a href="'+esc(e.gcalLink)+'" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">Googleカレンダーで開く</a></p>':'')+'</div>'
+      : gs.p ? '<div class="fset"><h4>Googleカレンダー</h4><p class="small muted">担当者がカレンダー画面で同期をはじめていれば、担当者のGoogleカレンダーに自動で入ります。</p></div>'
       : (()=>{const g=gcalMsg(gcal.errCode||"server_not_connected"); return '<div class="banner '+g.cls+'">'+g.text+'</div>';})());
   openOverlay('<div class="modal"><div class="dhead"><b>'+(isNew?"予定を追加":"予定")+'</b><div class="grow"></div>'+
     '<button class="x" id="dClose">'+I.x+'</button></div><div class="dbody">'+body+'</div>'+

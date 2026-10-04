@@ -35,6 +35,7 @@ HEAD = '''<!doctype html>
 '''
 
 SHIM = '''
+<script src="firebase-config.js"></script>
 <script>
 /* ------------------------------------------------------------
    アプリ本体は claude.use("db") からデータベースを受け取る作りなので、
@@ -70,14 +71,64 @@ SHIM = '''
       }catch(e){ rej(e); }
     });
   }};
+  /* 自分のGoogleカレンダーへ書き込む（Google Identity Services のトークン方式。サーバー不要） */
+  var GCID = String(window.GOOGLE_CLIENT_ID || "");
+  var gConfigured = !!GCID && GCID.indexOf("ここに") !== 0;
+  var TKEY = "crm.gtoken", tokenClient = null, pendingRes = null;
+  function cachedToken(){
+    try{ var o = JSON.parse(localStorage.getItem(TKEY) || "null"); if(o && o.t && o.exp - 60000 > Date.now()) return o.t; }catch(e){}
+    return null;
+  }
+  function loadGis(){
+    if(!gConfigured || window.__gisLoading) return;
+    window.__gisLoading = true;
+    var s = document.createElement("script"); s.src = "https://accounts.google.com/gsi/client"; s.async = true;
+    s.onload = function(){
+      try{
+        tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: GCID, scope: "https://www.googleapis.com/auth/calendar.events", prompt: "",
+          callback: function(r){
+            var res = pendingRes; pendingRes = null;
+            if(r && r.access_token){
+              try{ localStorage.setItem(TKEY, JSON.stringify({t:r.access_token, exp:Date.now() + (Number(r.expires_in)||3600)*1000})); }catch(e){}
+              if(res) res(r.access_token);
+            }else if(res) res(null);
+          },
+          error_callback: function(){ var res = pendingRes; pendingRes = null; if(res) res(null); }
+        });
+      }catch(e){}
+    };
+    document.head.appendChild(s);
+  }
+  if(gConfigured){ if(document.head) loadGis(); else document.addEventListener("DOMContentLoaded", loadGis); }
+  var gcalsync = {
+    configured: gConfigured,
+    /* interactive のときだけ Google のログイン窓を出す（ボタンを押したときに同期的に呼ぶ） */
+    token: function(interactive){
+      var t = cachedToken(); if(t) return Promise.resolve(t);
+      if(!interactive || !tokenClient) return Promise.resolve(null);
+      return new Promise(function(res){ pendingRes = res; try{ tokenClient.requestAccessToken(); }catch(e){ pendingRes = null; res(null); } });
+    },
+    api: function(method, path, body){
+      var t = cachedToken(); if(!t) return Promise.resolve({ok:false, status:401});
+      return fetch("https://www.googleapis.com/calendar/v3" + path, {
+        method: method, headers: {"Authorization": "Bearer " + t, "Content-Type": "application/json"},
+        body: body ? JSON.stringify(body) : undefined
+      }).then(function(r){
+        if(r.status === 401){ try{ localStorage.removeItem(TKEY); }catch(e){} }
+        if(r.status === 204) return {ok:true, status:204, data:null};
+        return r.json().catch(function(){ return null; }).then(function(d){ return {ok:r.ok, status:r.status, data:d}; });
+      }).catch(function(){ return {ok:false, status:0}; });
+    }
+  };
   window.claude = { use: function(name){
     if(name === "db") return dbReady;
     if(name === "downloads") return Promise.resolve(downloads);
-    return Promise.resolve(null);   /* mcp（Googleカレンダー）はこの版では無し */
+    if(name === "gcalsync") return Promise.resolve(gcalsync);
+    return Promise.resolve(null);   /* mcp（Claude版のGoogleカレンダー連携）はこの版では無し */
   }};
 })();
 </script>
-<script src="firebase-config.js"></script>
 <script type="module">
 const cfg = window.FIREBASE_CONFIG || {};
 const notSet = !cfg.projectId || String(cfg.projectId).indexOf("ここに") === 0;
