@@ -2079,15 +2079,32 @@ function custInfo(c, ed){
     :'<div class="small" style="white-space:pre-wrap">'+(c.memo?esc(c.memo):'<span class="faint">—</span>')+'</div>')+'</div>';
   return h;
 }
-/* カルテの申込欄（面談記録タブの先頭と、基本情報タブに出す） */
+/* 申込欄。日付を選んだだけでは保存しない（iPhoneは日付欄を開くと今日の日付が入ってしまうため）。
+   選んだあと「申込済にする」を押して確定する */
+function applyRowHTML(c, ed, pre){
+  const id = pre+c.id;
+  if(!ed) return '<div class="ap-row"><span class="tiny muted">申込日</span><span>'+esc(c.appliedDate? fmtDY(c.appliedDate) : "—")+'</span>'+
+    (c.applied? '<span class="ap on">申込済</span>':'<span class="ap">未申込</span>')+'</div>';
+  return '<div class="ap-row"><label class="tiny muted" for="'+id+'">申込日</label>'+
+    '<input type="date" id="'+id+'" data-apin="'+c.id+'" data-saved="'+esc(c.appliedDate||"")+'" value="'+esc(c.appliedDate||"")+'">'+
+    '<button type="button" class="btn sm primary" data-apset="'+c.id+'" disabled>'+(c.applied? "日付を直す" : "申込済にする")+'</button>'+
+    (c.applied? '<span class="ap on">申込済</span><button type="button" class="linkbtn tiny" data-apclr="'+c.id+'">取り消す</button>'
+              : '<span class="tiny faint">申込（申込金）をもらった日を選んで、ボタンを押します</span>')+
+    (c.applied && !c.appliedDate? '<span class="tiny" style="color:var(--warn)">申込日が未入力です</span>':'')+'</div>';
+}
+/* 日付が入って、保存済みと違うときだけボタンを押せる。押したら onSet(日付)、取り消しは onClear() */
+function bindApplyRow(root, onSet, onClear){
+  root.querySelectorAll("[data-apin]").forEach(inp=>{
+    const btn = root.querySelector('[data-apset="'+inp.dataset.apin+'"]');
+    const sync = () => { if(btn) btn.disabled = !inp.value || inp.value===inp.dataset.saved; };
+    inp.addEventListener("input", sync); inp.addEventListener("change", sync); sync();
+    if(btn) btn.addEventListener("click",()=>{ if(inp.value) onSet(inp.dataset.apin, inp.value); });
+  });
+  root.querySelectorAll("[data-apclr]").forEach(b=>b.addEventListener("click",()=>onClear(b.dataset.apclr)));
+}
+/* カルテの申込欄（面談記録タブの先頭） */
 function custApplyHTML(c, ed){
-  return '<div class="fset"><h4>申込</h4><div class="ap-row" style="margin-top:0">'+
-    '<label class="tiny muted" for="cApd">申込日</label>'+
-    (ed? '<input type="date" id="cApd" data-apdd="1" value="'+esc(c.appliedDate||"")+'">' : '<span>'+esc(c.appliedDate? fmtDY(c.appliedDate) : "—")+'</span>')+
-    (c.applied? '<span class="ap on">申込済</span>'+(ed? '<button type="button" class="linkbtn tiny" data-apclrd="1">取り消す</button>':'')+
-      (!c.appliedDate? '<span class="tiny" style="color:var(--warn)">申込日が未入力です</span>':'')
-      : '<span class="tiny faint">申込（申込金）をもらった日を選ぶと「申込済」になります</span>')+
-  '</div></div>';
+  return '<div class="fset"><h4>申込</h4>'+applyRowHTML(c, ed, "cApd_")+'</div>';
 }
 function custMeet(c, ed){
   const ms = meetingsOf(c);
@@ -2253,15 +2270,13 @@ function bindCustExtras(c, ed){
     CFG.companies = companies().map(x=> x.id!==cid? x : {...x, productIds:(x.productIds||[]).filter(y=>y!==pid)});
     cfgSave("「"+productName(cid,pid)+"」を"+companyName(cid)+"の商品から外しました");
   }));
-  const apd = $(".drawer [data-apdd]");
   const setApply = async (date) => {
     collectCustomer();
     drawerCust.appliedDate = date; drawerCust.applied = !!date;
     if(c.id) await quickUpdate(c.id, {applied:!!date, appliedDate:date});
     paintCustomer();
   };
-  if(apd) apd.addEventListener("change",()=>setApply(apd.value));
-  const apc = $(".drawer [data-apclrd]"); if(apc) apc.addEventListener("click",()=>setApply(""));
+  bindApplyRow($(".drawer"), (id,date)=>setApply(date), ()=>setApply(""));
   bindZip($(".drawer [data-f='postal']"), $(".drawer [data-f='address']"), true);
   bindZip($(".drawer [data-f='siteZip']"), $(".drawer [data-f='buildSite']"), false);
   document.querySelectorAll(".drawer [data-prod]").forEach(b=>b.addEventListener("change",()=>{
@@ -3346,10 +3361,7 @@ function detailHTML(c, wk){
       '<label class="tiny">契約目標日</label><input type="date" data-gd="'+c.id+'" value="'+esc(c.goalDate||"")+'">'+goalLeft(c)+
       '<select class="rank-sel fc-sel" data-yf="'+c.id+'" title="確度">'+[["","確度"],["hi","◎ 確度高"],["mid","○ 確度中"],["lo","△ 確度低"]]
         .map(o=>'<option value="'+o[0]+'"'+((c.forecast||"")===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div>'+
-      '<div class="ap-row"><label class="tiny muted" for="apd_'+c.id+'">申込日</label>'+
-        '<input type="date" id="apd_'+c.id+'" data-apd="'+c.id+'" value="'+esc(c.appliedDate||"")+'">'+
-        (c.applied? '<span class="ap on">申込済</span><button type="button" class="linkbtn tiny" data-apclr="'+c.id+'">取り消す</button>'
-                  : '<span class="tiny faint">申込（申込金）をもらった日を選ぶと「申込済」になります</span>')+'</div></div>'+
+      applyRowHTML(c, canEditCustomer(c), "apd_")+'</div>'+
     '<div class="fset">'+weekHTML(c, wk)+'</div>'+
     '<div class="fset">'+cmtHTML(c)+'</div>';
 }
@@ -3359,10 +3371,8 @@ function bindDetail(root, wk, repaint){
   root.querySelectorAll("[data-gd]").forEach(el=>el.addEventListener("change",()=>
     quickUpdate(el.dataset.gd, {goalDate:el.value, expectedMonth:el.value? el.value.slice(0,7) : ""}).then(later)));
   root.querySelectorAll("[data-yf]").forEach(el=>el.addEventListener("change",()=>quickUpdate(el.dataset.yf,{forecast:el.value}).then(later)));
-  root.querySelectorAll("[data-apd]").forEach(el=>el.addEventListener("change",()=>
-    quickUpdate(el.dataset.apd, el.value? {applied:true, appliedDate:el.value} : {applied:false, appliedDate:""}).then(later)));
-  root.querySelectorAll("[data-apclr]").forEach(b=>b.addEventListener("click",()=>
-    quickUpdate(b.dataset.apclr, {applied:false, appliedDate:""}).then(later)));
+  bindApplyRow(root, (id,date)=>quickUpdate(id,{applied:true, appliedDate:date}).then(later),
+    id=>quickUpdate(id,{applied:false, appliedDate:""}).then(later));
   const saveWeek = (key, patch) => {
     const [cid, k] = key.split("|"); const c = customers.find(x=>x.id===cid); if(!c) return Promise.resolve();
     const weekly = {...(c.weekly||{})}; weekly[k] = {...(weekly[k]||{}), ...patch};
